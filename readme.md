@@ -29,8 +29,12 @@ Lire à ce sujet: http://creativecommons.org/licenses/by-sa/2.0/legalcode
 jd_temp@yahoo.fr
 
 
-Autre modification, l'interface clavier est maintenant assurée par un PIC12F1572. La combinaison de touches CTRL-ALT_DEL réinitialise le processeur principal par
-un signal hardware provenant du PIC12F1572.
+modifications:
+--------------
+
+L'interface clavier est maintenant assurée par un PIC12F1572 selon le projet [ps2_rs232](https://github.com/picatout/ps2_rs232). 
+
+La combinaison de touches CTRL-ALT-DEL réinitialise le processeur principal par un signal hardware provenant du PIC12F1572.
 
 J'ai l'intention d'apporter des modifications majeures à la partie logiciel du projet.
 
