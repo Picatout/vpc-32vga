@@ -1,0 +1,8 @@
+2018-01-21
+----------
+Modification du fonctionnement du curseur texte de la console locale. Maintenant la minuterie est
+assurée par l'interruption du TIMER2.
+
+ajouts des commandes uptime, et date dans shell.c
+modification dans hardware.c pour ajouter date.
+

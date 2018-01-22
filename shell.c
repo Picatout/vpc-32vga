@@ -103,21 +103,21 @@ typedef struct{
     char buff[MAX_LINE_LEN]; // chaîne saisie par l'utilisateur.
     unsigned char len;  // longueur de la chaîne.
     unsigned char first; // position du premier caractère du mot
-    unsigned char next; // position du du curseur de l'analyseur.
+    unsigned char next; // position du curseur de l'analyseur.
 } input_buff_t;
 
 static input_buff_t cmd_line;
 static char *cmd_tokens[MAX_TOKEN];
 
-typedef enum CMDS {CMD_BASIC,CMD_CD, CMD_CLEAR,CMD_CPY,CMD_DEL,CMD_DIR,CMD_ED,CMD_EXPR,
+typedef enum CMDS {CMD_BASIC,CMD_CD, CMD_CLEAR,CMD_CPY,CMD_DATE,CMD_DEL,CMD_DIR,CMD_ED,CMD_EXPR,
                    CMD_FREE,CMD_FORMAT,CMD_FORTH,CMD_HDUMP,CMD_HELP,CMD_MKDIR,CMD_MOUNT,CMD_MORE,
-                   CMD_PUTS,CMD_REBOOT,CMD_RCV,CMD_REN,CMD_SND,CMD_TIME,CMD_UMOUNT
+                   CMD_PUTS,CMD_REBOOT,CMD_RCV,CMD_REN,CMD_SND,CMD_TIME,CMD_UMOUNT,CMD_UPTIME
                    } cmds_t;
 
-#define CMD_LEN 23
-const char *commands[CMD_LEN]={"basic","cd","cls","copy","del","dir","edit",
+#define CMD_LEN 25
+const char *commands[CMD_LEN]={"basic","cd","cls","copy","date","del","dir","edit",
     "expr","free","format","forth","hdump","help","mkdir","mount","more","puts","reboot","receive",
-    "ren","send","time","umount"};
+    "ren","send","time","umount","uptime"};
 
 
 int cmd_search(char *target){
@@ -145,6 +145,26 @@ void display_cmd_list(){
     }
     put_char(comm_channel,'\r');
 }
+
+// imprime le temps depuis
+// le démarrage de l'ordinateur
+void cmd_uptime(){
+    unsigned sys_ticks;
+    unsigned day,hour,min,sec,remainder;
+    char fmt[32];
+    
+    sys_ticks=ticks();
+    day=sys_ticks/86400000L;
+    remainder=sys_ticks%86400000L;
+    hour=remainder/3600000L;
+    remainder%=3600000L;
+    min=remainder/60000;
+    remainder%=60000;
+    sec=remainder/1000;
+    sprintf(fmt,"%02d days %02d hr %02d min and %02d sec\n",day,hour,min,sec);
+    print(comm_channel,fmt);
+}
+
 
 void cmd_format(int i){
     if (i==2){
@@ -607,10 +627,52 @@ void cmd_free(int i){
     print(comm_channel,fmt);
 }
 
+void cmd_date(int i){
+    char fmt[20];
+    char *str;
+    sdate_t sdate;
+    unsigned y,m,d;
+    if (i>1){
+        y=atoi(cmd_tokens[1]);
+        if (!y) y=2000;
+        str=strchr(cmd_tokens[1],'/');
+        if (str){
+            m=atoi(++str);
+            str=strchr(str,'/');
+            if (str){
+                d=atoi(++str);
+            }else{
+                d=1;
+            }
+        }else{
+            m=1;
+        }
+        set_date(y,m,d);
+    }else{
+        get_date(&sdate);
+        sprintf(fmt,"%4d/%02d/%02d\n",sdate.y,sdate.m,sdate.d);
+        print(comm_channel,fmt);
+    }
+}
+
+void display_time(){
+    stime_t t;
+    text_coord_t cpos;
+    char fmt[15];
+    
+    get_time(&t);
+    cpos=get_curpos();
+    set_curpos(CHAR_PER_LINE-9,0);
+    sprintf(fmt,"%02d:%02d:%02d",t.h,t.m,t.s);
+    print(comm_channel,fmt);
+    set_curpos(cpos.x,cpos.y);
+}
+
+
 void cmd_time(int i){
     char fmt[16];
-    char *str;
     stime_t t;
+    char *str;
     unsigned short hr,min,sec;
     
     hr=0;min=0;sec=0;
@@ -706,6 +768,12 @@ void execute_cmd(int i){
             case CMD_TIME:
                 cmd_time(i);
                 break;
+            case CMD_DATE:
+                cmd_date(i);
+                break;
+            case CMD_UPTIME:
+                cmd_uptime();
+                break;
             default:
                 print(comm_channel,"unknown command!\r");
     }
@@ -727,6 +795,8 @@ int tokenize(){ // découpe la ligne d'entrée en mots
     int i;
     char *token;
     i=0;
+    cmd_line.first=0;
+    cmd_line.next=0;
     while ((i<MAX_TOKEN) && next_token()){
         token=malloc(sizeof(char)*(cmd_line.next-cmd_line.first+1));
         memcpy(token,&cmd_line.buff[cmd_line.first],cmd_line.next-cmd_line.first);
@@ -737,45 +807,46 @@ int tokenize(){ // découpe la ligne d'entrée en mots
     return i;
 }//tokenize()
 
-void display_time(){
-    stime_t t;
-    text_coord_t cpos;
-    char fmt[15];
-    
-    get_time(&t);
-    cpos=get_curpos();
-    set_curpos(CHAR_PER_LINE-9,0);
-    sprintf(fmt,"%02d:%02d:%02d",t.h,t.m,t.s);
-    print(comm_channel,fmt);
-    set_curpos(cpos.x,cpos.y);
-}
 extern unsigned cause,epc;
 
 void shell(void){
     int i;
-    unsigned short h,m,s;
-    char *str;
     
     print(comm_channel,"VPC-32 shell\rfree RAM (bytes): ");
     print_int(comm_channel,free_heap(),0);
     crlf();
-    print(comm_channel,"cause: ");
-    print_hex(comm_channel,cause,0);
-    crlf();
-    print(comm_channel,"epc: ");
-    print_hex(comm_channel,epc,0);
-    crlf();
+    if (cause){
+        print(comm_channel,"cause: ");
+        print_hex(comm_channel,cause,0);
+        crlf();
+        print(comm_channel,"epc: ");
+        print_hex(comm_channel,epc,0);
+        crlf();
+    }
     free_tokens();
-    print(comm_channel,"time? (hh:mm:ss)");
+    print(comm_channel,"date? (yyyy/mm/dd) ");
+    cmd_line.len=readline(comm_channel,cmd_line.buff,12);
+    if (cmd_line.len){
+        i=tokenize();
+        cmd_tokens[1]=cmd_tokens[0];
+        cmd_date(2);
+        free_tokens();
+    }else{
+        set_date(2000,1,1);
+    }
+    print(comm_channel,"time? (hh:mm:ss) ");
     cmd_line.len=readline(comm_channel,cmd_line.buff,9);
-    i=tokenize();
-    cmd_tokens[1]=cmd_tokens[0];
-    cmd_time(2);
+    if (cmd_line.len){
+        i=tokenize();
+        cmd_tokens[1]=cmd_tokens[0];
+        cmd_time(2);
+        free_tokens();
+    }else{
+        set_time(0,0,0);
+    }
     display_time();
     while (1){
         print(comm_channel,prompt);
-        cmd_line.first=0;
-        cmd_line.next=0;
         cmd_line.len=readline(comm_channel,cmd_line.buff,CHAR_PER_LINE);
         if (cmd_line.len){
             i=tokenize();

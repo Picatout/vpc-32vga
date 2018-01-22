@@ -29,6 +29,8 @@
 #ifdef	__cplusplus
 extern "C" {
 #endif
+#include <GenericTypeDefs.h>
+    
 #define FRAME_LINES 525 // lines per VGA frame
 #define VRES 240  // vertical pixels
 #define HRES 480  // horizontal pixels
@@ -36,6 +38,11 @@ extern "C" {
 #define BMP_SIZE (VRES*HRES/PPB) // video buffer size
 
 extern unsigned int video_bmp[VRES][HRES/32];
+
+typedef void (*cursor_tmr_callback_f)(void);
+
+extern void enable_cursor_timer(BOOL enable, cursor_tmr_callback_f cb);
+
 
 // Hardware initialization
     void VideoInit(void);

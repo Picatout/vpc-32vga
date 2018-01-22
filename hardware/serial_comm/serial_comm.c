@@ -28,7 +28,6 @@
 #include "../HardwareProfile.h"
 
 static char unget;
-int debug=0;
 
 // serial port config
 void UartInit(UART_MODULE channel, int baudrate, UART_LINE_CONTROL_MODE LineCtrl){
@@ -136,8 +135,6 @@ int UartReceivedESC(UART_MODULE channel){
 
 // print debug message on remote terminal
 void DebugPrint(const char* str){
-    if (debug){
         UartPrint(STDOUT,str); 
-    }
 }
 

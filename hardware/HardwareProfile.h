@@ -124,20 +124,18 @@
 #define KBD_TRISCLR TRISBCLR
 #define KBD_TRISSET TRISBSET
 #define KBD_RP_FN  (4)
-//keyboard queue processing TIMER
-#define KBD_TMR_CON T1CON
-#define KBD_PR  PR1
-#define KBD_IFSbits  IFS0bits
-#define KBD_IECbits  IEC0bits
-#define KBD_IPCbits   IPC1bits
-#define T_ON BIT_15  // TICON enable bit
-#define T_CLKPS BIT_4   // TCKPS0
 
 typedef struct time_struct{
     unsigned s:6;
     unsigned m:6;
     unsigned h:5;
 } stime_t;
+
+typedef struct date_struct{
+    unsigned y:16;
+    unsigned m:4;
+    unsigned d:5;
+} sdate_t;
 
 // user RAM pool size.
 unsigned int heap_size;

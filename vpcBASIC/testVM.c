@@ -33,7 +33,7 @@ const unsigned char test_code[]={
     ICLIT,-1,ICLIT,2,IDO,IIFETCH,IDOT,ICLIT,-1,IPLOOP,5,ICR,
     ICLIT,8,ICLIT,0,IDO,IIFETCH,IDOT,ICLIT,1,IPLOOP,5,ICR,
     IDOTQ,5,'H','E','L','L','O',ICR,
-    IWLIT,24,0,ICLIT,4,ISTAR,ILIT,6,0,0,0,ISLASH,IEND};
+    IWLIT,24,0,ICLIT,4,ISTAR,ILIT,6,0,0,0,ISLASH,IBYE};
 
 //void compile(char *line,int size,int dp){
 //    

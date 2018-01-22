@@ -58,6 +58,17 @@
 unsigned int video_bmp[VRES][HRES/32]; // video bitmap buffer
 volatile static int *DmaSrc; // pointer for DMA source.
 
+#define BLINK_DELAY (40) // 40/60 secondes
+
+typedef struct cursor_timer{
+    BOOL active;
+    unsigned int period;
+    cursor_tmr_callback_f  cb;
+} cursor_timer_t;
+
+volatile static cursor_timer_t cursor_timer={FALSE,0,NULL};
+
+
 // configure video generator.
 // use TIMER2 as horizontal period timer.
 void VideoInit(void){
@@ -96,7 +107,20 @@ void VideoInit(void){
 }//init_video()
 
 
+void enable_cursor_timer(BOOL enable, cursor_tmr_callback_f cb){
+    if (enable && cb){
+        if (!cursor_timer.active){
+            cursor_timer.period=BLINK_DELAY;
+            cursor_timer.cb=cb;
+            cursor_timer.active=TRUE;
+        }
+    }else{
+        cursor_timer.active=FALSE;
+    }
+}
 
+// interruption qui assure le fonctionnement du 
+// générateur vidéo.
 void __ISR(_TIMER_2_VECTOR,IPL7AUTO) tmr2_isr(void){
     _disable_video_out();
     static int ln_cnt=0;
@@ -110,6 +134,15 @@ void __ISR(_TIMER_2_VECTOR,IPL7AUTO) tmr2_isr(void){
             break;
         case 3:
             PORTBSET=VSYNC_OUT;
+            break;
+        case 4:
+            if (cursor_timer.active){
+                cursor_timer.period--;
+                if (!cursor_timer.period){
+                    cursor_timer.cb();
+                    cursor_timer.period=BLINK_DELAY;
+                }
+            }
             break;
         case FIRST_LINE:
             video=1;

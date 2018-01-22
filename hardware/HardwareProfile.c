@@ -34,6 +34,7 @@ static volatile unsigned int timers[TMR_COUNT]; // count down timer
 
 
 static volatile stime_t  stime;
+static volatile sdate_t sdate;
 
 // boot time hardware initialization
 void HardwareInit(){
@@ -82,6 +83,7 @@ inline unsigned int ticks(void){
     return sys_ticks;
 } //ticks()
 
+
 void set_time(unsigned short hr, unsigned short min, unsigned short sec){
     stime.h=hr;
     stime.m=min;
@@ -94,6 +96,57 @@ void get_time(stime_t *t){
     t->s=stime.s;
 }
 
+void set_date(unsigned year,unsigned month, unsigned day){
+    sdate.y=year&0xffff;
+    sdate.m=month&0xf;
+    sdate.d=day&0x1f;
+}
+
+void get_date(sdate_t *d){
+    d->y=sdate.y;
+    d->m=sdate.m;
+    d->d=sdate.d;
+}
+
+const unsigned day_in_month[12]={31,28,31,30,31,30,31,31,30,31,30,31};
+
+BOOL leap_year(unsigned short year){
+    return (!(year/4) && (year/100)) || !(year/400); 
+}
+
+static void next_day(){
+    sdate.d++;
+    if (sdate.d>day_in_month[sdate.m-1]){
+        if(sdate.m==2){
+            if (!leap_year(sdate.y)|| (sdate.d==30)){sdate.m++;}
+            sdate.d=1;
+        }else{
+            sdate.m++;
+            sdate.d=1;
+        }
+        if (sdate.m>12){
+            sdate.y++;
+            sdate.m=1;
+        }
+    }
+}
+
+static void update_rtcc(){
+    stime.s++;
+    if (!(stime.s%60)){
+        stime.s=0;
+        stime.m++;
+        if (!(stime.m%60)){
+            stime.m=0;
+            stime.h++;
+            if (stime.h==24){
+                stime.h=0;
+                next_day();
+            }
+        }
+    }
+    
+}
 
 // pause execution for duration in microsecond.
 // idle loop.
@@ -177,18 +230,7 @@ void __ISR(_CORE_TIMER_VECTOR, IPL1SOFT) CoreTimerHandler(void){
         if (timers[i]) timers[i]--;
      }
      if (!(sys_ticks%1000)){
-         stime.s++;
-         if (!(stime.s%60)){
-             stime.s=0;
-             stime.m++;
-             if (!(stime.m%60)){
-                 stime.m=0;
-                 stime.h++;
-                 if (!(stime.h%24)){
-                     stime.h=0;
-                 }
-             }
-         }
+         update_rtcc();
      }
 }
 #endif

@@ -157,8 +157,7 @@ void main(void) {
 #endif
     DebugPrint("video initialization\r");
     VideoInit();
-    delay_ms(750);
-    DebugPrint("keyboard initialization: ");
+    DebugPrint("keyboard initialization\r");
     KeyboardInit();
 //    text_coord_t cpos;
     DebugPrint("SD initialization: ");
@@ -185,14 +184,13 @@ void main(void) {
     tune((unsigned int*)&e3k[0]);
 #endif    
     DebugPrint("initialization completed.\r");
-    set_cursor(CR_BLOCK); // sauvegare video_buffer dans SRAM
-    clear_screen();
-    unsigned char c;
-    while (1){
-        c=KbdKey();
-        if (c)
-            put_char(LOCAL_CON,c);
-    }
+//    set_cursor(CR_BLOCK); // sauvegare video_buffer dans SRAM
+//    clear_screen();
+//    unsigned char c;
+//    while (1){
+//        c=wait_key(LOCAL_CON);
+//        put_char(LOCAL_CON,c);
+//    }
 #if defined _DEBUG_
     graphics_test();
     set_curpos(0,LINE_PER_SCREEN-1);

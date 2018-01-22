@@ -76,7 +76,9 @@ extern dev_t comm_channel;
     void cursor_up(void); // monte le curseur à la ligne précédente, scroll_down() si nécessaire
     void set_tab_width(unsigned char width); // défini la largeur des colonnes de tabulation.
     void invert_char(void); // inverse les pixel du caractère à la position du curseur.
+    void toggle_cursor(); // inverse l'état du curseur texte.
     void show_cursor(BOOL); // affiche ou masque le curseur texte
+    BOOL is_cursor_active(); // retourne vrai si le curseur texte est actif.
     void set_cursor(cursor_t shape); // défini la  forme du curseur
     void crlf(void); // déplace le curseur à la ligne suivante
     unsigned char get_key(dev_t channel); // lecture touches clavier

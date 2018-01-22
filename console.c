@@ -330,27 +330,37 @@ static void toggle_underscore(void){
     }
 }//toggle_underscore()
 
+// cette fonction ne doit-être appellée
+// que par l'interruption du TIMER2 lorsque le cursor est actif.
+void toggle_cursor(){
+    if (cur_shape==CR_BLOCK){
+        invert_char();
+    }else{
+        toggle_underscore();
+    }
+    flags ^=CUR_VIS;
+}
+
+
 void show_cursor(BOOL show){
     if (show){
         flags |= CUR_SHOW;
-        flags ^= CUR_VIS;
-        if (cur_shape==CR_BLOCK){
-            invert_char();
-        }else{
-            toggle_underscore();
-        }
+        flags &= ~CUR_VIS;
+        enable_cursor_timer(TRUE,(cursor_tmr_callback_f)toggle_cursor);
     }else{
+        enable_cursor_timer(FALSE,NULL);
         flags &= ~CUR_SHOW;
         if (flags & CUR_VIS){
-            if (cur_shape==CR_BLOCK){
-                invert_char();
-            }else{
-                toggle_underscore();
-            }
+            toggle_cursor();
             flags &= ~CUR_VIS;
         }
     }
 }// show_cursor()
+
+
+BOOL is_cursor_active(){
+    return flags&CUR_SHOW;
+}
 
 void set_cursor(cursor_t shape){
     if (flags & CUR_VIS){
@@ -377,16 +387,10 @@ unsigned char get_key(dev_t channel){ // lecture touche clavier, retourne 0 s'il
 
 unsigned char wait_key(dev_t channel){ // attend qu'une touche soit enfoncée et retourne sa valeur.
     unsigned short key;
-    volatile unsigned int* tmr;
     
     if (channel==LOCAL_CON){
         show_cursor(TRUE);
-        tmr=get_timer(500);
         while (!(key=get_key(channel))){
-            if (!(*tmr)){
-                show_cursor(!(flags&CUR_SHOW));
-                tmr=get_timer(500);
-            }
         }//while
         show_cursor(FALSE);
     }else{

@@ -17,8 +17,8 @@
 
 
 // op codes
-#define IEND 0
-#define ILIT (IEND+1)
+#define IBYE 0
+#define ILIT (IBYE+1)
 #define IDOCOL (ILIT+1)
 #define IEXIT (IDOCOL+1)
 #define IBRA (IEXIT+1)

@@ -38,7 +38,6 @@
 
 #define DEFAULT_LINE_CTRL   UART_DATA_SIZE_8_BITS|UART_PARITY_NONE|UART_STOP_BITS_1
 
-extern int debug; // enable DebugPrint when TRUE.
 
 // initialize serial port
 void UartInit( UART_MODULE channel, int baudrate, UART_LINE_CONTROL_MODE LineCtrl);
