@@ -18,6 +18,4 @@ hardware/Pinguino/ffconf.h  \
  hardware/sound/sound.h  \
 graphics.h  \
 reader.h  \
-vpcBASIC/vm.h  \
- hardware/ps2_kbd/QWERTY.h  \
-hardware/ps2_kbd/keyboard.h 
+vpcBASIC/vm.h 

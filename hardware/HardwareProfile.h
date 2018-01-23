@@ -28,7 +28,7 @@
 #define	HARDWAREPROFILE_H
 
 #include <p32xxxx.h>
-
+#include <plib.h>
 
 #define VPC_32
 

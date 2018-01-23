@@ -53,7 +53,6 @@
 #include "font.h"
 #include "reader.h"
 #include "vpcBASIC/vm.h"
-#include "hardware/ps2_kbd/QWERTY.h"
 
 #define LAST_COL (CHAR_PER_LINE-1)
 #define LINE_MAX_LEN (CHAR_PER_LINE-1)
@@ -647,6 +646,7 @@ void editor(const char* name){
     quit=false;
     while(!quit){
         key=wait_key(comm_channel);
+        print_int(SERIAL_CON,key,0);
         switch(key){
             case VK_UP:
                 line_up();
@@ -655,30 +655,28 @@ void editor(const char* name){
                 line_down();
                 break;
             case VK_LEFT:
-                if (key_state & F_CTRL){
-                    word_left();
-                }else{
-                    char_left();
-                }
+                char_left();
+                break;
+            case VK_CLEFT:
+                word_left();
                 break;
             case VK_RIGHT:
-                if (key_state & F_CTRL){
-                    word_right();
-                }else{
-                    char_right();
-                }
+                char_right();
+                break;
+            case VK_CRIGHT:
+                word_right();
                 break;
             case VK_HOME:
-                if ((key_state & F_CTRL))
-                    file_home();
-                else
-                    line_home();
+                line_home();
+                break;
+            case VK_CHOME:
+                file_home();
                 break;
             case VK_END:
-                if ((key_state & F_CTRL))
-                    file_end();
-                else
-                    line_end();
+                line_end();
+                break;
+            case VK_CEND:
+                file_end();
                 break;
             case VK_PGUP:
                 page_up();
@@ -695,18 +693,16 @@ void editor(const char* name){
                 }
                 break;
             case VK_DELETE:
-                if ((key_state & F_LCTRL)){
-                    delete_to_end();
-                }else{
-                    delete_at();
-                }
+                delete_at();
+                break;
+            case VK_CDEL:
+                delete_to_end();
                 break;
             case VK_BACK:
-                if (key_state & F_LCTRL){
-                    delete_to_start();
-                }else{
-                    delete_left();
-                }
+                delete_left();
+                break;
+            case VK_CBACK: 
+                delete_to_start();
                 break;
             case VK_ENTER:
                 enter();
@@ -715,49 +711,47 @@ void editor(const char* name){
                 file_info();
                 break;
             case VK_F3:
-                if (key_state & F_SHIFT) search_next();else search();
+                search();
+                break;
+            case VK_F4:
+                search_next();
+            case VK_CA: // <CTRL>-A  sauvegarde sous...
+                save_file_as();
+                break;
+            case VK_CF: // <CTRL>-F liste des fichiers
+                list_files();
+                break;
+            case VK_CG:// <CTRL>-G  va à la ligne
+                goto_line();
+                break;
+            case VK_CK: // <CTRL>-K  affiche hot keys
+                hot_keys();
+                break;
+            case VK_CN: // <CTRL>-N  nouveau fichier
+                new_file();
+                break;
+            case VK_CO: // <CTRL>-O  ouvrir un fichier
+                open_file();
+                break;
+            case VK_CQ: // <CTRL>-Q  quitter
+                leave_editor();
+                break;
+            case VK_CS: // <CTRL>-S  sauvegarde
+                invert_video(true);
+                clear_screen();
+                if (strlen(fname)) save_file(); else save_file_as();
+                invert_video(false);
+                update_display();
                 break;
             default:
-                if (key_state & F_CTRL){
-                    switch (key){
-                        case 'a': // sauvegarde sous...
-                            save_file_as();
-                            break;
-                        case 'f': // liste des fichiers
-                            list_files();
-                            break;
-                        case 'g':// va à la ligne
-                            goto_line();
-                            break;
-                        case 'h': // affiche hot keys
-                            hot_keys();
-                            break;
-                        case 'n': // nouveau fichier
-                            new_file();
-                            break;
-                        case 'o': // ouvrir un fichier
-                            open_file();
-                            break;
-                        case 'q': // quitter
-                            leave_editor();
-                            break;
-                        case 's': // sauvegarde
-                            invert_video(true);
-                            clear_screen();
-                            if (strlen(fname)) save_file(); else save_file_as();
-                            invert_video(false);
-                            update_display();
-                            break;
-                        default:
-                            refused();
-                            
-                    }//switch
-                }else  if ((key>=32)&(key<FONT_SIZE+32)){
+                if ((key>=32)&(key<FONT_SIZE+32)){
                     if (state.flags.insert){
                         insert_char(key);
                     }else{
                         replace_char(key);
                     }
+                }else{
+                    refused();
                 }
             }//switch
     }

@@ -21,6 +21,7 @@
 #define __FILEIO_C__
 
 // standard C libraries used
+#include <stdio.h>
 #include <ctype.h>      		// toupper...
 #include <string.h>     		// memcpy...
 //#include <malloc.h>				// malloc, free?

@@ -12,7 +12,7 @@
 #define _ASM_CODE_
     
 #include <p32xxxx.h>
-#include "vm.h"
+//#include "vm.h"
 
 .extern sys_ticks
 .extern comm_channel    
@@ -101,6 +101,13 @@ I=s8  /* compteur boucle do...looop */
 
 STDIO=1
 
+RAM_SEG=0xA000
+CODE_SEG=0x9D00
+SFR_SEG=0xBF80
+CFG_SEG=0xBFC0
+    
+CELL_SIZE=4
+    
 DSTACK_SIZE=80
 RSTACK_SIZE=64
 TIB_SIZE=80
@@ -849,9 +856,10 @@ exit_vm:
 //.end fetch_int
 
 
-// .align 4
+
+// routines names must be in same order as OP_CODES enum in vm.h    
 opcodes_table:
-.word bye,lit,docol,exit,bra,qbra,exec,store,fetch,cstore
+.word lit,docol,exit,bra,qbra,exec,store,fetch,cstore
 .word cfetch,rfetch,ufetch,ustore,tor,rfrom,drop,dup,swap,over,pick
 .word plus,minus,star,ustar,mstar,umstar,slash,uslash,modulo,umsmod,msmod,ltz
 .word zequal, bitand,bitor
@@ -861,5 +869,6 @@ opcodes_table:
 .word equal,nequal, less, greater,ltez,gtez, dodo,unloop,ifetch,jfetch,loop, ploop,user
 .word sine, cos, tan, atan, acos, asin,random,trunc,num
 .word key,qrx,emit,dotq,cr,dot
-
+.word bye
+    
 #undef _ASM_CODE_

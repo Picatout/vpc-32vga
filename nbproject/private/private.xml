@@ -6,7 +6,9 @@
         <group>
             <file>file:/home/jacques/github/vpc-32vga/console.c</file>
             <file>file:/home/jacques/github/vpc-32vga/vpc-32.c</file>
-            <file>file:/home/jacques/github/vpc-32vga/console.h</file>
+            <file>file:/home/jacques/github/vpc-32vga/hardware/HardwareProfile.c</file>
+            <file>file:/home/jacques/github/vpc-32vga/notes.txt</file>
+            <file>file:/home/jacques/github/vpc-32vga/shell.c</file>
         </group>
     </open-files>
 </project-private>

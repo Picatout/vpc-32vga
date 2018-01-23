@@ -29,16 +29,12 @@
 #include <stdbool.h>
 #include "../HardwareProfile.h"
 #include "keyboard.h"
-//#include "QWERTY.h"
 
 
 // using circular queues for received scan codes and translated codes.
 #define KBD_QUEUE_SIZE (32)
 static  uint8_t kbd_queue[KBD_QUEUE_SIZE]; // keyboard translated codes queue
 volatile static unsigned char kbd_head=0, kbd_tail=0; // kbd_queue head and tail pointer
-volatile static unsigned char rx_flags=0; // keyboard flags.
-volatile static unsigned char kbd_leds=0; // keyboard LEDs status. 
-volatile unsigned short key_state=0; // CTRL,ALT,SHIFT keys state.
 
 // initialize UART1 keyboard receive character.
 void KeyboardInit(){

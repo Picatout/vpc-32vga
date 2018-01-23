@@ -17,94 +17,96 @@
 
 
 // op codes
-#define IBYE 0
-#define ILIT (IBYE+1)
-#define IDOCOL (ILIT+1)
-#define IEXIT (IDOCOL+1)
-#define IBRA (IEXIT+1)
-#define IQBRA (IBRA+1)
-#define IEXEC (IQBRA+1)
-#define ISTORE (IEXEC+1)
-#define IFETCH (ISTORE+1)
-#define ICSTORE (IFETCH+1)
-#define ICFETCH (ICSTORE+1)
-#define IRFETCH (ICFETCH+1)
-#define IUFETCH (IRFETCH+1)
-#define IUSTORE (IUFETCH+1)
-#define ITOR   (IUSTORE+1)
-#define IRFROM (ITOR+1)
-#define IDROP (IRFROM+1)
-#define IDUP (IDROP+1)
-#define ISWAP (IDUP+1)
-#define IOVER (ISWAP+1)
-#define IPICK (IOVER+1)
-#define IPLUS  (IPICK+1)
-#define ISUB  (IPLUS+1)
-#define ISTAR  (ISUB+1)
-#define IUSTAR (ISTAR+1)
-#define IMSTAR (IUSTAR+1)
-#define IUMSTAR (IMSTAR+1)
-#define ISLASH (IUMSTAR+1)
-#define IUSLASH (ISLASH+1)
-#define IMOD (IUSLASH+1)
-#define IUMSMOD (IMOD+1)
-#define IMSMOD (IUMSMOD+1)
-#define ILTZ (IMSMOD+1)
-#define IZEQUAL (ILTZ+1)
-#define IAND (IZEQUAL+1)
-#define IOR  (IAND+1)
-#define IXOR  (IOR+1)
-#define INOT  (IXOR+1)
-#define ICLIT (INOT+1)
-#define IWLIT (ICLIT+1)
-#define ITICKS (IWLIT+1)
-#define IDELAY (ITICKS+1)
-#define IQDUP  (IDELAY+1)
-#define IPLUS1 (IQDUP+1)
-#define IMINUS1 (IPLUS1+1)
-#define IPLUSSTR (IMINUS1+1)
-#define I2STAR (IPLUSSTR+1)
-#define I2SLASH  (I2STAR+1)
-#define IDDROP  (I2SLASH+1)
-#define IROT  (IDDROP+1)
-#define IDDUP (IROT+1)
-#define IMIN (IDDUP+1)
-#define IMAX (IMIN+1)
-#define IABS (IMAX+1)
-#define ILSHIFT (IABS+1)
-#define IRSHIFT (ILSHIFT+1)
-#define IDIVMOD (IRSHIFT+1)
-#define IQBRAZ (IDIVMOD+1)
-#define IDCNT (IQBRAZ+1)
-#define IRCNT (IDCNT+1)
-#define IEQUAL (IRCNT+1)
-#define INEQUAL (IEQUAL+1)
-#define ILESS  (INEQUAL+1)
-#define IGREATER (ILESS+1)
-#define ILTEZ (IGREATER+1)
-#define IGTEZ (ILTEZ+1)
-#define IDO (IGTEZ+1)
-#define IUNLOOP (IDO+1)
-#define IIFETCH  (IUNLOOP+1)
-#define IJFETCH (IIFETCH+1)
-#define ILOOP (IJFETCH+1)
-#define IPLOOP (ILOOP+1)
-#define IUSER (IPLOOP+1)
-#define ISINE (IUSER+1)
-#define ICOS (ISINE+1)
-#define ITAN (ICOS+1)
-#define IATAN (ITAN+1)
-#define IACOS (IATAN+1)
-#define IASIN (IACOS+1)
-#define IRND (IASIN+1)
-#define ITRUNC (IRND+1)
-#define INUM (ITRUNC+1)
-#define IKEY (INUM+1)
-#define IQRX (IKEY+1)
-#define IEMIT (IQRX+1)
-#define IDOTQ (IEMIT+1)
-#define ICR (IDOTQ+1)
-#define IDOT (ICR+1)
+enum OP_CODES{
+ ILIT=0, 
+ IDOCOL , 
+ IEXIT , 
+ IBRA , 
+ IQBRA ,
+ IEXEC ,
+ ISTORE ,
+ IFETCH ,
+ ICSTORE ,
+ ICFETCH ,
+ IRFETCH ,
+ IUFETCH ,
+ IUSTORE ,
+ ITOR   , 
+ IRFROM , 
+ IDROP , 
+ IDUP , 
+ ISWAP ,
+ IOVER ,
+ IPICK ,
+ IPLUS ,
+ ISUB  ,
+ ISTAR  ,
+ IUSTAR ,
+ IMSTAR ,
+ IUMSTAR ,
+ ISLASH , 
+ IUSLASH ,
+ IMOD , 
+ IUMSMOD ,
+ IMSMOD , 
+ ILTZ , 
+ IZEQUAL ,
+ IAND , 
+ IOR  , 
+ IXOR  , 
+ INOT  , 
+ ICLIT , 
+ IWLIT , 
+ ITICKS ,
+ IDELAY ,
+ IQDUP  ,
+ IPLUS1 ,
+ IMINUS1 ,
+ IPLUSSTR ,
+ I2STAR , 
+ I2SLASH,
+ IDDROP,
+ IROT  ,
+ IDDUP ,
+ IMIN ,
+ IMAX ,
+ IABS ,
+ ILSHIFT,
+ IRSHIFT,
+ IDIVMOD,
+ IQBRAZ,
+ IDCNT,
+ IRCNT,
+ IEQUAL,
+ INEQUAL,
+ ILESS,
+ IGREATER ,
+ ILTEZ , 
+ IGTEZ , 
+ IDO , 
+ IUNLOOP ,
+ IIFETCH  ,
+ IJFETCH ,
+ ILOOP , 
+ IPLOOP ,
+ IUSER , 
+ ISINE , 
+ ICOS , 
+ ITAN , 
+ IATAN ,
+ IACOS ,
+ IASIN ,
+ IRND , 
+ ITRUNC ,
+ INUM , 
+ IKEY , 
+ IQRX , 
+ IEMIT ,
+ IDOTQ ,
+ ICR , 
+ IDOT,
+ IBYE
+};
 
 #define LASTOP IDOT
 

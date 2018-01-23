@@ -121,6 +121,7 @@ void graphics_test(){ // test des fonctions graphiques
     delay_ms(500);
 }//graphics_test
 
+#endif
 
 const unsigned int e3k[]={ // rencontre du 3ième type
 784,500, // sol4
@@ -131,7 +132,6 @@ const unsigned int e3k[]={ // rencontre du 3ième type
 0,0
 };
 
-#endif
 
 unsigned cause,epc;
 
@@ -181,9 +181,9 @@ void main(void) {
     sram_read_block(0,&video_bmp,HRES*VRES/8);
     delay_ms(1000);
     DebugPrint("sound test.\r");
-    tune((unsigned int*)&e3k[0]);
 #endif    
     DebugPrint("initialization completed.\r");
+    tune((unsigned int*)&e3k[0]);
 //    set_cursor(CR_BLOCK); // sauvegare video_buffer dans SRAM
 //    clear_screen();
 //    unsigned char c;

@@ -66,11 +66,5 @@
 #define VK_PAUSE 151
 
 
-extern const t_scan2key qwerty[];
-extern const t_scan2key qwerty_shifted_key[];
-extern const t_scan2key qwerty_alt_char[];
-extern const t_scan2key qwerty_xt_char[];
-
-
 
 #endif /* QWERTY_H_ */

@@ -19,5 +19,4 @@ font.h  \
  hardware/Pinguino/ff.h  \
 vpcBASIC/vm.h  \
 vpcBASIC/vpcBASIC.h  \
-vpcBASIC/vm.h  \
  hardware/sound/sound.h 

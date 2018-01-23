@@ -7,7 +7,7 @@
 
 #ifndef TINYFORTH_H
 #define TINYFORTH_H
-#include "vm.h"
+//#include "vm.h"
 
 #define SYSTEM_NAME "vpcBASIC "
 #define SYSTEM_VERSION "0.01\r"

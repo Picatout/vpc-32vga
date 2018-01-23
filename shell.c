@@ -109,13 +109,13 @@ typedef struct{
 static input_buff_t cmd_line;
 static char *cmd_tokens[MAX_TOKEN];
 
-typedef enum CMDS {CMD_BASIC,CMD_CD, CMD_CLEAR,CMD_CPY,CMD_DATE,CMD_DEL,CMD_DIR,CMD_ED,CMD_EXPR,
+typedef enum CMDS {CMD_CD, CMD_CLEAR,CMD_CPY,CMD_DATE,CMD_DEL,CMD_DIR,CMD_ED,CMD_EXPR,
                    CMD_FREE,CMD_FORMAT,CMD_FORTH,CMD_HDUMP,CMD_HELP,CMD_MKDIR,CMD_MOUNT,CMD_MORE,
                    CMD_PUTS,CMD_REBOOT,CMD_RCV,CMD_REN,CMD_SND,CMD_TIME,CMD_UMOUNT,CMD_UPTIME
                    } cmds_t;
 
-#define CMD_LEN 25
-const char *commands[CMD_LEN]={"basic","cd","cls","copy","date","del","dir","edit",
+#define CMD_LEN 24
+const char *commands[CMD_LEN]={"cd","cls","copy","date","del","dir","edit",
     "expr","free","format","forth","hdump","help","mkdir","mount","more","puts","reboot","receive",
     "ren","send","time","umount","uptime"};
 
@@ -161,7 +161,7 @@ void cmd_uptime(){
     min=remainder/60000;
     remainder%=60000;
     sec=remainder/1000;
-    sprintf(fmt,"%02d days %02d hr %02d min and %02d sec\n",day,hour,min,sec);
+    sprintf(fmt,"%02dd%02dh%02dm%02ds\n",day,hour,min,sec);
     print(comm_channel,fmt);
 }
 
@@ -723,9 +723,6 @@ void execute_cmd(int i){
                 break;
             case CMD_ED: // editeur
                 cmd_edit(i);
-                break;
-            case CMD_BASIC: // lance interpréteur BASIC
-               vpcBasic(i);
                 break;
             case CMD_SND:  // envoie un fichier vers la sortie uart
                 send(i);

@@ -6,7 +6,6 @@
                    projectFiles="true">
       <logicalFolder name="f1" displayName="hardware" projectFiles="true">
         <logicalFolder name="f1" displayName="ps2_kbd" projectFiles="true">
-          <itemPath>hardware/ps2_kbd/QWERTY.h</itemPath>
           <itemPath>hardware/ps2_kbd/keyboard.h</itemPath>
         </logicalFolder>
         <logicalFolder name="f4" displayName="SDcard" projectFiles="true">
@@ -32,7 +31,6 @@
       </logicalFolder>
       <logicalFolder name="f2" displayName="VM" projectFiles="true">
         <itemPath>vpcBASIC/vm.h</itemPath>
-        <itemPath>vpcBASIC/vpcBASIC.h</itemPath>
       </logicalFolder>
       <itemPath>font.h</itemPath>
       <itemPath>console.h</itemPath>
@@ -53,7 +51,6 @@
                    projectFiles="true">
       <logicalFolder name="f1" displayName="hardware" projectFiles="true">
         <logicalFolder name="f3" displayName="ps2_kbd" projectFiles="true">
-          <itemPath>hardware/ps2_kbd/QWERTY.c</itemPath>
           <itemPath>hardware/ps2_kbd/keyboard.c</itemPath>
         </logicalFolder>
         <logicalFolder name="f4" displayName="SDcard" projectFiles="true">
@@ -79,7 +76,6 @@
       </logicalFolder>
       <logicalFolder name="f2" displayName="VM" projectFiles="true">
         <itemPath>vpcBASIC/vm.S</itemPath>
-        <itemPath>vpcBASIC/vpcBASIC.c</itemPath>
         <itemPath>vpcBASIC/testVM.c</itemPath>
       </logicalFolder>
       <itemPath>console.c</itemPath>
@@ -101,6 +97,7 @@
   <sourceRootList>
     <Elem>hardware/tvout</Elem>
     <Elem>vpcBASIC</Elem>
+    <Elem>hardware/ps2_kbd</Elem>
   </sourceRootList>
   <projectmakefile>Makefile</projectmakefile>
   <confs>
