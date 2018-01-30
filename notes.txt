@@ -1,3 +1,22 @@
+2018-01-29
+----------
+1. Modification schématique. Ajout RTCC MCP2940N
+2. Création du pilote pour le RTCC.
+
+2018-01-27
+----------
+modifié schématique pour que la cathode de la power LED soit branchée  à la broche
+RB0 (pin 4) du MCU. La LED peut maintenant être contrôlée par le MCU.
+1. Lorsque l'initialisation est complétée sans erreur la LED est allumée.
+2. Lorsqu'il se produit une exception la LED clignote.
+
+Commencé à travaillé sur les service call.
+
+
+2018-01-25,26
+-------------
+expérimentation avec syscall, rien de concluant.
+
 2018-01-23
 ----------
 modification à keyboard.c et edit.c

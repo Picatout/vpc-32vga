@@ -125,21 +125,50 @@
 #define KBD_TRISSET TRISBSET
 #define KBD_RP_FN  (4)
 
-typedef struct time_struct{
-    unsigned s:6;
-    unsigned m:6;
-    unsigned h:5;
-} stime_t;
+// RTCC
+#define RTCC_ALRM_PORT  PORTB
+#define RTCC_SCL_PORT PORTB
+#define RTCC_SDA_PORT PORTA
+#define RTCC_SCL_PIN BIT_14
+#define RTCC_SDA_PIN BIT_1
+#define RTCC_ALRM_PIN BIT_1
+#define RTCC_SDA_TRIS TRISA
+#define RTCC_SCL_TRIS TRISB
 
-typedef struct date_struct{
-    unsigned y:16;
-    unsigned m:4;
-    unsigned d:5;
-} sdate_t;
+
+// power LED
+#define PLED_LAT LATB
+#define PLED_TRIS TRISB
+#define PLED_PIN BIT_0
+#define PLED_TRISCLR TRISBCLR
+#define PLED_TRISSET TRISBSET
+#define PLED_LATSET LATBSET
+#define PLED_LATCLR LATBCLR
+
+typedef enum PLED_STATE{
+    PLED_OFF,
+    PLED_ON
+}pled_state_t;
+
 
 // user RAM pool size.
 unsigned int heap_size;
 
+// exception cause
+enum EXCEPTION_CODES{
+    INTR=0, // interrupt
+    ADEL=4, // bad address load or fetch exception
+    ADES, // bad address store exception
+    IBE, // bus error instruction fetch exception
+    DBE, // bus error data reference exception
+    SYS, // syscall  exception
+    BP, // break point  exception
+    RI, // reserve instruction exception
+    CPU, // Coprocessor Unusable exception
+    OVF, // Arithmetic Overflow exception
+    TRAP, // Trap exception
+    
+};
 
 // initialize hardware at boot time.
 void HardwareInit();
@@ -157,6 +186,9 @@ unsigned int ticks(void);
 void delay_us(unsigned int usec);
 // pause milliseconds
 void delay_ms(unsigned int msec);
+
+// control power LED
+void power_led(pled_state_t state);
 
 #endif	/* HARDWAREPROFILE_H */
 

@@ -1,0 +1,134 @@
+BIOS API
+========
+
+console
+--------
+
+void clear_screen(void); // efface l'écran et positionne le curseur à {0,0}
+void clear_eol(void); // efface la fin de la ligne à partir du curseur.
+void scroll_up(void); // fait glissé le texte une ligne vers le haut.
+void scroll_down(void); // fait glissé le texte une ligne vers le bas.
+text_coord_t get_curpos(); // retourne position curseur texte.
+void set_curpos(unsigned short x, unsigned short y); // positionne le curseur
+void put_char(dev_t channel, char c); //affiche le caractère à la position courante
+void print(dev_t channel, const char *str); // imprime un chaîne à la position courante
+void print_hex(dev_t channel, unsigned int i, unsigned char width); // imprime un nombre hexadécimal à la position courante
+void print_int(dev_t channel, int number, unsigned short width); // imprime un entier à la position courante.
+void cursor_right(void); // avance le curseur, retour à la ligne si nécessaire.
+void cursor_left(void); // recule le curseur d'une position, va à la fin de la ligne précédente si nécessaire.
+void cursor_down(void); // descend le curseur à la ligne suivante, scroll_up() si nécessaire
+void cursor_up(void); // monte le curseur à la ligne précédente, scroll_down() si nécessaire
+void set_tab_width(unsigned char width); // défini la largeur des colonnes de tabulation.
+void invert_char(void); // inverse les pixel du caractère à la position du curseur.
+void toggle_cursor(); // inverse l'état du curseur texte.
+void show_cursor(BOOL); // affiche ou masque le curseur texte
+BOOL is_cursor_active(); // retourne vrai si le curseur texte est actif.
+void set_cursor(cursor_t shape); // défini la  forme du curseur
+void crlf(void); // déplace le curseur à la ligne suivante
+unsigned char get_key(dev_t channel); // lecture touches clavier
+unsigned char wait_key(dev_t channel); // attend qu'une touche soit enfoncée.
+unsigned char readline(dev_t channel, unsigned char *ibuff,unsigned char max_char); // lit une ligne au clavier, retourne la longueur de texte.
+void invert_video(unsigned char invert); // inverse vidéo des caractèrs noir/blanc
+void println(dev_t channel, const char *str);
+
+graphic
+-------
+
+int getPixel(int x, int y);
+void setPixel(int x, int y);
+void clearPixel(int x, int y);
+void line(int x0, int y0, int x1, int y1);
+void rectangle(int x0, int y0, int x1, int y1);
+void circle(int xc, int yc, int r);
+void ellipse (int x0, int y0, int x1, int y1);
+void polygon(const int points[],int vertices);
+void bezier(int x0, int y0, int x1, int y1, int x2, int y2);
+void fill(int x, int y);
+
+keyboard
+--------
+
+unsigned char KbdKey();  // read key from translated queue
+
+SD card
+-------
+
+void initSD(void);		// initializes I/O pins and SPI
+void disableSD(void);	// deselect SD card
+void enableSD(void);	// select SD card
+int sendSDCmd(unsigned char, unsigned); // send command to SD card
+int initMedia(void);   // initializes the SD/MMC memory device
+int readSECTOR(LBA, char *);  // reads a block of data
+int writeSECTOR(LBA, char *);  // writes a block of data
+int getCD();      // check card presence
+
+Disk I/O
+---------
+
+DSTATUS disk_initialize (PF_BYTE);
+DSTATUS disk_status (PF_BYTE);
+DRESULT disk_read (PF_BYTE, PF_BYTE*, DWORD, PF_BYTE);
+DRESULT disk_write (PF_BYTE, const PF_BYTE*, DWORD, PF_BYTE);
+DRESULT disk_ioctl (PF_BYTE, PF_BYTE, void*);
+DWORD 	get_fattime(void);
+static void put_rc (FRESULT);
+void unmountSD();
+
+serial port
+-----------
+
+// get a character from serial port
+char UartGetch(UART_MODULE channel);
+// wait a character from serial port
+char UartWaitch(UART_MODULE channel, int delay);
+// send a character to serial port
+void UartPutch(UART_MODULE channel,char c);
+// send a string to serial port
+void UartPrint(UART_MODULE channel, const char* str);
+// read characters from serial port up to CR
+int UartReadln(UART_MODULE channel, char * buffer, int buff_len);
+// return TRUE if received an ESC character
+int UartReceivedESC(UART_MODULE channel);
+// send debug message to serial port.
+void DebugPrint(const char* str);
+
+sound
+-----
+
+// generate a tone
+void tone(unsigned int freq, unsigned int duration);
+// play a sequence of tones.
+void tune(const unsigned int *buffer);
+
+SPI RAM
+-------
+
+     // read a byte from SPI RAM
+    unsigned char sram_read_byte(unsigned addr);
+     // write a byte from SPI RAM
+    void sram_write_byte(unsigned addr, unsigned char byte);
+    // read a block of bytes from SPI RAM
+    void sram_read_block(unsigned addr, unsigned char buffer[],unsigned count); 
+    // write a block or bytes to SPI RAM
+    void sram_write_block(unsigned addr, const char buffer[],unsigned count);
+    // select SPI RAM write mode. i.e. byte,page,sequenetial 
+    void sram_write_mode(unsigned char mode);
+    // Read SPI RAM operation mode.  i.e. byte,page,sequenetial 
+    unsigned char sram_read_mode();
+    // clear all SPI RAM to 0.
+    void sram_clear();
+    // clear a block to 0.
+    void sram_clear_block(unsigned addr, unsigned size);
+    // write a string to SPI RAM
+    void sram_write_string(unsigned addr, const char *str);
+    // read a string from SPI RAM
+    int sram_read_string(unsigned addr,char *buffer,unsigned size);
+ 
+spi store
+---------
+
+    void spi_clock_freq(int freq); // set SPI clock frequency
+    void store_spi_init(); // initialize SPI interface.
+    unsigned char writeSPI(unsigned char b); // send a byte to SPI interface
+
+

@@ -8,6 +8,9 @@
         <logicalFolder name="f1" displayName="ps2_kbd" projectFiles="true">
           <itemPath>hardware/ps2_kbd/keyboard.h</itemPath>
         </logicalFolder>
+        <logicalFolder name="f8" displayName="rtcc" projectFiles="true">
+          <itemPath>hardware/rtcc/rtcc.h</itemPath>
+        </logicalFolder>
         <logicalFolder name="f4" displayName="SDcard" projectFiles="true">
           <itemPath>hardware/Pinguino/diskio.h</itemPath>
           <itemPath>hardware/Pinguino/sdmmc.h</itemPath>
@@ -28,6 +31,7 @@
           <itemPath>hardware/tvout/vga.h</itemPath>
         </logicalFolder>
         <itemPath>hardware/HardwareProfile.h</itemPath>
+        <itemPath>hardware/syscall.h</itemPath>
       </logicalFolder>
       <logicalFolder name="f2" displayName="VM" projectFiles="true">
         <itemPath>vpcBASIC/vm.h</itemPath>
@@ -53,6 +57,9 @@
         <logicalFolder name="f3" displayName="ps2_kbd" projectFiles="true">
           <itemPath>hardware/ps2_kbd/keyboard.c</itemPath>
         </logicalFolder>
+        <logicalFolder name="f8" displayName="rtcc" projectFiles="true">
+          <itemPath>hardware/rtcc/rtcc.c</itemPath>
+        </logicalFolder>
         <logicalFolder name="f4" displayName="SDcard" projectFiles="true">
           <itemPath>hardware/Pinguino/sdmmc.c</itemPath>
           <itemPath>hardware/Pinguino/diskio.c</itemPath>
@@ -73,6 +80,8 @@
           <itemPath>hardware/tvout/vga.c</itemPath>
         </logicalFolder>
         <itemPath>hardware/HardwareProfile.c</itemPath>
+        <itemPath>hardware/exception.c</itemPath>
+        <itemPath>hardware/syscall.c</itemPath>
       </logicalFolder>
       <logicalFolder name="f2" displayName="VM" projectFiles="true">
         <itemPath>vpcBASIC/vm.S</itemPath>
@@ -95,9 +104,10 @@
     </logicalFolder>
   </logicalFolder>
   <sourceRootList>
-    <Elem>hardware/tvout</Elem>
     <Elem>vpcBASIC</Elem>
-    <Elem>hardware/ps2_kbd</Elem>
+    <Elem>hardware</Elem>
+    <Elem>nbproject</Elem>
+    <Elem>/</Elem>
   </sourceRootList>
   <projectmakefile>Makefile</projectmakefile>
   <confs>
@@ -161,7 +171,7 @@
         <property key="use-cci" value="false"/>
         <property key="use-iar" value="false"/>
         <property key="use-indirect-calls" value="false"/>
-        <appendMe value="-D_SUPPRESS_PLIB_WARNING -D_DISABLE_OPENADC10_CONFIGPORT_WARNING  -D_VM_TEST_"/>
+        <appendMe value="-D_SUPPRESS_PLIB_WARNING -D_DISABLE_OPENADC10_CONFIGPORT_WARNING  -D_VM_TEST_ "/>
       </C32>
       <C32-AR>
         <property key="additional-options-chop-files" value="false"/>

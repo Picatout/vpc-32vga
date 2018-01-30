@@ -15,4 +15,6 @@ hardware/Pinguino/../HardwareProfile.h  \
  hardware/Pinguino/../store/../HardwareProfile.h  \
 hardware/Pinguino/ff.h  \
  shell.h  \
-vpcBASIC/vpcBASIC.h 
+vpcBASIC/vpcBASIC.h  \
+hardware/rtcc/rtcc.h  \
+ hardware/rtcc/../HardwareProfile.h 

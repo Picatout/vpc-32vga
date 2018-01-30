@@ -25,6 +25,7 @@
  */
 
 #include "HardwareProfile.h"
+#include "rtcc/rtcc.h"
 #include <plib.h>
 #include "sound/sound.h"
 
@@ -32,9 +33,6 @@
 volatile unsigned int  sys_ticks; // milliseconds counter.
 static volatile unsigned int timers[TMR_COUNT]; // count down timer
 
-
-static volatile stime_t  stime;
-static volatile sdate_t sdate;
 
 // boot time hardware initialization
 void HardwareInit(){
@@ -76,6 +74,17 @@ void HardwareInit(){
    PPSLock; // lock PPS to avoid accidental modification.
 }
 
+// contrôle de la LED power
+void power_led(pled_state_t state){
+    if (state){
+        PLED_TRISCLR=PLED_PIN;
+        PLED_LATCLR=PLED_PIN;
+    }else{
+        PLED_LATSET=PLED_PIN;
+        PLED_TRISSET=PLED_PIN;
+    }
+}
+
 // return the value of systicks counter
 // millisecond since bootup
 // rollover after ~ 50 days.
@@ -84,69 +93,6 @@ inline unsigned int ticks(void){
 } //ticks()
 
 
-void set_time(unsigned short hr, unsigned short min, unsigned short sec){
-    stime.h=hr;
-    stime.m=min;
-    stime.s=sec;
-}
-
-void get_time(stime_t *t){
-    t->h=stime.h;
-    t->m=stime.m;
-    t->s=stime.s;
-}
-
-void set_date(unsigned year,unsigned month, unsigned day){
-    sdate.y=year&0xffff;
-    sdate.m=month&0xf;
-    sdate.d=day&0x1f;
-}
-
-void get_date(sdate_t *d){
-    d->y=sdate.y;
-    d->m=sdate.m;
-    d->d=sdate.d;
-}
-
-const unsigned day_in_month[12]={31,28,31,30,31,30,31,31,30,31,30,31};
-
-BOOL leap_year(unsigned short year){
-    return (!(year/4) && (year/100)) || !(year/400); 
-}
-
-static void next_day(){
-    sdate.d++;
-    if (sdate.d>day_in_month[sdate.m-1]){
-        if(sdate.m==2){
-            if (!leap_year(sdate.y)|| (sdate.d==30)){sdate.m++;}
-            sdate.d=1;
-        }else{
-            sdate.m++;
-            sdate.d=1;
-        }
-        if (sdate.m>12){
-            sdate.y++;
-            sdate.m=1;
-        }
-    }
-}
-
-static void update_rtcc(){
-    stime.s++;
-    if (!(stime.s%60)){
-        stime.s=0;
-        stime.m++;
-        if (!(stime.m%60)){
-            stime.m=0;
-            stime.h++;
-            if (stime.h==24){
-                stime.h=0;
-                next_day();
-            }
-        }
-    }
-    
-}
 
 // pause execution for duration in microsecond.
 // idle loop.
@@ -207,6 +153,10 @@ unsigned free_heap(){
     return size;
 }
 
+#ifndef RTCC
+extern void update_mcu_dt();
+#endif
+
 #ifdef USE_CORE_TIMER
 //MCU core timer interrupt
 // period 1msec
@@ -229,9 +179,11 @@ void __ISR(_CORE_TIMER_VECTOR, IPL1SOFT) CoreTimerHandler(void){
      for (i=0;i<TMR_COUNT;i++){
         if (timers[i]) timers[i]--;
      }
+#ifndef RTCC
      if (!(sys_ticks%1000)){
-         update_rtcc();
+        update_mcu_dt();
      }
+#endif     
 }
 #endif
 

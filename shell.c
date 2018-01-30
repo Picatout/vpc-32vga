@@ -49,6 +49,7 @@
 #include "hardware/Pinguino/fileio.h"
 #include "shell.h"
 #include "vpcBASIC/vpcBASIC.h"
+#include "hardware/rtcc/rtcc.h"
 
 #define MAX_LINE_LEN 80
 #define MAX_TOKEN 5
@@ -356,14 +357,14 @@ void copy(int i){ // copie un fichier
     }
 }//copy()
 
-void send(int i){ // envoie un fichier via uart
+void cmd_send(int i){ // envoie un fichier via uart
     // to do
    if (i==2){
        print_error_msg(ERR_NOT_DONE,NULL,0);
    }else{
        print(comm_channel, "send file via serial, USAGE: send file_name\r");
    }
-}//send()
+}//cmd_send()
 
 void receive(int i){ // reçois un fichier via uart
     // to do
@@ -631,10 +632,10 @@ void cmd_date(int i){
     char fmt[20];
     char *str;
     sdate_t sdate;
-    unsigned y,m,d;
+    unsigned y=0,m=0,d=0;
     if (i>1){
         y=atoi(cmd_tokens[1]);
-        if (!y) y=2000;
+        y+=2000;
         str=strchr(cmd_tokens[1],'/');
         if (str){
             m=atoi(++str);
@@ -647,25 +648,27 @@ void cmd_date(int i){
         }else{
             m=1;
         }
-        set_date(y,m,d);
-    }else{
-        get_date(&sdate);
+        sdate.d=d;
+        sdate.m=m;
+        sdate.y=y;
+        set_date(sdate);
+    }else if (get_date(&sdate)){
         sprintf(fmt,"%4d/%02d/%02d\n",sdate.y,sdate.m,sdate.d);
         print(comm_channel,fmt);
     }
 }
 
-void display_time(){
-    stime_t t;
-    text_coord_t cpos;
-    char fmt[15];
-    
-    get_time(&t);
-    cpos=get_curpos();
-    set_curpos(CHAR_PER_LINE-9,0);
-    sprintf(fmt,"%02d:%02d:%02d",t.h,t.m,t.s);
+void display_date_time(){
+    char fmt[16];
+    if (!get_date_str(fmt)){
+        strcpy(fmt,"2000/01/01");
+    }
     print(comm_channel,fmt);
-    set_curpos(cpos.x,cpos.y);
+    put_char(comm_channel,' ');
+    if (!get_time_str(fmt)){
+        strcpy(fmt,"00:00:00");
+    }
+    print(comm_channel,fmt);
 }
 
 
@@ -684,9 +687,11 @@ void cmd_time(int i){
             str=strchr(str,':');
             if (str) sec=atoi(++str);
         }
-        set_time(hr,min,sec);
-    }else{
-        get_time(&t);
+        t.h=hr;
+        t.m=min;
+        t.s=sec;
+        set_time(t);
+    }else if (get_time(&t)){
         sprintf(fmt,"%02d:%02d:%02d",t.h,t.m,t.s);
         print(comm_channel,fmt);
     }
@@ -725,7 +730,7 @@ void execute_cmd(int i){
                 cmd_edit(i);
                 break;
             case CMD_SND:  // envoie un fichier vers la sortie uart
-                send(i);
+                cmd_send(i);
                 break;
             case CMD_RCV:  // reçoit un fichier du uart
                 receive(i);
@@ -804,7 +809,6 @@ int tokenize(){ // découpe la ligne d'entrée en mots
     return i;
 }//tokenize()
 
-extern unsigned cause,epc;
 
 void shell(void){
     int i;
@@ -812,16 +816,11 @@ void shell(void){
     print(comm_channel,"VPC-32 shell\rfree RAM (bytes): ");
     print_int(comm_channel,free_heap(),0);
     crlf();
-    if (cause){
-        print(comm_channel,"cause: ");
-        print_hex(comm_channel,cause,0);
-        crlf();
-        print(comm_channel,"epc: ");
-        print_hex(comm_channel,epc,0);
-        crlf();
-    }
     free_tokens();
-    print(comm_channel,"date? (yyyy/mm/dd) ");
+#ifndef RTCC
+    sdate_t date;
+    stime_t time;
+    print(comm_channel,"date? (yy/mm/dd) ");
     cmd_line.len=readline(comm_channel,cmd_line.buff,12);
     if (cmd_line.len){
         i=tokenize();
@@ -829,7 +828,10 @@ void shell(void){
         cmd_date(2);
         free_tokens();
     }else{
-        set_date(2000,1,1);
+        date.y=2000;
+        date.m=1;
+        date.d=1;
+        set_date(date);
     }
     print(comm_channel,"time? (hh:mm:ss) ");
     cmd_line.len=readline(comm_channel,cmd_line.buff,9);
@@ -839,9 +841,13 @@ void shell(void){
         cmd_time(2);
         free_tokens();
     }else{
-        set_time(0,0,0);
+        time.h=0;
+        time.m=0;
+        time.s=0;
+        set_time(time);
     }
-    display_time();
+    display_date_time();
+#endif    
     while (1){
         print(comm_channel,prompt);
         cmd_line.len=readline(comm_channel,cmd_line.buff,CHAR_PER_LINE);

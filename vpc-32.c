@@ -40,6 +40,7 @@
 #include "vpcBASIC/vm.h"
 #include "vpcBASIC/vpcBASIC.h"
 #include "hardware/sound/sound.h"
+#include "hardware/syscall.h"
 
 // PIC32MX150F128B Configuration Bit Settings
 #include <xc.h>
@@ -125,15 +126,13 @@ void graphics_test(){ // test des fonctions graphiques
 
 const unsigned int e3k[]={ // rencontre du 3ième type
 784,500, // sol4
-880,500,// la4
-698,500,// fa4
-349,500,// fa3
-523,500,// do4
+880,500, // la4
+698,500, // fa4
+349,500, // fa3
+523,500, // do4
 0,0
 };
 
-
-unsigned cause,epc;
 
 
 //__attribute__((mips16))
@@ -141,14 +140,6 @@ void main(void) {
 #if defined _DEBUG_
     debug=-1;
 #endif  
-    __asm__("mfc0 $v0,$13");
-    __asm__("srl $v0,$v0,2");
-    __asm__("andi $v0,$v0,0x1f");
-    __asm__("mfc0 $v1,$14");
-    __asm__("la $t0,%0"::""(cause));
-    __asm__("sw $v0,0($t0)");
-    __asm__("la $t0,%0"::""(epc));
-    __asm__("sw $v1,0($t0)");
     HardwareInit();
     UartInit(STDIO,115200,DEFAULT_LINE_CTRL);
     heap_size=free_heap();
@@ -183,6 +174,7 @@ void main(void) {
     DebugPrint("sound test.\r");
 #endif    
     DebugPrint("initialization completed.\r");
+    power_led(PLED_ON);
     tune((unsigned int*)&e3k[0]);
 //    set_cursor(CR_BLOCK); // sauvegare video_buffer dans SRAM
 //    clear_screen();
