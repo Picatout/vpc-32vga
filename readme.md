@@ -38,4 +38,8 @@ La combinaison de touches CTRL-ALT-DEL réinitialise le processeur principal par 
 
 J'ai l'intention d'apporter des modifications majeures à la partie logiciel du projet.
 
+schématique
+-----------
+circuit révisé en date du 2018-01-31
+![schématique](/docs/vpc-32vga_schematic.png)
 
