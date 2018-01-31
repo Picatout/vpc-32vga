@@ -6,12 +6,14 @@
         <group>
             <file>file:/home/jacques/github/vpc-32vga/vpc-32.c</file>
             <file>file:/home/jacques/github/vpc-32vga/hardware/syscall.c</file>
+            <file>file:/home/jacques/github/vpc-32vga/hardware/rtcc/rtcc.c</file>
             <file>file:/home/jacques/github/vpc-32vga/hardware/HardwareProfile.h</file>
             <file>file:/home/jacques/github/vpc-32vga/hardware/HardwareProfile.c</file>
             <file>file:/home/jacques/github/vpc-32vga/hardware/exception.c</file>
             <file>file:/home/jacques/github/vpc-32vga/notes.txt</file>
             <file>file:/home/jacques/github/vpc-32vga/console.h</file>
             <file>file:/home/jacques/github/vpc-32vga/shell.c</file>
+            <file>file:/home/jacques/github/vpc-32vga/hardware/rtcc/rtcc.h</file>
             <file>file:/home/jacques/github/vpc-32vga/hardware/syscall.h</file>
         </group>
     </open-files>

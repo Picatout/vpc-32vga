@@ -1,3 +1,14 @@
+
+2018-01-31
+----------
+1. Modification schématique. Déplacement des signaux SCL de l'interface I2C sur
+broche RB0 (pin 4) et déplacement cathode power LED sur BP14 (pin 25)
+
+
+2018-01-30
+----------
+1. Travail sur RTCC.c
+
 2018-01-29
 ----------
 1. Modification schématique. Ajout RTCC MCP2940N

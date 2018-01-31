@@ -285,7 +285,7 @@ L C C6
 U 1 1 5974B7C3
 P 3900 3500
 F 0 "C6" H 3925 3600 50  0000 L CNN
-F 1 "100nF" H 3925 3400 50  0000 L CNN
+F 1 "100nF" H 3650 3425 50  0000 L CNN
 F 2 "" H 3938 3350 50  0001 C CNN
 F 3 "" H 3900 3500 50  0001 C CNN
 	1    3900 3500
@@ -550,7 +550,7 @@ HSync
 Text Label 2350 5275 0    39   ~ 0
 VSync
 Text Label 4475 3650 2    39   ~ 0
-PGED
+PGED/SCL
 Text Label 4475 3750 2    39   ~ 0
 PGEC/alarm
 Text Label 6075 4650 0    39   ~ 0
@@ -1694,8 +1694,6 @@ Wire Wire Line
 	2850 2250 2950 2250
 Wire Wire Line
 	7050 1775 7450 1775
-Text Label 6075 3650 0    39   ~ 0
-SCL
 $Comp
 L R R17
 U 1 1 5A6D152D
@@ -1839,7 +1837,7 @@ F 3 "" H 6950 1925 50  0001 C CNN
 	-1   0    0    1   
 $EndComp
 Text Notes 7000 7125 0    60   ~ 0
-révision  2018-01-29, 11:50
+révision  2018-01-31, 11:09\n
 $Comp
 L C C20
 U 1 1 5A6FE4EF
@@ -1881,4 +1879,6 @@ Wire Wire Line
 	8400 2925 8400 2625
 Wire Wire Line
 	8400 2625 8375 2625
+Text Label 6075 3650 0    39   ~ 0
+~power
 $EndSCHEMATC

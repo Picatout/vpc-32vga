@@ -46,6 +46,15 @@ void HardwareInit(){
    // disable all analogs inputs, not used by vpc32-v.
    ANSELBCLR=0xFFFFFFFF;
    ANSELACLR=0xFFFFFFFF;
+   //power LED config
+   PLED_TRISCLR=PLED_PIN; // output mode
+   PLED_ODCSET=PLED_PIN; // open drain
+   PLED_RPR=PLED_FN;  // PPS analog comparator output Cxout
+   // configuration du comparateur analogique
+   // ON=1,OE=1,CPOL=1,CREF=1,CCH=3
+   PLED_CMCON=PLED_CMENBL|PLED_OE|PLED_CPOL|PLED_CREF|PLED_CM_CCH;
+   // configuration CVref ON=1,CVRR=1,CVR=9
+   CVRCON=BIT_15|BIT_5|9;
     // serial port config
    SER_LATSET=TX; // Set TX to high (idle state).
    SER_TRISCLR=TX;  // set serial output pin.
@@ -72,16 +81,15 @@ void HardwareInit(){
    // store interface output pins
    STORE_TRISCLR=STORE_MOSI|STORE_CLK|SRAM_SEL|SDC_SEL;
    PPSLock; // lock PPS to avoid accidental modification.
+   
 }
 
 // contrôle de la LED power
 void power_led(pled_state_t state){
     if (state){
-        PLED_TRISCLR=PLED_PIN;
-        PLED_LATCLR=PLED_PIN;
+        PLED_CMCONSET=PLED_CPOL;
     }else{
-        PLED_LATSET=PLED_PIN;
-        PLED_TRISSET=PLED_PIN;
+        PLED_CMCONCLR=PLED_CPOL;
     }
 }
 

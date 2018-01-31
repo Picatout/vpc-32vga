@@ -5,7 +5,7 @@
  */
 
 #include <stdio.h>
-
+#include "../HardwareProfile.h"
 #include "rtcc.h"
 
 #ifndef RTCC
@@ -137,4 +137,112 @@ BOOL get_time_str(char *time_str){
     }
 }
 
+#define _set_scl_high()  RTCC_SCL_LATSET=RTCC_SCL_PIN
+#define _set_scl_low()   RTCC_SCL_LATCLR=RTCC_SCL_PIN
+#define _set_sda_high()  RTCC_SDA_LATSET=RTCC_SDA_PIN
+#define _set_sda_low()   RTCC_SDA_LATCLR=RTCC_SDA_PIN
+#define _set_sda_as_input() RTCC_SDA_TRISSET=RTCC_SDA_PIN
+#define _set_sda_as_output() RTCC_SDA_TRISCLR=RTCC_SDA_PIN
 
+// envoie un bit sur l'interface I2C
+// condition initiale
+// SDA en mode sortie
+// SCL low
+// SDA x
+void i2c_send_bit(BOOL bit){
+    if (bit){
+        _set_sda_high();
+    }else{
+        _set_sda_low();
+    }
+    delay_us(50);
+    _set_scl_high();
+    delay_us(50);
+    _set_scl_low();
+}
+
+// initialise le bus I2C pour un début de transaction
+// condition initiale
+// SDA high
+// SCL high
+void i2c_start_bit(){
+    _set_sda_low();
+    delay_us(50);
+    _set_scl_low();
+}
+
+// termine la transaction sur le bus I2C
+// condition initiale
+// SDA x
+// SCL low
+void i2c_stop_bit(){
+    _set_sda_low();
+    _set_scl_high();
+    delay_us(1);
+    _set_sda_high();
+    delay_us(1);
+}
+
+// le MCU envoie un ACK bit au MCP7940N
+// condition initiale
+// SCL low
+// SDA x
+void i2c_send_ack_bit(){
+    _set_sda_as_output();
+    _set_sda_low();
+    delay_us(50);
+    _set_scl_high();
+    delay_us(50);
+    _set_scl_low();
+    _set_sda_as_input();
+}
+
+// le MCU vérifie le ACK bit envoyé par le MCP7940N
+// condition initiale
+// SCL low
+// sda x
+BOOL i2c_receive_ack_bit(){
+    BOOL ack;
+    _set_sda_as_input();
+    delay_us(50);
+    _set_scl_high();
+    delay_us(50);
+    ack=RTCC_SDA_PORT&RTCC_SDA_PIN;
+    _set_scl_low();
+    _set_sda_as_output();
+    return ack;
+}
+
+//envoie un octet au MCP7940N
+// condition initiale
+// la condition start est déjà initiée.
+// SCL low
+// SDA x
+BOOL i2c_send_byte(uint8_t byte){
+    int i;
+    
+    for (i=7;i>=0;i--){
+        i2c_send_bit(byte&(1<<i));
+        if (!i2c_receive_ack_bit()){return FALSE;}
+    }
+    return TRUE;
+}
+
+void rtcc_init(){
+    // l'entrée alarme recevant le signal du MCP7940N
+    // la sortie sur le RTCC est open drain
+    // on active le weak pullup sur l'entrée du MCU.
+    RTCC_ALRM_WPUSET=RTCC_ALRM_PIN;
+    // le signal clock de l'interface I2C avec le MCP7940N
+    // on l'initialise en mode sortie open drain 
+    // en haute impédance
+//    RTCC_SCL_ODCSET=RTCC_SCL_PIN;
+    RTCC_SCL_LATSET=RTCC_SCL_PIN;
+    RTCC_SCL_TRISCLR=RTCC_SCL_PIN;
+    // le signal data de l'interface I2C avec le MCP7940N
+    // on l'initialise en mode sortie open drain.
+    // en haute impédance
+    RTCC_SDA_ODCSET=RTCC_SDA_PIN;
+    RTCC_SDA_LATSET=RTCC_SDA_PIN;
+    RTCC_SDA_TRISCLR=RTCC_SDA_PIN;
+}

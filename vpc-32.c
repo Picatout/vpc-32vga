@@ -141,6 +141,7 @@ void main(void) {
     debug=-1;
 #endif  
     HardwareInit();
+    rtcc_init();
     UartInit(STDIO,115200,DEFAULT_LINE_CTRL);
     heap_size=free_heap();
 #if defined _DEBUG_
@@ -174,7 +175,6 @@ void main(void) {
     DebugPrint("sound test.\r");
 #endif    
     DebugPrint("initialization completed.\r");
-    power_led(PLED_ON);
     tune((unsigned int*)&e3k[0]);
 //    set_cursor(CR_BLOCK); // sauvegare video_buffer dans SRAM
 //    clear_screen();
