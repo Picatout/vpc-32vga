@@ -201,12 +201,12 @@ void main(void) {
 //    print_int(comm_channel,heap_size,0);
 //    crlf();
 #endif
-//    uint8_t byte;
-//    while (1){
-//        byte=rtcc_read_byte(7);
-//        print_hex(comm_channel,byte,0);put_char(comm_channel,'\r');
-//        delay_ms(100);
-//    }
+    uint8_t byte;
+    while (1){
+        byte=rtcc_read_byte(0);
+        print_hex(comm_channel,byte,0);put_char(comm_channel,'\r');
+        delay_ms(1000);
+    }
     shell();
 } // main()
 

@@ -7,6 +7,7 @@
 #include <stdio.h>
 #include "../HardwareProfile.h"
 #include "rtcc.h"
+#include "../serial_comm/serial_comm.h"
 
 #ifndef RTCC
 
@@ -182,22 +183,30 @@ void i2c_start_bit(){
     _set_sda_high();
     _set_sda_as_output();
     _set_scl_high();
-    _i2c_delay(5);
+    _i2c_delay(1);
     _set_sda_low();
     _i2c_delay(5);
 }
 
+void i2c_sync(){
+    _set_sda_as_input();
+    while (!(RTCC_SDA_PORT&RTCC_SDA_PIN)){
+        _set_scl_low();
+        i2c_clock();
+    }
+    _set_sda_as_output();
+}
 // termine la transaction sur le bus I2C
 // condition initiale
 // SDA x
 // SCL high
 void i2c_stop_bit(){
+    _set_scl_high();
     _set_sda_low();
     _set_sda_as_output();
-    _set_scl_high();
-    _i2c_delay(1);
     _set_sda_high();
-    _i2c_delay(4);
+    _i2c_delay(5);
+   
 }
 
 // le MCU envoie un ACK bit au MCP7940N
@@ -265,7 +274,7 @@ uint8_t i2c_receive_byte(BOOL ack){
     if (ack){
         i2c_send_bit(0);
     }else{
-        i2c_send_bit(1);
+      //  i2c_send_bit(1);
         i2c_stop_bit();
     }
 //    asm volatile ("ei");
@@ -275,6 +284,7 @@ uint8_t i2c_receive_byte(BOOL ack){
 uint8_t rtcc_read_byte(uint8_t addr){
     uint8_t byte;
     
+//    i2c_sync();
     i2c_start_bit();
     i2c_send_byte(I2C_CTRL_BYTE|RTCC_WRITE);
     i2c_send_byte(addr);
@@ -284,6 +294,7 @@ uint8_t rtcc_read_byte(uint8_t addr){
 }
 
 void rtcc_write_byte(uint8_t addr, uint8_t byte){
+//    i2c_sync();
     i2c_start_bit();
     i2c_send_byte(I2C_CTRL_BYTE|RTCC_WRITE);
     i2c_send_byte(addr);
@@ -307,6 +318,7 @@ void rtcc_init(){
     // on l'initialise en mode sortie open drain.
     // en haute impédance
     RTCC_SDA_ODCSET=RTCC_SDA_PIN;
+    _set_sda_high();
     _set_sda_as_input();
     _i2c_delay(5);
     byte=rtcc_read_byte(RTC_SEC);
