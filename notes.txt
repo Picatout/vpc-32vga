@@ -1,3 +1,9 @@
+2018-02-03
+-----------
+1. Modification schématique ajout filtre sur alimentation du MCP7940N.
+2. Travail sur interface I2C. Interface maintenant fonctionnelle.
+
+
 2018-02-02
 ----------
 1.  Correction erreur schématique.

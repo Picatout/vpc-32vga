@@ -35,7 +35,9 @@ typedef struct date_struct{
     unsigned d:5;
 } sdate_t;
 
+extern BOOL rtcc_error;
 void rtcc_init();
+    
 BOOL leap_year(unsigned short year);
 
 BOOL get_time(stime_t* time);

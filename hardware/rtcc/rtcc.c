@@ -5,6 +5,8 @@
  */
 
 #include <stdio.h>
+#include <setjmp.h>
+
 #include "../HardwareProfile.h"
 #include "rtcc.h"
 #include "../serial_comm/serial_comm.h"
@@ -117,7 +119,6 @@ void update_mcu_dt(){
 #define I2C_CTRL_BYTE (0xDE)
 #define RTCC_READ (1)
 #define RTCC_WRITE (0)
-//#define _nop_nop() asm volatile ("nop\nnop\nnop\nnop\n");
 #define _set_scl_high()  RTCC_SCL_LATSET=RTCC_SCL_PIN
 #define _set_scl_low()   RTCC_SCL_LATCLR=RTCC_SCL_PIN
 #define _set_sda_high()  RTCC_SDA_LATSET=RTCC_SDA_PIN
@@ -125,36 +126,46 @@ void update_mcu_dt(){
 #define _set_sda_as_input() RTCC_SDA_TRISSET=RTCC_SDA_PIN
 #define _set_sda_as_output() RTCC_SDA_TRISCLR=RTCC_SDA_PIN
 
-#define _i2c_delay(usec)  PR1=40*usec;IFS0bits.T1IF=0;\
-                             T1CONbits.ON=1;\
-                             while (!IFS0bits.T1IF);
+//#define _i2c_delay(usec)  PR1=40*usec;IFS0bits.T1IF=0;\
+//                             T1CONbits.ON=1;\
+//                             while (!IFS0bits.T1IF);
+
+#define _usec_delay(x)   asm volatile (".set noreorder\n");\
+                         asm volatile ("addiu $t0,$zero,%0"::"I"(x*20));\
+                         asm volatile ("1: bne $t0,$zero,1b\naddiu $t0,$t0,-1\n");\
+                         asm volatile (".set reorder\n");
+//                         asm volatile ("1: addiu $t0,$t0,-1");\
+//                         asm volatile ("bne $t0,$zero,1b");
+
+BOOL rtcc_error;
+static jmp_buf  env;
 
 // envoie 1 clock pulse I2C
 // condition initiale
 // SCL low
 // SDA x
 // sortie:
-// SCL high
+// SCL low
 // SDA x
 void i2c_clock(){
-    _i2c_delay(5);
     _set_scl_high();
-    _i2c_delay(5);
+    _usec_delay(5);
+    _set_scl_low();
+    _usec_delay(5);
 }
 
 // réception d'un bit
 // condition initiale
-// SCL high
+// SCL low
 // SDA x en input mode
 uint8_t i2c_receive_bit(){
      uint8_t bit;
     
-    _set_scl_low();
-    i2c_clock();
-    _set_sda_as_input();
+    _set_scl_high();
+    _usec_delay(5);
     bit=(RTCC_SDA_PORT&RTCC_SDA_PIN)>>RTCC_SDA_SHIFT;
-    _set_sda_high();
-    _set_sda_as_output();
+    _set_scl_low();
+    _usec_delay(5);
     return bit;
 }
 
@@ -164,8 +175,6 @@ uint8_t i2c_receive_bit(){
 // SCL high
 // SDA x
 void i2c_send_bit(BOOL bit){
-    _set_scl_low();
-//    _nop_nop();
     if (bit){
         _set_sda_high();
     }else{
@@ -183,19 +192,22 @@ void i2c_start_bit(){
     _set_sda_high();
     _set_sda_as_output();
     _set_scl_high();
-    _i2c_delay(1);
+    _usec_delay(1);
     _set_sda_low();
-    _i2c_delay(5);
+    _usec_delay(4);
+    _set_scl_low();
+    _usec_delay(5);
 }
 
-void i2c_sync(){
-    _set_sda_as_input();
-    while (!(RTCC_SDA_PORT&RTCC_SDA_PIN)){
-        _set_scl_low();
-        i2c_clock();
-    }
-    _set_sda_as_output();
-}
+//void i2c_sync(){
+//    _set_sda_as_input();
+//    while (!(RTCC_SDA_PORT&RTCC_SDA_PIN)){
+//        _set_scl_low();
+//        i2c_clock();
+//    }
+//    _set_sda_as_output();
+//}
+
 // termine la transaction sur le bus I2C
 // condition initiale
 // SDA x
@@ -205,8 +217,7 @@ void i2c_stop_bit(){
     _set_sda_low();
     _set_sda_as_output();
     _set_sda_high();
-    _i2c_delay(5);
-   
+    _usec_delay(5);
 }
 
 // le MCU envoie un ACK bit au MCP7940N
@@ -214,13 +225,10 @@ void i2c_stop_bit(){
 // SCL high
 // SDA x
 void i2c_send_ack_bit(){
-    _set_scl_low();
-//    _nop_nop();
     _set_sda_low();
     _set_sda_as_output();
     i2c_clock();
     _set_sda_as_input();
-    _set_scl_low();
 }
 
 // retourne le ACK bit envoyé par le MCP7940N
@@ -231,12 +239,13 @@ void i2c_send_ack_bit(){
 BOOL i2c_receive_ack_bit(){
     BOOL ack;
 
-    _set_scl_low();
     _set_sda_as_input();
-    i2c_clock();
-    ack=((RTCC_SDA_PORT&RTCC_SDA_PIN)>>RTCC_SDA_SHIFT);
+    ack=(BOOL)i2c_receive_bit();
     _set_sda_high();
     _set_sda_as_output();
+    if (ack){
+        longjmp(env,1);
+    }
     return ack;
 }
 
@@ -245,19 +254,16 @@ BOOL i2c_receive_ack_bit(){
 // la condition start est déjà initiée.
 // SCL high
 // SDA x
-BOOL i2c_send_byte(uint8_t byte){
+void i2c_send_byte(uint8_t byte){
     uint8_t i;
     BOOL ack;
-//    asm volatile ("di");
     for (i=128;i;i>>=1){
         i2c_send_bit(byte&i);
     }
     ack=i2c_receive_ack_bit();
-//    asm volatile ("ei");
-    return ack;
 }
 
-//reçoie un octet au MCP7940N
+//reçoie un octet du MCP7940N
 // condition initiale
 // le préambule est déjà initiée.
 // SCL high
@@ -265,7 +271,6 @@ BOOL i2c_send_byte(uint8_t byte){
 uint8_t i2c_receive_byte(BOOL ack){
     uint8_t i, byte=0;
     
-//    asm volatile ("di");
     _set_sda_as_input();
     for (i=0;i<8;i++){
         byte<<=1;
@@ -274,32 +279,43 @@ uint8_t i2c_receive_byte(BOOL ack){
     if (ack){
         i2c_send_bit(0);
     }else{
-      //  i2c_send_bit(1);
         i2c_stop_bit();
     }
-//    asm volatile ("ei");
+    _set_sda_high();
+    _set_sda_as_output();
     return byte;
 }
 
 uint8_t rtcc_read_byte(uint8_t addr){
     uint8_t byte;
     
-//    i2c_sync();
-    i2c_start_bit();
-    i2c_send_byte(I2C_CTRL_BYTE|RTCC_WRITE);
-    i2c_send_byte(addr);
-    i2c_start_bit();
-    i2c_send_byte(I2C_CTRL_BYTE|RTCC_READ);
-    byte=i2c_receive_byte(FALSE);
+    rtcc_error=FALSE;
+    if (!setjmp(env)){
+        i2c_start_bit();
+        i2c_send_byte(I2C_CTRL_BYTE|RTCC_WRITE);
+        i2c_send_byte(addr);
+        i2c_start_bit();
+        i2c_send_byte(I2C_CTRL_BYTE|RTCC_READ);
+        byte=i2c_receive_byte(FALSE);
+    }else{
+        i2c_stop_bit();
+        rtcc_error=TRUE;
+    }
 }
 
 void rtcc_write_byte(uint8_t addr, uint8_t byte){
-//    i2c_sync();
-    i2c_start_bit();
-    i2c_send_byte(I2C_CTRL_BYTE|RTCC_WRITE);
-    i2c_send_byte(addr);
-    i2c_send_byte(byte);
-    i2c_stop_bit();
+    rtcc_error=FALSE;
+    if (!setjmp(env)){
+        i2c_start_bit();
+        i2c_send_byte(I2C_CTRL_BYTE|RTCC_WRITE);
+        i2c_send_byte(addr);
+        i2c_send_byte(byte);
+        i2c_stop_bit();
+    }else{
+        i2c_clock();
+        i2c_stop_bit();
+        rtcc_error=TRUE;
+    }
 };
 
 void rtcc_init(){
@@ -319,11 +335,16 @@ void rtcc_init(){
     // en haute impédance
     RTCC_SDA_ODCSET=RTCC_SDA_PIN;
     _set_sda_high();
-    _set_sda_as_input();
-    _i2c_delay(5);
-    byte=rtcc_read_byte(RTC_SEC);
-    if (!(byte&128)){
-        rtcc_write_byte(RTC_SEC,128);
+    _set_sda_as_output();
+    _usec_delay(5);
+    byte=rtcc_read_byte(RTC_WKDAY);
+    if (!rtcc_error){
+        if (!(byte&(1<<5))){ // oscillateur inactif
+            rtcc_write_byte(RTC_SEC,128); //activation oscillateur
+        }
+        if (!(byte&(1<<3))){// support pile désactivé.
+            rtcc_write_byte(RTC_WKDAY,(1<<3)); // activation support pile.
+        }
     }
 }
 #endif

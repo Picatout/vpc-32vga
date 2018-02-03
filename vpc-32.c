@@ -202,9 +202,14 @@ void main(void) {
 //    crlf();
 #endif
     uint8_t byte;
+    if (rtcc_error) print(comm_channel,"rtcc init error\n");
     while (1){
         byte=rtcc_read_byte(0);
-        print_hex(comm_channel,byte,0);put_char(comm_channel,'\r');
+        if (!rtcc_error){
+            print_hex(comm_channel,byte&0x7f,0);put_char(comm_channel,'\r');
+        }else{
+            print(comm_channel,"rtcc_error\n");
+        }
         delay_ms(1000);
     }
     shell();
