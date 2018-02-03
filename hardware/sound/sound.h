@@ -32,9 +32,9 @@ extern "C" {
 #endif
 
 // flags in fSound variable
-#define TONE_ON  1  // tone active
-#define PLAY_TUNE 2 // play tune active
-
+#define TONE_ON  (1)  // tone active
+#define PLAY_TUNE (2) // play tune active
+    
 #define mTone_off() (OC3CONbits.ON=0)
 #define mTone_on()  (OC3CONbits.ON=1)
 
@@ -45,8 +45,6 @@ extern volatile unsigned int duration; // sound duration
 void tone(unsigned int freq, unsigned int duration);
 // play a sequence of tones.
 void tune(const unsigned int *buffer);
-
-
 
 #ifdef	__cplusplus
 }

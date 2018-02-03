@@ -58,30 +58,27 @@ void HardwareInit(){
     // serial port config
    SER_LATSET=TX; // Set TX to high (idle state).
    SER_TRISCLR=TX;  // set serial output pin.
+   //keyboard
+   I2C1CONbits.DISSLW=1; // see pic32mx1xxx/2xxx-errata.pdf rev. E, point 9
    // Peripheral Pin Select
    // see pps.h
    PPSUnLock;  // unlock PPS to enable configuration
-   //keyboard
-   I2C1CONbits.DISSLW=1; // see pic32mx1xxx/2xxx-errata.pdf rev. E, point 9
-   PPSInput(1,INT4,RPA0); // keyboard clock input use INT4
-   RPA1R=0; // no peripheral on RA1 (keyboard data) 
    PPSOutput(4, RPB10, U2TX);  // U2TX on PB10
    PPSInput (2, U2RX, RPB11);  // U2RX on PB11
    PPSOutput(2,RPB5,OC2); // OC2  on PB5, VGA HSync signal.
-   OUT_PIN_PPS3_RPB13=OUT_FN_PPS3_OC4; // video SPI1 frame sync pulse ouput.
+   PPSOutput(3,RPB13,OC4); // video SPI1 frame sync pulse ouput.
+   PPSOutput(3,RPB6,SDO1); // SDO1 VGA video output on RB6
+   PPSInput(1,SS1,RPB7); // SPI1 SS1 input on RPB7
+   PPSInput(3,SDI2,RPA4); // SD card and SPI RAM SDI (MISO) on RA4
+   PPSOutput(2,RPB8,SDO2); // SD card and SPI RAM SDO  (MOSI) on RB8
+   PPSOutput(4,RPB9,OC3); //  OC3 audio output on PB9
+   PPSLock; // lock PPS to avoid accidental modification.
    // all these pins are VGA output pins
    VGA_TRISCLR=(SPI_TRIG_OUT|VSYNC_OUT|HSYNC_OUT|VIDEO_OUT);
    VGA_LATCLR=VIDEO_OUT;
-   PPSOutput(3,RPB13,OC4);  // OC4 generate frame signal for SPI1 (video) on RB13
-   PPSOutput(3,RPB6,SDO1); // SDO1 VGA video output on RB6
-   PPSOutput(4,RPB9,OC3); // OC3 audio output on RB9.
-   PPSInput(1,SS1,RPB7); // SPI1 SS1 input on RPB7
-   PPSInput(3,SDI2,RPA4); // SD card and SPI RAM SDI (MISO) on RA4
-   PPSOutput(2,RPB8,SDO2); // SD card and SPIRAM SDO  (MOSI) on RB8
    // store interface output pins
-   STORE_TRISCLR=STORE_MOSI|STORE_CLK|SRAM_SEL|SDC_SEL;
-   PPSLock; // lock PPS to avoid accidental modification.
-   
+   STORE_TRISCLR=STORE_MOSI|STORE_CLK|SDC_SEL;
+   SRAM_TRISCLR=SRAM_SEL;
 }
 
 // contrôle de la LED power
@@ -105,7 +102,12 @@ inline unsigned int ticks(void){
 // pause execution for duration in microsecond.
 // idle loop.
 inline void delay_us(unsigned int usec){
-    for (usec=usec*(CLK_PER_USEC/3);usec;usec--);
+    T1CON=0;
+    IFS0bits.T1IF=0;
+    PR1=40*usec;
+    T1CONbits.ON=1;
+    while (!IFS0bits.T1IF);
+    T1CONbits.ON=0;
 }//delay_us()
 
 // pause execution for duration in millisecond.
@@ -180,7 +182,7 @@ void __ISR(_CORE_TIMER_VECTOR, IPL1SOFT) CoreTimerHandler(void){
 //     __asm__("addiu $sp,$sp,4");
      mCTClearIntFlag();
      if ((fSound & TONE_ON) && !(--duration)){
-         fSound &= ~TONE_ON;
+         fSound&=~TONE_ON;
          mTone_off();
      }
      int i;

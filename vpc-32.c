@@ -41,6 +41,7 @@
 #include "vpcBASIC/vpcBASIC.h"
 #include "hardware/sound/sound.h"
 #include "hardware/syscall.h"
+#include "hardware/rtcc/rtcc.h"
 
 // PIC32MX150F128B Configuration Bit Settings
 #include <xc.h>
@@ -141,7 +142,9 @@ void main(void) {
     debug=-1;
 #endif  
     HardwareInit();
+#ifdef RTCC
     rtcc_init();
+#endif
     UartInit(STDIO,115200,DEFAULT_LINE_CTRL);
     heap_size=free_heap();
 #if defined _DEBUG_
@@ -198,6 +201,12 @@ void main(void) {
 //    print_int(comm_channel,heap_size,0);
 //    crlf();
 #endif
+//    uint8_t byte;
+//    while (1){
+//        byte=rtcc_read_byte(7);
+//        print_hex(comm_channel,byte,0);put_char(comm_channel,'\r');
+//        delay_ms(100);
+//    }
     shell();
 } // main()
 

@@ -17,7 +17,7 @@ extern "C" {
 
 #include "../HardwareProfile.h"
  
-//#define RTCC
+#define RTCC
 
 // deux premier chiffres du millénaire    
 #define MILL_TENS  (2)
@@ -44,7 +44,7 @@ BOOL get_date(sdate_t* date);
 BOOL set_date(sdate_t date);
 BOOL get_date_str(char *date);
 BOOL get_time_str(char *time);
-
+uint8_t rtcc_read_byte(uint8_t addr);
 
 #ifndef RTCC
 void update_mcu_dt();

@@ -23,10 +23,10 @@
  * rev: 2017-07-31
  */
 
+
 #include <plib.h>
 #include "../HardwareProfile.h"
 #include "sound.h"
-
 
 
 volatile unsigned char fSound=0; // flags
@@ -34,26 +34,26 @@ volatile unsigned int duration;
 volatile unsigned int *tones_list;
 
 
-
 void tone(unsigned int freq, // frequency hertz
           unsigned int msec){ // duration  milliseconds
-    //config OC3 for tone generation
-    OC3CONbits.OCM = 5; // PWM mode
-    OC3CONbits.OCTSEL=1; // use TIMER3
-    OC3RS=0;
-    T3CON=0;
-    T3CONbits.TCKPS=3;
-    PR3=(SYSCLK/8/freq)-1; // 50% duty cycle
-    OC3R=SYSCLK/16/freq;
-    duration=msec;
-    fSound |=TONE_ON;
-    mTone_on();
-    T3CONbits.ON=1;
+        //config OC3 for tone generation
+        OC3CONbits.OCM = 5; // PWM mode
+        OC3CONbits.OCTSEL=1; // use TIMER3
+        OC3RS=0;
+        T3CON=0;
+        T3CONbits.TCKPS=3;
+        PR3=(SYSCLK/8/freq)-1; // 50% duty cycle
+        OC3R=SYSCLK/16/freq;
+        duration=msec;
+        fSound |=TONE_ON;
+        mTone_on();
+        T3CONbits.ON=1;
+
 } //tone();
 
 // play a sequence of tones
 void tune(const unsigned int *buffer){
-    tones_list=(unsigned *)buffer;
+    tones_list=(unsigned int *)buffer;
     if (*tones_list && *(tones_list+1)){
         fSound |= PLAY_TUNE;
         IPC3bits.T3IP=2;
@@ -81,7 +81,7 @@ void __ISR(_TIMER_3_VECTOR, IPL2SOFT)  T3Handler(void){
                     fSound |= TONE_ON;
                 }
             }else{
-               fSound=0;
+               fSound&=~PLAY_TUNE;
                IEC0bits.T3IE=0;
                T3CONbits.ON=0;
            } // if 

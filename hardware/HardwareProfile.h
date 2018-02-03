@@ -163,6 +163,12 @@
 #define RTCC_SDA_ODCSET ODCASET
 #define RTCC_SDA_ODCINV ODCAINV
 #define RTCC_SDA_PIN BIT_1
+#define RTCC_SDA_SHIFT (1)
+// output compare 3 utilisé pour générer signal SCL
+#define RTCC_SCL_TMR  TIMER3
+#define RTCC_SCL_FN   (5)
+#define RTCC_SCL_RPR  RPB0R
+
 
 // power LED
 #define PLED_RPR RPB14R

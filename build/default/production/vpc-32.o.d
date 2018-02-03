@@ -20,4 +20,6 @@ font.h  \
 vpcBASIC/vm.h  \
 vpcBASIC/vpcBASIC.h  \
  hardware/sound/sound.h  \
-hardware/syscall.h 
+hardware/syscall.h  \
+hardware/rtcc/rtcc.h  \
+ hardware/rtcc/../HardwareProfile.h 

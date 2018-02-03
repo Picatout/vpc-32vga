@@ -1,9 +1,17 @@
+2018-02-02
+----------
+1.  Correction erreur schématique.
+2.  Travail sur rtcc.c interface I2C
+
+2018-02-01
+----------
+1. travail sur rtcc.c, interface I2C
 
 2018-01-31
 ----------
 1. Modification schématique. Déplacement des signaux SCL de l'interface I2C sur
 broche RB0 (pin 4) et déplacement cathode power LED sur BP14 (pin 25)
-
+2. travail sur interface i2c pour rtcc.
 
 2018-01-30
 ----------
