@@ -41,7 +41,7 @@ void HardwareInit(){
     // MCU core timer configuration
 #ifdef USE_CORE_TIMER
    OpenCoreTimer(CORE_TICK_RATE); // 1 msec interrupt rate.
-   mConfigIntCoreTimer((CT_INT_ON | CT_INT_PRIOR_1 | CT_INT_SUB_PRIOR_0));
+   mConfigIntCoreTimer((CT_INT_ON | CT_INT_PRIOR_2 | CT_INT_SUB_PRIOR_2));
 #endif
    // disable all analogs inputs, not used by vpc32-v.
    ANSELBCLR=0xFFFFFFFF;
@@ -171,7 +171,7 @@ extern void update_mcu_dt();
 //MCU core timer interrupt
 // period 1msec
 // also control TONE timer
-void __ISR(_CORE_TIMER_VECTOR, IPL1SOFT) CoreTimerHandler(void){
+void __ISR(_CORE_TIMER_VECTOR, IPL2SOFT) CoreTimerHandler(void){
      sys_ticks++;
 //     __asm__("addiu $sp,$sp,-4");
 //     __asm__("sw $v0,0($sp)");

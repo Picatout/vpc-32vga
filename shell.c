@@ -110,13 +110,13 @@ typedef struct{
 static input_buff_t cmd_line;
 static char *cmd_tokens[MAX_TOKEN];
 
-typedef enum CMDS {CMD_CD, CMD_CLEAR,CMD_CPY,CMD_DATE,CMD_DEL,CMD_DIR,CMD_ED,CMD_EXPR,
+typedef enum CMDS {CMD_ALARM,CMD_CD, CMD_CLEAR,CMD_CPY,CMD_DATE,CMD_DEL,CMD_DIR,CMD_ED,CMD_EXPR,
                    CMD_FREE,CMD_FORMAT,CMD_FORTH,CMD_HDUMP,CMD_HELP,CMD_MKDIR,CMD_MOUNT,CMD_MORE,
                    CMD_PUTS,CMD_REBOOT,CMD_RCV,CMD_REN,CMD_SND,CMD_TIME,CMD_UMOUNT,CMD_UPTIME
                    } cmds_t;
 
-#define CMD_LEN 24
-const char *commands[CMD_LEN]={"cd","cls","copy","date","del","dir","edit",
+#define CMD_LEN 25
+const char *commands[CMD_LEN]={"alarm","cd","cls","copy","date","del","dir","edit",
     "expr","free","format","forth","hdump","help","mkdir","mount","more","puts","reboot","receive",
     "ren","send","time","umount","uptime"};
 
@@ -628,73 +628,136 @@ void cmd_free(int i){
     print(comm_channel,fmt);
 }
 
-void cmd_date(int i){
-    char fmt[20];
+void parse_time(char *time_str,stime_t *time){
     char *str;
-    sdate_t sdate;
-    unsigned y=0,m=0,d=0;
-    if (i>1){
-        y=atoi(cmd_tokens[1]);
-        y+=2000;
-        str=strchr(cmd_tokens[1],'/');
+    unsigned short hr,min=0,sec=0;
+    
+    hr=atoi(time_str);
+    str=strchr(time_str,':');
+    if (str){
+        min=atoi(++str);
+        str=strchr(str,':');
+        if (str) sec=atoi(++str);
+    }
+    time->hour=hr;
+    time->min=min;
+    time->sec=sec;
+}
+
+void parse_date(char *date_str,sdate_t *date){
+    unsigned y,m=1,d=1;    
+    char *str;
+
+    y=atoi(date_str);
+    y+=y<100?2000:0;
+    str=strchr(date_str,'/');
+    if (str){
+        m=atoi(++str);
+        str=strchr(str,'/');
         if (str){
-            m=atoi(++str);
-            str=strchr(str,'/');
-            if (str){
-                d=atoi(++str);
-            }else{
-                d=1;
-            }
+            d=atoi(++str);
         }else{
-            m=1;
+            d=1;
         }
-        sdate.d=d;
-        sdate.m=m;
-        sdate.y=y;
-        set_date(sdate);
-    }else if (get_date(&sdate)){
-        sprintf(fmt,"%4d/%02d/%02d\n",sdate.y,sdate.m,sdate.d);
+    }else{
+        m=1;
+    }
+    date->day=d;
+    date->month=m;
+    date->year=y;
+    date->wkday=day_of_week(date);
+}
+
+// affiche ou saisie de la date
+// format saisie: [yy]yy/mm/dd
+void cmd_date(int i){
+    char fmt[32];
+    sdate_t date;
+    
+    if (i>1){
+        parse_date(cmd_tokens[1],&date);
+        set_date(date);
+        if (rtcc_error) DebugPrint("set-date() error\r");
+    }else{
+        get_date_str(fmt);
         print(comm_channel,fmt);
     }
 }
 
+// affiche la date et l'heure
 void display_date_time(){
-    char fmt[16];
-    if (!get_date_str(fmt)){
-        strcpy(fmt,"2000/01/01");
-    }
+    char fmt[32];
+    get_date_str(fmt);
     print(comm_channel,fmt);
-    put_char(comm_channel,' ');
-    if (!get_time_str(fmt)){
-        strcpy(fmt,"00:00:00");
-    }
+    get_time_str(fmt);
     print(comm_channel,fmt);
 }
 
-
+// affiche ou saisie de  l'heure
+// format saisie:  hh:mm:ss
 void cmd_time(int i){
     char fmt[16];
     stime_t t;
-    char *str;
-    unsigned short hr,min,sec;
-    
-    hr=0;min=0;sec=0;
-    if ((i>1)&& cmd_tokens[1]){
-        hr=atoi(cmd_tokens[1]);
-        str=strchr(cmd_tokens[1],':');
-        if (str){
-            min=atoi(++str);
-            str=strchr(str,':');
-            if (str) sec=atoi(++str);
-        }
-        t.h=hr;
-        t.m=min;
-        t.s=sec;
+    if (i>1){
+        parse_time(cmd_tokens[1],&t);
         set_time(t);
-    }else if (get_time(&t)){
-        sprintf(fmt,"%02d:%02d:%02d",t.h,t.m,t.s);
+        if (rtcc_error) DebugPrint("error set_time\r");
+    }else {
+        get_time_str(fmt);
         print(comm_channel,fmt);
     }
+}
+
+void report_alarms_state(){
+    char fmt[80];
+    int i;
+    
+    alm_state_t state[2];
+    get_alarms(state);
+    for (i=0;i<2;i++){
+        if (state[i].enabled){
+            sprintf(fmt,"alarm %d set to %02d/%02d %02d:%02d:%02d  %s\n",i,state[i].month,
+                    state[i].date,state[i].hour,state[i].min,state[i].sec,
+                    (char*)state[i].msg);
+            print(comm_channel,fmt);
+        }else{
+            sprintf(fmt,"alarm %d inactive\n",i);
+            print(comm_channel,fmt);
+        }
+    }
+    
+}
+
+void cmd_alarm(int i){
+    sdate_t date;
+    stime_t time;
+    char msg[32];
+    
+    switch (i){
+        case 5:
+            if (!strcmp(cmd_tokens[1],"-s")){
+                parse_date(cmd_tokens[2],&date);
+                parse_time(cmd_tokens[3],&time);
+                strcpy(msg,cmd_tokens[4]); print(STDIO,msg);
+                msg[31]=0;
+                if (!set_alarm(date,time,(uint8_t*)msg)){
+                    print(comm_channel, "Failed to set alarm, none free.\n");
+                }
+                break;
+            }
+        case 2:
+            if (!strcmp(cmd_tokens[1],"-d")){
+                report_alarms_state();
+                break;
+            }
+        case 3:
+            if (!strcmp(cmd_tokens[1],"-c")){
+                cancel_alarm(atoi(cmd_tokens[2]));
+                break;
+            }
+        default:
+            print(comm_channel,"USAGE: alarm []|[-c 0|1]|[-d ]|[-s date time \"message\"]\n");
+    }//switch
 }
 
 void execute_cmd(int i){
@@ -776,6 +839,9 @@ void execute_cmd(int i){
             case CMD_UPTIME:
                 cmd_uptime();
                 break;
+            case CMD_ALARM:
+                cmd_alarm(i);
+                break;
             default:
                 print(comm_channel,"unknown command!\r");
     }
@@ -812,10 +878,12 @@ int tokenize(){ // découpe la ligne d'entrée en mots
 
 void shell(void){
     int i;
+    char fmt[32];
     
     print(comm_channel,"VPC-32 shell\rfree RAM (bytes): ");
     print_int(comm_channel,free_heap(),0);
     crlf();
+    display_date_time();
     free_tokens();
 #ifndef RTCC
     sdate_t date;

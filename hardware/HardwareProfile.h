@@ -128,12 +128,14 @@
 
 // RTCC
 // entrée alarme RTCCC
+// utilise interruption externe INT3
 #define RTCC_ALRM_PORT  PORTB
 #define RTCC_ALRM_WPU CNPUB
 #define RTCC_ALRM_WPUCLR CNPUBCLR
 #define RTCC_ALRM_WPUSET CNPUBSET
 #define RTCC_ALRM_WPUINV CNPUBINV
 #define RTCC_ALRM_PIN BIT_1
+
 // signal clock interface i2c du RTCC
 #define RTCC_SCL_LAT LATB
 #define RTCC_SCL_LATCLR LATBCLR
@@ -164,10 +166,6 @@
 #define RTCC_SDA_ODCINV ODCAINV
 #define RTCC_SDA_PIN BIT_1
 #define RTCC_SDA_SHIFT (1)
-// output compare 3 utilisé pour générer signal SCL
-#define RTCC_SCL_TMR  TIMER3
-#define RTCC_SCL_FN   (5)
-#define RTCC_SCL_RPR  RPB0R
 
 
 // power LED

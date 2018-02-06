@@ -26,6 +26,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <plib.h>
 #include "graphics.h"
 
@@ -201,17 +202,6 @@ void main(void) {
 //    print_int(comm_channel,heap_size,0);
 //    crlf();
 #endif
-    uint8_t byte;
-    if (rtcc_error) print(comm_channel,"rtcc init error\n");
-    while (1){
-        byte=rtcc_read_byte(0);
-        if (!rtcc_error){
-            print_hex(comm_channel,byte&0x7f,0);put_char(comm_channel,'\r');
-        }else{
-            print(comm_channel,"rtcc_error\n");
-        }
-        delay_ms(1000);
-    }
     shell();
 } // main()
 

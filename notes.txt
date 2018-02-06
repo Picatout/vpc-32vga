@@ -1,3 +1,16 @@
+2018-02-06
+----------
+1. Travail sur rtc.c fonctions d'alarmes.
+2. ajout commande alarme dans shell.c
+
+2018-02-05
+----------
+1. Travail sur rtcc.c, correction erreur interface I2C.
+
+2018-02-04
+----------
+1. Travail dans rtcc.c
+
 2018-02-03
 -----------
 1. Modification schématique ajout filtre sur alimentation du MCP7940N.

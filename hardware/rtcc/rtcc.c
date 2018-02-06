@@ -5,11 +5,17 @@
  */
 
 #include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 #include <setjmp.h>
+#include <plib.h>
 
 #include "../HardwareProfile.h"
 #include "rtcc.h"
 #include "../serial_comm/serial_comm.h"
+#include "../../console.h"
+#include "../tvout/vga.h"
+
 
 #ifndef RTCC
 
@@ -18,40 +24,44 @@ static volatile sdate_t  mcu_date;
 
 
 static void mcu_set_time(stime_t time){
-    mcu_time.h=time.h;
-    mcu_time.m=time.m;
-    mcu_time.s=time.s;
+    mcu_time.hour=time.hour;
+    mcu_time.min=time.min;
+    mcu_time.sec=time.sec;
 }
 
 static void mcu_get_time(stime_t *t){
-    t->h=mcu_time.h;
-    t->m=mcu_time.m;
-    t->s=mcu_time.s;
+    t->hour=mcu_time.hour;
+    t->min=mcu_time.min;
+    t->sec=mcu_time.sec;
 }
 
 static void mcu_set_date(sdate_t date){
-    mcu_date.y=date.y;
-    mcu_date.m=date.m;
-    mcu_date.d=date.d;
+    mcu_date.year=date.year;
+    mcu_date.month=date.month;
+    mcu_date.day=date.day;
+    mcu_date.wkday=date.wkday;
 }
 
 static void mcu_get_date(sdate_t *d){
-    d->y=mcu_date.y;
-    d->m=mcu_date.m;
-    d->d=mcu_date.d;
+    d->year=mcu_date.year;
+    d->month=mcu_date.month;
+    d->day=mcu_date.day;
+    d->wkday=mcu_date.wkday;
 }
 
 static const unsigned day_in_month[12]={31,28,31,30,31,30,31,31,30,31,30,31};
 
 static void next_day(){
-    mcu_date.d++;
-    if (mcu_date.d>day_in_month[mcu_date.m-1]){
-        if(mcu_date.m==2){
-            if (!leap_year(mcu_date.y)|| (mcu_date.d==30)){mcu_date.m++;}
-            mcu_date.d=1;
+    mcu_date.day++;
+    mcu_date.wkday++;
+    if (mcu_date.wkday==8) {mcu_date.wkday=1;}
+    if (mcu_date.day>day_in_month[mcu_date.m-1]){
+        if(mcu_date.month==2){
+            if (!leap_year(mcu_date.year)|| (mcu_date.day==30)){mcu_date.month++;}
+            mcu_date.day=1;
         }else{
-            mcu_date.m++;
-            mcu_date.d=1;
+            mcu_date.month++;
+            mcu_date.day=1;
         }
         if (mcu_date.m>12){
             mcu_date.y++;
@@ -88,7 +98,7 @@ void update_mcu_dt(){
 #define RTC_MIN (1)
 #define RTC_HOUR (2)
 #define RTC_WKDAY (3)
-#define RTC_DATE (4)
+#define RTC_DAY (4)
 #define RTC_MTH (5)
 #define RTC_YEAR (6)
 #define RTC_CONTROL (7)
@@ -97,13 +107,13 @@ void update_mcu_dt(){
 #define RTC_ALM0MIN (0xb)
 #define RTC_ALM0HR (0xc)
 #define RTC_ALM0WKDAY (0xd)
-#define RTC_ALM0DATE (0xe)
+#define RTC_ALM0DAY (0xe)
 #define RTC_ALM0MTH (0xf)
 #define RTC_ALM1SEC (0x11)
 #define RTC_ALM1MIN (0x12)
 #define RTC_ALM1HR (0x13)
 #define RTC_ALM1WKDAY (0x14)
-#define RTC_ALM1DATE (0x15)
+#define RTC_ALM1DAY (0x15)
 #define RTC_ALM1MTH (0x16)
 #define RTC_PWRDNMIN (0x18)
 #define RTC_PWRDNHR (0x19)
@@ -124,7 +134,10 @@ void update_mcu_dt(){
 #define _set_sda_high()  RTCC_SDA_LATSET=RTCC_SDA_PIN
 #define _set_sda_low()   RTCC_SDA_LATCLR=RTCC_SDA_PIN
 #define _set_sda_as_input() RTCC_SDA_TRISSET=RTCC_SDA_PIN
-#define _set_sda_as_output() RTCC_SDA_TRISCLR=RTCC_SDA_PIN
+#define _set_sda_as_output() RTCC_SDA_LATSET=RTCC_SDA_PIN;\
+                             RTCC_SDA_TRISCLR=RTCC_SDA_PIN
+
+#define I2C_CLK_PER (3)
 
 //#define _i2c_delay(usec)  PR1=40*usec;IFS0bits.T1IF=0;\
 //                             T1CONbits.ON=1;\
@@ -147,25 +160,29 @@ static jmp_buf  env;
 // sortie:
 // SCL low
 // SDA x
-void i2c_clock(){
+static void i2c_clock(){
+    asm volatile ("nop\n nop\n nop\n nop");
+    asm volatile ("nop\n nop\n nop\n nop");
     _set_scl_high();
-    _usec_delay(5);
+    _usec_delay(I2C_CLK_PER);
     _set_scl_low();
-    _usec_delay(5);
+    _usec_delay(I2C_CLK_PER);
 }
 
 // réception d'un bit
 // condition initiale
 // SCL low
 // SDA x en input mode
-uint8_t i2c_receive_bit(){
+static uint8_t i2c_receive_bit(){
      uint8_t bit;
-    
+     
+    _set_sda_as_input();
     _set_scl_high();
-    _usec_delay(5);
+    _usec_delay(I2C_CLK_PER);
     bit=(RTCC_SDA_PORT&RTCC_SDA_PIN)>>RTCC_SDA_SHIFT;
     _set_scl_low();
-    _usec_delay(5);
+    _usec_delay(I2C_CLK_PER);
+    _set_sda_as_output();
     return bit;
 }
 
@@ -174,7 +191,7 @@ uint8_t i2c_receive_bit(){
 // SDA en mode sortie
 // SCL high
 // SDA x
-void i2c_send_bit(BOOL bit){
+static void i2c_send_bit(BOOL bit){
     if (bit){
         _set_sda_high();
     }else{
@@ -188,47 +205,36 @@ void i2c_send_bit(BOOL bit){
 // condition initiale
 // SDA high
 // SCL high
-void i2c_start_bit(){
+static void i2c_start_bit(){
     _set_sda_high();
     _set_sda_as_output();
     _set_scl_high();
     _usec_delay(1);
     _set_sda_low();
-    _usec_delay(4);
+    _usec_delay(I2C_CLK_PER);
     _set_scl_low();
-    _usec_delay(5);
+    _usec_delay(I2C_CLK_PER);
 }
-
-//void i2c_sync(){
-//    _set_sda_as_input();
-//    while (!(RTCC_SDA_PORT&RTCC_SDA_PIN)){
-//        _set_scl_low();
-//        i2c_clock();
-//    }
-//    _set_sda_as_output();
-//}
 
 // termine la transaction sur le bus I2C
 // condition initiale
 // SDA x
 // SCL high
-void i2c_stop_bit(){
+static void i2c_stop_bit(){
     _set_scl_high();
     _set_sda_low();
     _set_sda_as_output();
     _set_sda_high();
-    _usec_delay(5);
+    _usec_delay(I2C_CLK_PER);
 }
 
 // le MCU envoie un ACK bit au MCP7940N
 // condition initiale
-// SCL high
+// SCL low
 // SDA x
-void i2c_send_ack_bit(){
+static void i2c_send_ack_bit(){
     _set_sda_low();
-    _set_sda_as_output();
     i2c_clock();
-    _set_sda_as_input();
 }
 
 // retourne le ACK bit envoyé par le MCP7940N
@@ -236,13 +242,10 @@ void i2c_send_ack_bit(){
 // condition initiale
 // SCL low
 // sda x
-BOOL i2c_receive_ack_bit(){
+static BOOL i2c_receive_ack_bit(){
     BOOL ack;
 
-    _set_sda_as_input();
     ack=(BOOL)i2c_receive_bit();
-    _set_sda_high();
-    _set_sda_as_output();
     if (ack){
         longjmp(env,1);
     }
@@ -254,13 +257,12 @@ BOOL i2c_receive_ack_bit(){
 // la condition start est déjà initiée.
 // SCL high
 // SDA x
-void i2c_send_byte(uint8_t byte){
+static void i2c_send_byte(uint8_t byte){
     uint8_t i;
-    BOOL ack;
     for (i=128;i;i>>=1){
         i2c_send_bit(byte&i);
     }
-    ack=i2c_receive_ack_bit();
+    i2c_receive_ack_bit();
 }
 
 //reçoie un octet du MCP7940N
@@ -268,22 +270,53 @@ void i2c_send_byte(uint8_t byte){
 // le préambule est déjà initiée.
 // SCL high
 // SDA mode entrée
-uint8_t i2c_receive_byte(BOOL ack){
+static uint8_t i2c_receive_byte(BOOL send_ack){
     uint8_t i, byte=0;
     
-    _set_sda_as_input();
     for (i=0;i<8;i++){
         byte<<=1;
         byte+=i2c_receive_bit();
     }
-    if (ack){
+    if (send_ack){
         i2c_send_bit(0);
     }else{
         i2c_stop_bit();
     }
-    _set_sda_high();
-    _set_sda_as_output();
     return byte;
+}
+
+uint8_t rtcc_read_next(){
+    uint8_t byte;
+    rtcc_error=FALSE;
+    if (!setjmp(env)){
+        i2c_start_bit();
+        i2c_send_byte(I2C_CTRL_BYTE|RTCC_READ);
+        byte=i2c_receive_byte(FALSE);
+        return byte;
+    }else{
+        i2c_stop_bit();
+        rtcc_error=TRUE;
+    }
+}
+
+void rtcc_read_buf(uint8_t addr,uint8_t *buf, uint8_t size){
+    if (!size) return;
+    rtcc_error=FALSE;
+    if (!setjmp(env)){
+        i2c_start_bit();
+        i2c_send_byte(I2C_CTRL_BYTE|RTCC_WRITE);
+        i2c_send_byte(addr);
+        i2c_start_bit();
+        i2c_send_byte(I2C_CTRL_BYTE|RTCC_READ);
+        while (size>1){
+            *buf++=i2c_receive_byte(TRUE);
+            size--;
+        }
+        *buf=i2c_receive_byte(FALSE);
+    }else{
+        i2c_stop_bit();
+        rtcc_error=TRUE;
+    }
 }
 
 uint8_t rtcc_read_byte(uint8_t addr){
@@ -297,7 +330,26 @@ uint8_t rtcc_read_byte(uint8_t addr){
         i2c_start_bit();
         i2c_send_byte(I2C_CTRL_BYTE|RTCC_READ);
         byte=i2c_receive_byte(FALSE);
+        return byte;
     }else{
+        i2c_stop_bit();
+        rtcc_error=TRUE;
+    }
+}
+
+void rtcc_write_buf(uint8_t addr,uint8_t *buf, uint8_t size){
+    rtcc_error=FALSE;
+    if (!setjmp(env)){
+        i2c_start_bit();
+        i2c_send_byte(I2C_CTRL_BYTE|RTCC_WRITE);
+        i2c_send_byte(addr);
+        while (size){
+            i2c_send_byte(*buf++);
+            size--;
+        }
+        i2c_stop_bit();
+    }else{
+        i2c_clock();
         i2c_stop_bit();
         rtcc_error=TRUE;
     }
@@ -346,70 +398,228 @@ void rtcc_init(){
             rtcc_write_byte(RTC_WKDAY,(1<<3)); // activation support pile.
         }
     }
+    // interruption lorsque la broche alarm descend à zéro.
+    PPSInput(2,INT3,RPB1);
+    IPC3bits.INT3IP=1;
+    IPC3bits.IC3IS=0;
+    IFS0bits.INT3IF=0;
+//    IEC0bits.INT3IE=1;
+    
 }
 #endif
 
 
-//void __ISR(_TIMER_1_VECTOR,IPL2SOFT) i2c_int_handler(){
-//    IFS0bits.T1IF=0;
-//    RTCC_SCL_LATINV=RTCC_SCL_PIN;
-//}
 
 /////////////////////////////////////////////////////
 
-BOOL get_time(stime_t* time){
+void rtcc_calibration(uint8_t trim){
+    rtcc_write_byte(RTC_OSCTRIM,trim);
+}
+
+
+static uint8_t bcd2dec(uint8_t hb){
+    return (hb>>4)*10+(hb&0xf);
+}
+
+static uint8_t dec2bcd(uint8_t dec){
+    return dec%10+((dec/10)<<4);
+}
+
+
+void get_time(stime_t* time){
 #ifdef RTCC
+    uint8_t buf[3];
+    rtcc_read_buf(RTC_SEC,buf,3);
+    time->sec=bcd2dec(buf[0]&0x7f);
+    time->min=bcd2dec(buf[1]&0x7f);
+    time->hour=bcd2dec(buf[2]&0x3f);
+
 #else
     mcu_get_time(time);
-    return TRUE;
 #endif    
 }
 
-BOOL set_time(stime_t time){
+void set_time(stime_t time){
 #ifdef RTCC
+    uint8_t byte[3];
+    byte[0]=128+dec2bcd(time.sec);
+    byte[1]=dec2bcd(time.min);
+    byte[2]=dec2bcd(time.hour);
+    rtcc_write_buf(RTC_SEC,byte,3);
 #else
     mcu_set_time(time);
     return TRUE;
 #endif    
 }
 
-BOOL get_date(sdate_t* date){
+void get_date(sdate_t* date){
 #ifdef RTCC
+    uint8_t buf[4];
+    rtcc_read_buf(RTC_WKDAY,buf,4);
+    date->wkday=buf[0]&7;
+    date->day=bcd2dec(buf[1]&0x3f);
+    date->month=bcd2dec(buf[2]&0x1f);
+    date->year=2000+bcd2dec(buf[3]);
 #else 
     mcu_get_date(date);
+    
     return TRUE;
 #endif    
 }
 
-BOOL set_date(sdate_t date){
-#ifdef RTCC 
+
+void set_date(sdate_t date){
+#ifdef RTCC
+    uint8_t byte[4];
+    byte[0]=8+dec2bcd(date.wkday);
+    byte[1]=dec2bcd(date.day);
+    byte[2]=dec2bcd(date.month);
+    byte[3]=dec2bcd(date.year-2000);
+    rtcc_write_buf(RTC_WKDAY,byte,4);
 #else
     mcu_set_date(date);
-    return TRUE;
 #endif     
 }
 
-BOOL get_date_str(char *date_str){
+
+void get_date_str(char *date_str){
+static const char *weekdays[7]={"Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"};
     sdate_t d;
-    if (get_date(&d)){
-        sprintf(date_str,"%02d/%02d/%02d",d.y,d.m,d.d);
-        return TRUE;
-    }else{
-        return FALSE;
-    }
+    get_date(&d);
+    sprintf(date_str,"%s %4d/%02d/%02d ",weekdays[d.wkday-1],d.year,d.month,d.day);
 }
 
-BOOL get_time_str(char *time_str){
+void  get_time_str(char *time_str){
     stime_t t;
-    if (get_time(&t)){
-        sprintf(time_str,"%02d:%02d:%02d",t.h,t.m,t.s);
-        return TRUE;
+    get_time(&t);
+    sprintf(time_str,"%02d:%02d:%02d ",t.hour,t.min,t.sec);
+}
+
+// retourne le jour de la semaine à partir de la date
+// REF: https://en.wikipedia.org/wiki/Determination_of_the_day_of_the_week#Implementation-dependent_methods
+// méthode de Sakamoto
+// dimanche=1,samedi=7
+uint8_t day_of_week(sdate_t date){
+const   static int t[] = {0, 3, 2, 5, 0, 3, 5, 1, 4, 6, 2, 4};
+    int y;
+    uint8_t dow;
+    y=date.month < 3?date.year--:date.year;
+    dow=((y + y/4 - y/100 + y/400 + t[date.month-1] + date.day) % 7);
+//    dow+=7*(!dow);
+    return dow;
+}
+
+// détermine si l'année est bisextile
+// REF: https://fr.wikipedia.org/wiki/Ann%C3%A9e_bissextile#R%C3%A8gle_actuelle
+BOOL leap_year(unsigned short year){
+    uint8_t byte;
+    if (!year){
+        byte=rtcc_read_byte(RTC_MTH);
+        return byte&(1<<5);
     }else{
-        return FALSE;
+        return (!(year/4) && (year/100)) || !(year/400); 
     }
 }
 
+#define ALM0EN_MSK  (1<<4)
+#define ALM1EN_MSK (1<<5)
+#define ALM_MODE_SHIFT (4)
+#define MODE_ALLFIELDS (7) // compare tous les champs sec,min,heure,jour,date,mois
 
-BOOL leap_year(unsigned short year){
-    return (!(year/4) && (year/100)) || !(year/400); 
+BOOL set_alarm(sdate_t date, stime_t time, uint8_t *msg){
+    uint8_t byte, buf[6];
+    
+    byte=rtcc_read_byte(RTC_CONTROL); print_hex(STDIO,byte,2);
+    if ((byte&(ALM0EN_MSK|ALM1EN_MSK))==(ALM0EN_MSK|ALM1EN_MSK)){ return FALSE;} // pas d'alarme disponible.
+    buf[0]=dec2bcd(time.sec);
+    buf[1]=dec2bcd(time.min);
+    buf[2]=dec2bcd(time.hour);
+    buf[3]=dec2bcd(date.wkday)|(MODE_ALLFIELDS<<ALM_MODE_SHIFT);
+    buf[4]=dec2bcd(date.day);
+    buf[5]=dec2bcd(date.month);
+    if (!(byte & (ALM0EN_MSK))){ // alarme 0 disponible
+        rtcc_write_buf(0x20,(uint8_t*)msg,32); rtcc_read_buf(0x20,(uint8_t*)msg,32); DebugPrint(msg);
+        rtcc_write_buf(RTC_ALM0SEC,buf,6);
+        byte|=(1<<4);
+    }else{ // alarme 1 disponible
+        rtcc_write_buf(0x40,(uint8_t*)msg,32);  rtcc_read_buf(0x40,(uint8_t*)msg,32); DebugPrint(msg);
+        rtcc_write_buf(RTC_ALM1SEC,buf,6);
+        byte|=(1<<5);
+    }
+    rtcc_write_byte(RTC_CONTROL,byte);print_hex(STDIO,byte,2);
+}
+
+// rapporte l'état des 2 alarmes
+void get_alarms(alm_state_t *alm_st){
+static const int alarm[2]={RTC_ALM0SEC,RTC_ALM1SEC};
+static const int enable[2]={ALM0EN_MSK,ALM1EN_MSK};
+    uint8_t ctrl_byte, alm_regs[6];
+    int i;
+    ctrl_byte=rtcc_read_byte(RTC_CONTROL);
+    for (i=0;i<2;i++){
+        rtcc_read_buf(alarm[i],alm_regs,6);
+        alm_st[i].enabled=ctrl_byte&enable[i]?1:0;
+        alm_st[i].sec=bcd2dec(alm_regs[0]);
+        alm_st[i].min=bcd2dec(alm_regs[1]);
+        alm_st[i].hour=bcd2dec(alm_regs[2]&0x3f);
+        alm_st[i].dow=alm_regs[3]&7;
+        alm_st[i].date=bcd2dec(alm_regs[4]);
+        alm_st[i].month=bcd2dec(alm_regs[5]);
+        rtcc_read_buf(0x20*(i+1),(uint8_t*)&alm_st[i].msg,32);
+    }
+}
+
+void cancel_alarm(uint8_t n){
+    uint8_t ctrl_byte;
+    ctrl_byte=rtcc_read_byte(RTC_CONTROL);
+    if (!n){
+        ctrl_byte&=~ALM0EN_MSK;
+    }else{
+        ctrl_byte&=~ALM1EN_MSK;
+    }
+    rtcc_write_byte(RTC_CONTROL,ctrl_byte);
+}
+
+static void alarm_msg(char *msg){
+static  const unsigned int ring_tone[6]={329,250,523,250,329,250};
+    text_coord_t cpos;
+    uint8_t scr_save[HRES/8];
+
+    tune(ring_tone);
+    msg[31]=0;
+    memcpy(scr_save,video_bmp,HRES/8);
+    cpos=get_curpos();
+    set_curpos(0,0);
+    clear_eol();
+    print(comm_channel,"ALARM: ");
+    print(comm_channel,msg);
+    print(comm_channel,"  <ESC> to exit");
+    wait_key(comm_channel);
+    memcpy(video_bmp,scr_save,HRES/8);
+    set_curpos(cpos.x,cpos.y);
+}
+
+
+__ISR (_EXTERNAL_3_VECTOR,IPL1SOFT) alarm(){
+   uint8_t byte,wkday, msg[32];
+
+    byte=rtcc_read_byte(RTC_CONTROL);
+    if (byte & (1<<4)){ // alarme 0 active?
+        wkday=rtcc_read_byte(RTC_ALM0WKDAY);
+        if (wkday&(1<<3)){
+            byte&=~(1<<4);
+            rtcc_read_buf(0x20,msg,32);
+            alarm_msg(msg);
+        }
+    }
+    if (byte & (1<<5)){ // alarme 1 active?
+        wkday=rtcc_read_byte(RTC_ALM1WKDAY);
+        if (wkday&(1<<3)){
+            byte&=~(1<<5);
+            rtcc_read_buf(0x40,msg,32);
+            alarm_msg(msg);
+        }
+    }
+    rtcc_write_byte(RTC_CONTROL,byte);
+    IFS0bits.INT3IF=0;
 }
