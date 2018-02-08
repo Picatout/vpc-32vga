@@ -41,8 +41,8 @@ typedef struct alm_state{
     unsigned sec:6;
     unsigned min:6;
     unsigned hour:5;
-    unsigned dow:3;
-    unsigned date:5;
+    unsigned wkday:3;
+    unsigned day:5;
     unsigned month:4;
     unsigned enabled:1;
     char msg[32];
@@ -58,6 +58,7 @@ enum WEEKAYS{
     SATURDAY
 };
 
+extern const char *weekdays[7];
 extern BOOL rtcc_error;
 void rtcc_init();
 uint8_t rtcc_read_next();

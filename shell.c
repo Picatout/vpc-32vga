@@ -710,14 +710,17 @@ void cmd_time(int i){
 
 void report_alarms_state(){
     char fmt[80];
-    int i;
+    int i,wkday;
     
+    sdate_t date;
     alm_state_t state[2];
+    get_date(&date);
     get_alarms(state);
     for (i=0;i<2;i++){
         if (state[i].enabled){
-            sprintf(fmt,"alarm %d set to %02d/%02d %02d:%02d:%02d  %s\n",i,state[i].month,
-                    state[i].date,state[i].hour,state[i].min,state[i].sec,
+            sprintf(fmt,"alarm %d set to %s %d/%02d/%02d %02d:%02d:%02d  %s\n",i,
+                    weekdays[state[i].wkday-1],date.year,state[i].month,
+                    state[i].day,state[i].hour,state[i].min,state[i].sec,
                     (char*)state[i].msg);
             print(comm_channel,fmt);
         }else{

@@ -163,10 +163,6 @@ unsigned free_heap(){
     return size;
 }
 
-#ifndef RTCC
-extern void update_mcu_dt();
-#endif
-
 #ifdef USE_CORE_TIMER
 //MCU core timer interrupt
 // period 1msec
@@ -189,11 +185,6 @@ void __ISR(_CORE_TIMER_VECTOR, IPL2SOFT) CoreTimerHandler(void){
      for (i=0;i<TMR_COUNT;i++){
         if (timers[i]) timers[i]--;
      }
-#ifndef RTCC
-     if (!(sys_ticks%1000)){
-        update_mcu_dt();
-     }
-#endif     
 }
 #endif
 

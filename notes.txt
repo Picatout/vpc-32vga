@@ -1,3 +1,8 @@
+2018-02-08
+----------
+1. Travail sur interruption alarmes.  Problème à résoudre avec le son qui n'arrête
+pas correctement à la find du ring_tone dans la routine alarm_msg(). Priorité d'interruption?
+
 2018-02-06
 ----------
 1. Travail sur rtc.c fonctions d'alarmes.

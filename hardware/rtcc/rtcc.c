@@ -15,82 +15,7 @@
 #include "../serial_comm/serial_comm.h"
 #include "../../console.h"
 #include "../tvout/vga.h"
-
-
-#ifndef RTCC
-
-static volatile stime_t  mcu_time;
-static volatile sdate_t  mcu_date;
-
-
-static void mcu_set_time(stime_t time){
-    mcu_time.hour=time.hour;
-    mcu_time.min=time.min;
-    mcu_time.sec=time.sec;
-}
-
-static void mcu_get_time(stime_t *t){
-    t->hour=mcu_time.hour;
-    t->min=mcu_time.min;
-    t->sec=mcu_time.sec;
-}
-
-static void mcu_set_date(sdate_t date){
-    mcu_date.year=date.year;
-    mcu_date.month=date.month;
-    mcu_date.day=date.day;
-    mcu_date.wkday=date.wkday;
-}
-
-static void mcu_get_date(sdate_t *d){
-    d->year=mcu_date.year;
-    d->month=mcu_date.month;
-    d->day=mcu_date.day;
-    d->wkday=mcu_date.wkday;
-}
-
-static const unsigned day_in_month[12]={31,28,31,30,31,30,31,31,30,31,30,31};
-
-static void next_day(){
-    mcu_date.day++;
-    mcu_date.wkday++;
-    if (mcu_date.wkday==8) {mcu_date.wkday=1;}
-    if (mcu_date.day>day_in_month[mcu_date.m-1]){
-        if(mcu_date.month==2){
-            if (!leap_year(mcu_date.year)|| (mcu_date.day==30)){mcu_date.month++;}
-            mcu_date.day=1;
-        }else{
-            mcu_date.month++;
-            mcu_date.day=1;
-        }
-        if (mcu_date.m>12){
-            mcu_date.y++;
-            mcu_date.m=1;
-        }
-    }
-}
-
-// met à jour date et heure
-// à toute les millisecondes
-// appellé à partir de CoreTimerHandler()
-void update_mcu_dt(){
-    mcu_time.s++;
-    if (!(mcu_time.s%60)){
-        mcu_time.s=0;
-        mcu_time.m++;
-        if (!(mcu_time.m%60)){
-            mcu_time.m=0;
-            mcu_time.h++;
-            if (mcu_time.h==24){
-                mcu_time.h=0;
-                next_day();
-            }
-        }
-    }
-    
-}
-
-#else
+#include "../sound/sound.h"
 
 
 // MCP7940N registers
@@ -139,16 +64,14 @@ void update_mcu_dt(){
 
 #define I2C_CLK_PER (3)
 
-//#define _i2c_delay(usec)  PR1=40*usec;IFS0bits.T1IF=0;\
-//                             T1CONbits.ON=1;\
-//                             while (!IFS0bits.T1IF);
+//#define _usec_delay(usec)   PR1=40*usec;IFS0bits.T1IF=0;\
+//                            T1CONbits.ON=1;\
+//                            while (!IFS0bits.T1IF);
 
 #define _usec_delay(x)   asm volatile (".set noreorder\n");\
                          asm volatile ("addiu $t0,$zero,%0"::"I"(x*20));\
                          asm volatile ("1: bne $t0,$zero,1b\naddiu $t0,$t0,-1\n");\
                          asm volatile (".set reorder\n");
-//                         asm volatile ("1: addiu $t0,$t0,-1");\
-//                         asm volatile ("bne $t0,$zero,1b");
 
 BOOL rtcc_error;
 static jmp_buf  env;
@@ -396,17 +319,17 @@ void rtcc_init(){
         }
         if (!(byte&(1<<3))){// support pile désactivé.
             rtcc_write_byte(RTC_WKDAY,(1<<3)); // activation support pile.
-        }
+        };
     }
     // interruption lorsque la broche alarm descend à zéro.
-    PPSInput(2,INT3,RPB1);
-    IPC3bits.INT3IP=1;
-    IPC3bits.IC3IS=0;
-    IFS0bits.INT3IF=0;
-//    IEC0bits.INT3IE=1;
-    
+    CNENBbits.CNIEB1=1;
+    IPC8bits.CNIP=1;
+    IPC8bits.CNIS=1;
+    IFS1bits.CNBIF=0;
+    IEC1bits.CNBIE=1;
+    CNCONBbits.ON=1;
 }
-#endif
+
 
 
 
@@ -427,63 +350,44 @@ static uint8_t dec2bcd(uint8_t dec){
 
 
 void get_time(stime_t* time){
-#ifdef RTCC
     uint8_t buf[3];
     rtcc_read_buf(RTC_SEC,buf,3);
     time->sec=bcd2dec(buf[0]&0x7f);
     time->min=bcd2dec(buf[1]&0x7f);
     time->hour=bcd2dec(buf[2]&0x3f);
 
-#else
-    mcu_get_time(time);
-#endif    
 }
 
 void set_time(stime_t time){
-#ifdef RTCC
     uint8_t byte[3];
     byte[0]=128+dec2bcd(time.sec);
     byte[1]=dec2bcd(time.min);
     byte[2]=dec2bcd(time.hour);
     rtcc_write_buf(RTC_SEC,byte,3);
-#else
-    mcu_set_time(time);
-    return TRUE;
-#endif    
 }
 
 void get_date(sdate_t* date){
-#ifdef RTCC
     uint8_t buf[4];
     rtcc_read_buf(RTC_WKDAY,buf,4);
     date->wkday=buf[0]&7;
     date->day=bcd2dec(buf[1]&0x3f);
     date->month=bcd2dec(buf[2]&0x1f);
     date->year=2000+bcd2dec(buf[3]);
-#else 
-    mcu_get_date(date);
-    
-    return TRUE;
-#endif    
 }
 
 
 void set_date(sdate_t date){
-#ifdef RTCC
     uint8_t byte[4];
     byte[0]=8+dec2bcd(date.wkday);
     byte[1]=dec2bcd(date.day);
     byte[2]=dec2bcd(date.month);
     byte[3]=dec2bcd(date.year-2000);
     rtcc_write_buf(RTC_WKDAY,byte,4);
-#else
-    mcu_set_date(date);
-#endif     
 }
 
+const char *weekdays[7]={"Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"};
 
 void get_date_str(char *date_str){
-static const char *weekdays[7]={"Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"};
     sdate_t d;
     get_date(&d);
     sprintf(date_str,"%s %4d/%02d/%02d ",weekdays[d.wkday-1],d.year,d.month,d.day);
@@ -499,13 +403,12 @@ void  get_time_str(char *time_str){
 // REF: https://en.wikipedia.org/wiki/Determination_of_the_day_of_the_week#Implementation-dependent_methods
 // méthode de Sakamoto
 // dimanche=1,samedi=7
-uint8_t day_of_week(sdate_t date){
+uint8_t day_of_week(sdate_t *date){
 const   static int t[] = {0, 3, 2, 5, 0, 3, 5, 1, 4, 6, 2, 4};
     int y;
     uint8_t dow;
-    y=date.month < 3?date.year--:date.year;
-    dow=((y + y/4 - y/100 + y/400 + t[date.month-1] + date.day) % 7);
-//    dow+=7*(!dow);
+    y=date->month < 3?date->year-1:date->year;
+    dow=1+((y + y/4 - y/100 + y/400 + t[date->month-1] + date->day) % 7);
     return dow;
 }
 
@@ -521,32 +424,32 @@ BOOL leap_year(unsigned short year){
     }
 }
 
+#define ALMIF (1<<3)
 #define ALM0EN_MSK  (1<<4)
 #define ALM1EN_MSK (1<<5)
-#define ALM_MODE_SHIFT (4)
-#define MODE_ALLFIELDS (7) // compare tous les champs sec,min,heure,jour,date,mois
+#define MODE_ALLFIELDS (7<<4) // compare tous les champs sec,min,heure,jour,date,mois
 
 BOOL set_alarm(sdate_t date, stime_t time, uint8_t *msg){
     uint8_t byte, buf[6];
     
-    byte=rtcc_read_byte(RTC_CONTROL); print_hex(STDIO,byte,2);
+    byte=rtcc_read_byte(RTC_CONTROL);
     if ((byte&(ALM0EN_MSK|ALM1EN_MSK))==(ALM0EN_MSK|ALM1EN_MSK)){ return FALSE;} // pas d'alarme disponible.
     buf[0]=dec2bcd(time.sec);
     buf[1]=dec2bcd(time.min);
     buf[2]=dec2bcd(time.hour);
-    buf[3]=dec2bcd(date.wkday)|(MODE_ALLFIELDS<<ALM_MODE_SHIFT);
+    buf[3]=dec2bcd(date.wkday)|(MODE_ALLFIELDS);
     buf[4]=dec2bcd(date.day);
     buf[5]=dec2bcd(date.month);
     if (!(byte & (ALM0EN_MSK))){ // alarme 0 disponible
-        rtcc_write_buf(0x20,(uint8_t*)msg,32); rtcc_read_buf(0x20,(uint8_t*)msg,32); DebugPrint(msg);
+        rtcc_write_buf(0x20,(uint8_t*)msg,32);
         rtcc_write_buf(RTC_ALM0SEC,buf,6);
         byte|=(1<<4);
     }else{ // alarme 1 disponible
-        rtcc_write_buf(0x40,(uint8_t*)msg,32);  rtcc_read_buf(0x40,(uint8_t*)msg,32); DebugPrint(msg);
+        rtcc_write_buf(0x40,(uint8_t*)msg,32);
         rtcc_write_buf(RTC_ALM1SEC,buf,6);
         byte|=(1<<5);
     }
-    rtcc_write_byte(RTC_CONTROL,byte);print_hex(STDIO,byte,2);
+    rtcc_write_byte(RTC_CONTROL,byte);
 }
 
 // rapporte l'état des 2 alarmes
@@ -562,8 +465,8 @@ static const int enable[2]={ALM0EN_MSK,ALM1EN_MSK};
         alm_st[i].sec=bcd2dec(alm_regs[0]);
         alm_st[i].min=bcd2dec(alm_regs[1]);
         alm_st[i].hour=bcd2dec(alm_regs[2]&0x3f);
-        alm_st[i].dow=alm_regs[3]&7;
-        alm_st[i].date=bcd2dec(alm_regs[4]);
+        alm_st[i].wkday=alm_regs[3]&7;
+        alm_st[i].day=bcd2dec(alm_regs[4]);
         alm_st[i].month=bcd2dec(alm_regs[5]);
         rtcc_read_buf(0x20*(i+1),(uint8_t*)&alm_st[i].msg,32);
     }
@@ -583,43 +486,60 @@ void cancel_alarm(uint8_t n){
 static void alarm_msg(char *msg){
 static  const unsigned int ring_tone[6]={329,250,523,250,329,250};
     text_coord_t cpos;
-    uint8_t scr_save[HRES/8];
-
+    uint8_t scr_save[HRES];
+    BOOL active,invert;
+ 
+    if ((active=is_cursor_active())){
+        show_cursor(FALSE);
+    }
+    invert=is_invert_video();
+    invert_video(TRUE);
     tune(ring_tone);
     msg[31]=0;
-    memcpy(scr_save,video_bmp,HRES/8);
+    memcpy((void*)scr_save,video_bmp,HRES);
     cpos=get_curpos();
     set_curpos(0,0);
     clear_eol();
     print(comm_channel,"ALARM: ");
     print(comm_channel,msg);
-    print(comm_channel,"  <ESC> to exit");
+    print(comm_channel,"  <any key> to exit");
     wait_key(comm_channel);
-    memcpy(video_bmp,scr_save,HRES/8);
+    memcpy(video_bmp,(void*)scr_save,HRES);
+    if (!invert){
+        invert_video(FALSE);
+    }
     set_curpos(cpos.x,cpos.y);
+    if (active){
+        show_cursor(TRUE);
+    }else{
+        show_cursor(FALSE);
+    }
+    
 }
 
 
-__ISR (_EXTERNAL_3_VECTOR,IPL1SOFT) alarm(){
+__ISR (_CHANGE_NOTICE_VECTOR,IPL1SOFT) alarm(){
    uint8_t byte,wkday, msg[32];
 
-    byte=rtcc_read_byte(RTC_CONTROL);
-    if (byte & (1<<4)){ // alarme 0 active?
-        wkday=rtcc_read_byte(RTC_ALM0WKDAY);
-        if (wkday&(1<<3)){
-            byte&=~(1<<4);
-            rtcc_read_buf(0x20,msg,32);
-            alarm_msg(msg);
+   if (CNSTATBbits.CNSTATB1 && !(RTCC_ALRM_PORT&RTCC_ALRM_PIN)){
+        byte=rtcc_read_byte(RTC_CONTROL);
+        if (byte & ALM0EN_MSK){ // alarme 0 active?
+            wkday=rtcc_read_byte(RTC_ALM0WKDAY);
+            if (wkday&ALMIF){
+                byte&=~ALM0EN_MSK;
+                rtcc_read_buf(0x20,msg,32);
+                alarm_msg(msg);
+            }
         }
-    }
-    if (byte & (1<<5)){ // alarme 1 active?
-        wkday=rtcc_read_byte(RTC_ALM1WKDAY);
-        if (wkday&(1<<3)){
-            byte&=~(1<<5);
-            rtcc_read_buf(0x40,msg,32);
-            alarm_msg(msg);
+        if (byte & ALM1EN_MSK){ // alarme 1 active?
+            wkday=rtcc_read_byte(RTC_ALM1WKDAY);
+            if (wkday&ALMIF){
+                byte&=~ALM1EN_MSK;
+                rtcc_read_buf(0x40,msg,32);
+                alarm_msg(msg);
+            }
         }
-    }
-    rtcc_write_byte(RTC_CONTROL,byte);
-    IFS0bits.INT3IF=0;
+        rtcc_write_byte(RTC_CONTROL,byte);
+   }
+   IFS1bits.CNBIF=0;
 }

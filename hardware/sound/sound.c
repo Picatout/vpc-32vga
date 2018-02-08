@@ -57,7 +57,7 @@ void tune(const unsigned int *buffer){
     if (*tones_list && *(tones_list+1)){
         fSound |= PLAY_TUNE;
         IPC3bits.T3IP=2;
-        IPC3bits.T3IS=3;
+        IPC3bits.T3IS=0;
         IFS0bits.T3IF=0;
         IEC0bits.T3IE=1;
         tone(*tones_list++,*tones_list++);

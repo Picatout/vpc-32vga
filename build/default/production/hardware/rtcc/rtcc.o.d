@@ -7,4 +7,5 @@ hardware/rtcc/../../console.h  \
  hardware/rtcc/../../font.h  \
 hardware/rtcc/../../hardware/tvout/vga.h  \
  hardware/rtcc/../../hardware/HardwareProfile.h  \
- hardware/rtcc/../tvout/vga.h 
+ hardware/rtcc/../tvout/vga.h  \
+hardware/rtcc/../sound/sound.h 

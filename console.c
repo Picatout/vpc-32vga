@@ -286,10 +286,18 @@ text_coord_t get_curpos(){
 } // get_cursor_pos()
 
 void set_curpos(unsigned short x, unsigned short y){// {x,y} coordonnée caractère
-    if (x>(CHAR_PER_LINE-1) || y>(LINE_PER_SCREEN-1))
+    BOOL active;
+    if (x>(CHAR_PER_LINE-1) || y>(LINE_PER_SCREEN-1)){
         return;
+    }
+    if ((active=is_cursor_active())){
+        show_cursor(FALSE);
+    }
     cx=x*CHAR_WIDTH;
     cy=y*CHAR_HEIGHT;
+    if (active){
+        show_cursor(TRUE);
+    }
 }//set_curpos()
 
 void invert_char(void){// inverse vidéo du caractère à la position courante
@@ -434,6 +442,11 @@ void invert_video(unsigned char invert){
         flags &= ~INV_VID;
     }
 }//invert_video()
+
+// renvoie le mode video
+BOOL is_invert_video(){
+    return flags&INV_VID;
+}
 
 
 void uppercase(char *str){// in situ uppercase
