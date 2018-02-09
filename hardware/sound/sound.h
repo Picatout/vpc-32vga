@@ -41,6 +41,8 @@ extern "C" {
 extern volatile unsigned char fSound; // flags variable
 extern volatile unsigned int duration; // sound duration
 
+// initialisation son
+void sound_init();
 // generate a tone
 void tone(unsigned int freq, unsigned int duration);
 // play a sequence of tones.

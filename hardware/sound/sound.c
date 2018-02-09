@@ -31,35 +31,36 @@
 
 volatile unsigned char fSound=0; // flags
 volatile unsigned int duration;
-volatile unsigned int *tones_list;
+volatile static unsigned int *tones_list;
 
+void sound_init(){
+    OC3CONbits.OCM = 5; // PWM mode
+    OC3CONbits.OCTSEL=1; // use TIMER3
+    T3CON=(3<<4); // timer 3 prescale 1/8.
+    IPC3bits.T3IP=2; // timer interrupt priority
+    IPC3bits.T3IS=0; // sub-priority
+}
 
 void tone(unsigned int freq, // frequency hertz
           unsigned int msec){ // duration  milliseconds
         //config OC3 for tone generation
-        OC3CONbits.OCM = 5; // PWM mode
-        OC3CONbits.OCTSEL=1; // use TIMER3
         OC3RS=0;
-        T3CON=0;
-        T3CONbits.TCKPS=3;
+        T3CONbits.ON=0;
         PR3=(SYSCLK/8/freq)-1; // 50% duty cycle
         OC3R=SYSCLK/16/freq;
         duration=msec;
         fSound |=TONE_ON;
         mTone_on();
         T3CONbits.ON=1;
-
 } //tone();
 
 // play a sequence of tones
 void tune(const unsigned int *buffer){
-    tones_list=(unsigned int *)buffer;
-    if (*tones_list && *(tones_list+1)){
-        fSound |= PLAY_TUNE;
-        IPC3bits.T3IP=2;
-        IPC3bits.T3IS=0;
+    if (*buffer && *(buffer+1)){
+        tones_list=(unsigned int *)buffer;
         IFS0bits.T3IF=0;
         IEC0bits.T3IE=1;
+        fSound |= PLAY_TUNE;
         tone(*tones_list++,*tones_list++);
     }
 }//tune()
@@ -70,7 +71,7 @@ void tune(const unsigned int *buffer){
 void __ISR(_TIMER_3_VECTOR, IPL2SOFT)  T3Handler(void){
     unsigned int f,d;
        mT3ClearIntFlag();
-       if (fSound==PLAY_TUNE){
+       if ((fSound&(TONE_ON|PLAY_TUNE))==PLAY_TUNE){
            f=*tones_list++;
            d=*tones_list++;
            if (d){

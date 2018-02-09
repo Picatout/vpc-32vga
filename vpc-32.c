@@ -151,6 +151,8 @@ void main(void) {
 #if defined _DEBUG_
     test_pattern();
 #endif
+    DebugPrint("Sound initialisation\r");
+    sound_init();
     DebugPrint("video initialization\r");
     VideoInit();
     DebugPrint("keyboard initialization\r");

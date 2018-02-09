@@ -51,6 +51,16 @@
 #define RTC_RAMBASE (0x20)
 #define RTC_RAMSIZE (64)
 
+//bits dans RTC_CONTROL
+#define ALMIF (1<<3)
+#define ALM0EN_MSK  (1<<4)
+#define ALM1EN_MSK (1<<5)
+// mode bits dans RTC_ALMxWKDAY  bits:4..6
+// mode 7 ->  compare tous les champs sec,min,heure,jour,date,mois
+#define MODE_ALLFIELDS (7<<4) 
+
+
+
 #define I2C_CTRL_BYTE (0xDE)
 #define RTCC_READ (1)
 #define RTCC_WRITE (0)
@@ -322,12 +332,15 @@ void rtcc_init(){
         };
     }
     // interruption lorsque la broche alarm descend à zéro.
+    CNCONBbits.ON=1;
     CNENBbits.CNIEB1=1;
     IPC8bits.CNIP=1;
     IPC8bits.CNIS=1;
-    IFS1bits.CNBIF=0;
-    IEC1bits.CNBIE=1;
-    CNCONBbits.ON=1;
+    byte=rtcc_read_byte(RTC_CONTROL);
+    if (byte&(ALM0EN_MSK|ALM1EN_MSK)){
+        IFS1bits.CNBIF=0;
+        IEC1bits.CNBIE=1;
+    }
 }
 
 
@@ -424,11 +437,6 @@ BOOL leap_year(unsigned short year){
     }
 }
 
-#define ALMIF (1<<3)
-#define ALM0EN_MSK  (1<<4)
-#define ALM1EN_MSK (1<<5)
-#define MODE_ALLFIELDS (7<<4) // compare tous les champs sec,min,heure,jour,date,mois
-
 BOOL set_alarm(sdate_t date, stime_t time, uint8_t *msg){
     uint8_t byte, buf[6];
     
@@ -450,6 +458,10 @@ BOOL set_alarm(sdate_t date, stime_t time, uint8_t *msg){
         byte|=(1<<5);
     }
     rtcc_write_byte(RTC_CONTROL,byte);
+    if (byte&(ALM0EN_MSK|ALM1EN_MSK)){
+        IFS1bits.CNBIF=0;
+        IEC1bits.CNBIE=1;
+    }
 }
 
 // rapporte l'état des 2 alarmes
@@ -484,7 +496,7 @@ void cancel_alarm(uint8_t n){
 }
 
 static void alarm_msg(char *msg){
-static  const unsigned int ring_tone[6]={329,250,523,250,329,250};
+static  const unsigned int ring_tone[8]={329,250,523,250,329,250,0,0};
     text_coord_t cpos;
     uint8_t scr_save[HRES];
     BOOL active,invert;
@@ -540,6 +552,9 @@ __ISR (_CHANGE_NOTICE_VECTOR,IPL1SOFT) alarm(){
             }
         }
         rtcc_write_byte(RTC_CONTROL,byte);
+        if (!(byte&(ALM0EN_MSK|ALM1EN_MSK))){
+            IEC1bits.CNBIE=0;
+        }
    }
    IFS1bits.CNBIF=0;
 }
