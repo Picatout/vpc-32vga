@@ -78,6 +78,7 @@ void get_time_str(char *time);
 BOOL set_alarm(sdate_t date, stime_t time, uint8_t *msg);
 void get_alarms(alm_state_t *alm_st);
 void cancel_alarm(uint8_t n);
+void power_down_stamp(alm_state_t *pdown);
 
 #ifndef RTCC
 void update_mcu_dt();

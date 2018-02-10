@@ -1,3 +1,9 @@
+2018-02-10
+-----------
+1. Modification à print_hex() et print_int();
+2. Ajout message au démarrage du shell pour indiquer la date et heure dernier power down.
+    Il semble y avoir un problème avec le MCP7940N le registre PWRDNMTH ne lit que 0 ou 255.
+
 2018-02-09
 ----------
 1. corrigé problème dans alarm_msg, ring_tone n'était pas terminé par {0,0}.

@@ -210,52 +210,65 @@ void println(dev_t channel, const char *str){
     }
 }
 
-void print_hex(dev_t channel, unsigned int hex, unsigned char width){
-    char c[12], *d;
+// imprime entier en hexadécimal
+// largeur de colonne limitée à 16 caractère.
+// un espace suis le nombre.
+// alignement à droite.
+void print_hex(dev_t channel, unsigned int hex, int width){
+    char c[18], *d;
     int i;
-    c[11]=0;
-    d= &c[10];
-    for(i=width;i>=0||hex;i--){
-        *d=(hex%16);
-        if (*d<10)
-            *d += '0';
-        else
-            *d += 'A'-10;
-        hex /=16;
+    c[17]=0;
+    c[16]=' ';
+    d= &c[15];
+    if (width>16){width=16;}
+    if (!hex){*d--='0'; width--;}
+    while (hex){
+        *d=hex%16+'0';
+        if (*d>'9'){
+            *d+=7;
+        }
+        hex>>=4;
         d--;
+        width--;
+    }
+    while(width>0){
+        *d--=' ';
+        width--;
     }
     print(channel, ++d);
 } // print_hex()
 
-void print_int(dev_t channel, int number, unsigned short width){ // imprime entier,width inclus le signe
-    int sign=0, i;
-    char str[14], *d;
-    str[13]=0;
-    d=&str[12];
-    if (width>13){width=13;}
+ // imprime entier,width inclu le signe
+// largeur de colonne limitée à 16 caractères
+// un espace est imprimée après le nombre.
+// alignement à droite.
+void print_int(dev_t channel, int number, int width){
+    int sign=0;
+    char str[18], *d;
+    str[17]=0;
+    str[16]=' ';
+    d=&str[15];
+    if (width>16){width=16;}
     if (number<0){
         sign=1;
         number = -number;
+        width--;
     }
-    //for (i=--width;i>=0||number;i--){
-    i=width;
+    if (!number){
+        *d--='0';
+        width--;
+    }
     while (number>0){
        *d--=(number%10)+'0';
         number /= 10;
-        i--;
-    }
-    if (i==width){
-        *d--='0';
-        i--;
-    }
-    while (i>0){
-        *d--=' ';
-        i--;
+        width--;
     }
     if (sign){*d--='-';}
-    *d=' ';
-    
-    print(channel, d);
+    while (width>0){
+        *d--=' ';
+        width--;
+    }
+    print(channel, ++d);
 }// print_int()
 
 void set_tab_width(unsigned char width){

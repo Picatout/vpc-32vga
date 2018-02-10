@@ -878,13 +878,26 @@ int tokenize(){ // découpe la ligne d'entrée en mots
     return i;
 }//tokenize()
 
+void last_shutdown(){
+    alm_state_t shutdown;
+    char fmt[32];
+    
+    power_down_stamp(&shutdown);
+    if (shutdown.day){
+        sprintf(fmt,"Last power down: %s %02d/%02d %02d:%02d\n",weekdays[shutdown.wkday],
+                shutdown.month,shutdown.day,shutdown.hour,shutdown.min);
+        print(comm_channel,fmt);
+    }
+}
 
 void shell(void){
     int i;
     char fmt[32];
-    
+
     print(comm_channel,"VPC-32 shell\rfree RAM (bytes): ");
     print_int(comm_channel,free_heap(),0);
+    crlf();
+    last_shutdown();
     crlf();
     display_date_time();
     free_tokens();

@@ -68,8 +68,8 @@ extern dev_t comm_channel;
     void set_curpos(unsigned short x, unsigned short y); // positionne le curseur
     void put_char(dev_t channel, char c); //affiche le caractère à la position courante
     void print(dev_t channel, const char *str); // imprime un chaîne à la position courante
-    void print_hex(dev_t channel, unsigned int i, unsigned char width); // imprime un nombre hexadécimal à la position courante
-    void print_int(dev_t channel, int number, unsigned short width); // imprime un entier à la position courante.
+    void print_hex(dev_t channel, unsigned int i, int width); // imprime un nombre hexadécimal à la position courante
+    void print_int(dev_t channel, int number,  int width); // imprime un entier à la position courante.
     void cursor_right(void); // avance le curseur, retour à la ligne si nécessaire.
     void cursor_left(void); // recule le curseur d'une position, va à la fin de la ligne précédente si nécessaire.
     void cursor_down(void); // descend le curseur à la ligne suivante, scroll_up() si nécessaire

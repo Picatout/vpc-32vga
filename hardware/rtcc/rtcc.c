@@ -55,6 +55,9 @@
 #define ALMIF (1<<3)
 #define ALM0EN_MSK  (1<<4)
 #define ALM1EN_MSK (1<<5)
+// bit dans WKDAY
+#define PWRFAIL_MSK (1<<4)
+
 // mode bits dans RTC_ALMxWKDAY  bits:4..6
 // mode 7 ->  compare tous les champs sec,min,heure,jour,date,mois
 #define MODE_ALLFIELDS (7<<4) 
@@ -233,6 +236,7 @@ uint8_t rtcc_read_next(){
 }
 
 void rtcc_read_buf(uint8_t addr,uint8_t *buf, uint8_t size){
+    uint8_t dummy;
     if (!size) return;
     rtcc_error=FALSE;
     if (!setjmp(env)){
@@ -495,6 +499,21 @@ void cancel_alarm(uint8_t n){
     rtcc_write_byte(RTC_CONTROL,ctrl_byte);
 }
 
+void power_down_stamp(alm_state_t *pdown){
+    uint8_t wkday, buf[4];
+    rtcc_read_buf(RTC_PWRDNMIN,buf,4); 
+    pdown->min=bcd2dec(buf[0]);
+    pdown->hour=bcd2dec(buf[1]);
+    pdown->day=bcd2dec(buf[2]);
+    pdown->month=bcd2dec(buf[3]&0x1f);
+    wkday=buf[3]>>5;
+    if (wkday){ wkday--;}
+    pdown->wkday=wkday;
+    wkday=rtcc_read_byte(RTC_WKDAY);
+    wkday&=~PWRFAIL_MSK;
+    rtcc_write_byte(RTC_WKDAY,wkday);
+}
+
 static void alarm_msg(char *msg){
 static  const unsigned int ring_tone[8]={329,250,523,250,329,250,0,0};
     text_coord_t cpos;
@@ -558,3 +577,4 @@ __ISR (_CHANGE_NOTICE_VECTOR,IPL1SOFT) alarm(){
    }
    IFS1bits.CNBIF=0;
 }
+
