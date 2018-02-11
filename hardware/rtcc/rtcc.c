@@ -18,49 +18,6 @@
 #include "../sound/sound.h"
 
 
-// MCP7940N registers
-#define RTC_SEC (0)
-#define RTC_MIN (1)
-#define RTC_HOUR (2)
-#define RTC_WKDAY (3)
-#define RTC_DAY (4)
-#define RTC_MTH (5)
-#define RTC_YEAR (6)
-#define RTC_CONTROL (7)
-#define RTC_OSCTRIM (8)
-#define RTC_ALM0SEC (0xa)
-#define RTC_ALM0MIN (0xb)
-#define RTC_ALM0HR (0xc)
-#define RTC_ALM0WKDAY (0xd)
-#define RTC_ALM0DAY (0xe)
-#define RTC_ALM0MTH (0xf)
-#define RTC_ALM1SEC (0x11)
-#define RTC_ALM1MIN (0x12)
-#define RTC_ALM1HR (0x13)
-#define RTC_ALM1WKDAY (0x14)
-#define RTC_ALM1DAY (0x15)
-#define RTC_ALM1MTH (0x16)
-#define RTC_PWRDNMIN (0x18)
-#define RTC_PWRDNHR (0x19)
-#define RTC_PWRDNDATE (0x1a)
-#define RTC_PWRDNMTH (0x1b)
-#define RTC_PWRUPMIN (0x1c)
-#define RTC_PWRUPHR (0x1d)
-#define RTC_PWRUPDATE (0x1e)
-#define RTC_PWRUPMTH (0x1f)
-#define RTC_RAMBASE (0x20)
-#define RTC_RAMSIZE (64)
-
-//bits dans RTC_CONTROL
-#define ALMIF (1<<3)
-#define ALM0EN_MSK  (1<<4)
-#define ALM1EN_MSK (1<<5)
-// bit dans WKDAY
-#define PWRFAIL_MSK (1<<4)
-
-// mode bits dans RTC_ALMxWKDAY  bits:4..6
-// mode 7 ->  compare tous les champs sec,min,heure,jour,date,mois
-#define MODE_ALLFIELDS (7<<4) 
 
 
 
@@ -352,8 +309,21 @@ void rtcc_init(){
 
 /////////////////////////////////////////////////////
 
-void rtcc_calibration(uint8_t trim){
-    rtcc_write_byte(RTC_OSCTRIM,trim);
+int rtcc_calibration(int trim){
+    uint8_t osctrim, sign=0;
+    int old_value;
+
+    osctrim=rtcc_read_byte(RTC_OSCTRIM);
+    old_value=osctrim&0x7f;
+    if (osctrim&128) old_value=-old_value;
+    trim=old_value+trim;
+    if (trim<0){
+        sign=1;
+    }
+    trim=abs(trim)&0x7f;
+    osctrim=(sign<<7)+trim;
+    rtcc_write_byte(RTC_OSCTRIM,osctrim);
+    return sign?-trim:trim;
 }
 
 

@@ -20,9 +20,50 @@ extern "C" {
  
 #define RTCC
 
-// deux premier chiffres du millénaire    
-#define MILL_TENS  (2)
-#define MILL_UNITS (0)
+// MCP7940N registers
+#define RTC_SEC (0)
+#define RTC_MIN (1)
+#define RTC_HOUR (2)
+#define RTC_WKDAY (3)
+#define RTC_DAY (4)
+#define RTC_MTH (5)
+#define RTC_YEAR (6)
+#define RTC_CONTROL (7)
+#define RTC_OSCTRIM (8)
+#define RTC_ALM0SEC (0xa)
+#define RTC_ALM0MIN (0xb)
+#define RTC_ALM0HR (0xc)
+#define RTC_ALM0WKDAY (0xd)
+#define RTC_ALM0DAY (0xe)
+#define RTC_ALM0MTH (0xf)
+#define RTC_ALM1SEC (0x11)
+#define RTC_ALM1MIN (0x12)
+#define RTC_ALM1HR (0x13)
+#define RTC_ALM1WKDAY (0x14)
+#define RTC_ALM1DAY (0x15)
+#define RTC_ALM1MTH (0x16)
+#define RTC_PWRDNMIN (0x18)
+#define RTC_PWRDNHR (0x19)
+#define RTC_PWRDNDATE (0x1a)
+#define RTC_PWRDNMTH (0x1b)
+#define RTC_PWRUPMIN (0x1c)
+#define RTC_PWRUPHR (0x1d)
+#define RTC_PWRUPDATE (0x1e)
+#define RTC_PWRUPMTH (0x1f)
+#define RTC_RAMBASE (0x20)
+#define RTC_RAMSIZE (64)
+
+//bits dans RTC_CONTROL
+#define ALMIF (1<<3)
+#define ALM0EN_MSK  (1<<4)
+#define ALM1EN_MSK (1<<5)
+// bit dans WKDAY
+#define PWRFAIL_MSK (1<<4)
+
+// mode bits dans RTC_ALMxWKDAY  bits:4..6
+// mode 7 ->  compare tous les champs sec,min,heure,jour,date,mois
+#define MODE_ALLFIELDS (7<<4) 
+    
     
 typedef struct time_struct{
     unsigned sec:6;
@@ -60,13 +101,14 @@ enum WEEKAYS{
 
 extern const char *weekdays[7];
 extern BOOL rtcc_error;
+
 void rtcc_init();
 uint8_t rtcc_read_next();
 void rtcc_read_buf(uint8_t addr, uint8_t *buf, uint8_t size);
 uint8_t rtcc_read_byte(uint8_t addr);
 void rtcc_write_many(uint8_t addr,uint8_t *data, uint8_t size);
 void rtcc_write_byte(uint8_t addr, uint8_t byte);
-void rtcc_calibration(uint8_t trim);
+int rtcc_calibration(int trim);
 
 BOOL leap_year(unsigned short year);
 void get_time(stime_t* time);

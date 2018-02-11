@@ -468,3 +468,11 @@ void uppercase(char *str){// in situ uppercase
         str++;
     }
 }
+
+void spaces(dev_t channel, int n){
+    while (n){
+        put_char(channel, ' ');
+        n--;
+    }
+}
+

@@ -80,6 +80,7 @@ extern dev_t comm_channel;
     void show_cursor(BOOL); // affiche ou masque le curseur texte
     BOOL is_cursor_active(); // retourne vrai si le curseur texte est actif.
     void set_cursor(cursor_t shape); // défini la  forme du curseur
+    void spaces(dev_t channel, int n);
     void crlf(void); // déplace le curseur à la ligne suivante
     unsigned char get_key(dev_t channel); // lecture touches clavier
     unsigned char wait_key(dev_t channel); // attend qu'une touche soit enfoncée.

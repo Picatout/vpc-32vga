@@ -110,14 +110,16 @@ typedef struct{
 static input_buff_t cmd_line;
 static char *cmd_tokens[MAX_TOKEN];
 
-typedef enum CMDS {CMD_ALARM,CMD_CD, CMD_CLEAR,CMD_CPY,CMD_DATE,CMD_DEL,CMD_DIR,CMD_ED,CMD_EXPR,
+typedef enum CMDS {CMD_ALARM,CMD_CD,CMD_CLKTRIM,CMD_CLEAR,CMD_CPY,CMD_DATE,CMD_DEL,
+                   CMD_DIR,CMD_ECHO,CMD_ED,CMD_EXPR,
                    CMD_FREE,CMD_FORMAT,CMD_FORTH,CMD_HDUMP,CMD_HELP,CMD_MKDIR,CMD_MOUNT,CMD_MORE,
                    CMD_PUTS,CMD_REBOOT,CMD_RCV,CMD_REN,CMD_SND,CMD_TIME,CMD_UMOUNT,CMD_UPTIME
                    } cmds_t;
 
-#define CMD_LEN 25
-const char *commands[CMD_LEN]={"alarm","cd","cls","copy","date","del","dir","edit",
-    "expr","free","format","forth","hdump","help","mkdir","mount","more","puts","reboot","receive",
+#define CMD_LEN 27
+const char *commands[CMD_LEN]={"alarm","cd","clktrim","cls","copy","date","del",
+    "dir","echo","edit","expr","free","format","forth","hdump","help",
+    "mkdir","mount","more","puts","reboot","receive",
     "ren","send","time","umount","uptime"};
 
 
@@ -146,6 +148,27 @@ void display_cmd_list(){
     }
     put_char(comm_channel,'\r');
 }
+
+// calibration oscillateur du RTCC
+// +-127 ppm
+void cmd_clktrim(int i){
+    int trim;
+    char fmt[64];
+    if (i>1){
+        trim=atoi(cmd_tokens[1]);
+        trim=rtcc_calibration(trim);
+    }else{
+        print(comm_channel,
+            "RTCC oscillator calibration\n"
+            "USAGE: clktrim n\n"
+            "n is added to actual value\n"
+            "n is in range {-127..127}\n");
+        trim=rtcc_calibration(0);
+    }
+    sprintf(fmt,"Actual RTCC oscillator trim value: %d",trim);
+    print(comm_channel,fmt);
+}
+
 
 // imprime le temps depuis
 // le démarrage de l'ordinateur
@@ -197,6 +220,12 @@ static int next_token(void){
                 if (!quote){
                     cmd_line.next--;
                     loop=FALSE;
+                }
+                break;
+            case '#':
+                if (!quote){
+                    loop=FALSE;
+                    cmd_line.next--;
                 }
                 break;
             case '\\':
@@ -763,6 +792,16 @@ void cmd_alarm(int i){
     }//switch
 }
 
+void cmd_echo(int i){
+    int j;
+    
+    for (j=1;j<i;j++){
+        print(comm_channel,cmd_tokens[j]);
+        spaces(comm_channel,1);
+    }
+}
+
+
 void execute_cmd(int i){
         switch (cmd_search(cmd_tokens[0])){
             case CMD_HELP:
@@ -773,6 +812,9 @@ void execute_cmd(int i){
                 break;
             case CMD_DIR: // liste des fichiers sur la carte SD
                 list_directory(i);
+                break;
+            case CMD_ECHO:
+                cmd_echo(i);
                 break;
             case CMD_FORMAT:
                 cmd_format(i);
@@ -844,6 +886,9 @@ void execute_cmd(int i){
                 break;
             case CMD_ALARM:
                 cmd_alarm(i);
+                break;
+            case CMD_CLKTRIM:
+                cmd_clktrim(i);
                 break;
             default:
                 print(comm_channel,"unknown command!\r");

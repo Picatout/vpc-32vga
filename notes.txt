@@ -1,3 +1,9 @@
+2018-02-11
+----------
+1. Ajout commande **clktrim** dans le shell.
+2. Ajout commande **echo** dans shell.
+3. Ajout function **spaces()** dans module console. 
+
 2018-02-10
 -----------
 1. Modification à print_hex() et print_int();
