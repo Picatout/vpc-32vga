@@ -39,6 +39,7 @@
  */
 
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <plib.h>
 
@@ -116,16 +117,17 @@ typedef enum CMDS {CMD_ALARM,CMD_CD,CMD_CLKTRIM,CMD_CLEAR,CMD_CPY,CMD_DATE,CMD_D
                    CMD_PUTS,CMD_REBOOT,CMD_RCV,CMD_REN,CMD_SND,CMD_TIME,CMD_UMOUNT,CMD_UPTIME
                    } cmds_t;
 
-#define CMD_LEN 27
-const char *commands[CMD_LEN]={"alarm","cd","clktrim","cls","copy","date","del",
+const char *commands[]={"alarm","cd","clktrim","cls","copy","date","del",
     "dir","echo","edit","expr","free","format","forth","hdump","help",
     "mkdir","mount","more","puts","reboot","receive",
     "ren","send","time","umount","uptime"};
 
 
+int nbr_cmd=sizeof(commands)/sizeof(char*);
+
 int cmd_search(char *target){
     int i;
-    for (i=CMD_LEN-1;i>=0;i--){
+    for (i=nbr_cmd-1;i>=0;i--){
         if (!strcmp(target,commands[i])){
             break;
         }
@@ -136,13 +138,13 @@ int cmd_search(char *target){
 void display_cmd_list(){
     int i;
     text_coord_t pos;
-    for(i=0;i<CMD_LEN;i++){
+    for(i=0;i<nbr_cmd;i++){
         pos=get_curpos();
         if (pos.x>(CHAR_PER_LINE-strlen(commands[i])-2)){
             put_char(comm_channel,'\r');
         }
         print(comm_channel,commands[i]);
-        if (i<(CMD_LEN-1)){
+        if (i<(nbr_cmd-1)){
             print(comm_channel," ");
         }
     }
@@ -895,7 +897,8 @@ void execute_cmd(int i){
     }
 }// execute_cmd()
 
-const char *prompt="\r#";
+const char *prompt="\r$";
+
 
 void free_tokens(){
     int i;

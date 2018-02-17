@@ -16,29 +16,40 @@
 *     along with VPC-32v.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-/*
- *  Name: console.c
- *  Description: text console for NTSC video output
- *  Author: Jacques Deschênes
- *  Date Created: 2013-09-06
- *  rev: 2017-08-02
+/* 
+ * File:   vt100.h
+ * Author: jacques
+ *
+ * Created on 13 février 2018, 13:12
  */
 
-#include <string.h>
-#include "console.h"
+#ifndef VT100_H
+#define	VT100_H
+
+#ifdef	__cplusplus
+extern "C" {
+#endif
+
 #include "hardware/HardwareProfile.h"
-#include "hardware/serial_comm/serial_comm.h"
-#include "hardware/ps2_kbd/keyboard.h"
+#include "hardware/serial_comm/serial_comm.h"    
+  
+#define ESC 27
+#define CR  13
+#define LF  10
+#define TAB 9
+#define SPACE 32
+#define FF 12
+#define LBRACKET 91
+    
+    
+    void vt_clear();
+    void vt_clear_eol();
+    void vt_clear_line();
+    
 
-
-dev_t comm_channel=LOCAL_CON;
-
-
-
-void uppercase(char *str){// in situ uppercase
-    while (*str){
-        if (*str>='a' && *str<='z') *str-=32;
-        str++;
-    }
+#ifdef	__cplusplus
 }
+#endif
+
+#endif	/* VT100_H */
 

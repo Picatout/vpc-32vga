@@ -133,8 +133,3 @@ int UartReceivedESC(UART_MODULE channel){
    return 0;
 }
 
-// print debug message on remote terminal
-void DebugPrint(const char* str){
-        UartPrint(STDOUT,str); 
-}
-

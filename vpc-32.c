@@ -143,30 +143,34 @@ void main(void) {
     debug=-1;
 #endif  
     HardwareInit();
+    VideoInit();
+    vga_clear_screen();
+    vga_print("video initialization completed.\r");
 #ifdef RTCC
+    vga_print("Real Time Clock Calendar initialization.\r");
     rtcc_init();
 #endif
-    UartInit(STDIO,115200,DEFAULT_LINE_CTRL);
+    vga_print("Serial port initialization.\r");
+    UartInit(SERIO,115200,DEFAULT_LINE_CTRL);
     heap_size=free_heap();
 #if defined _DEBUG_
     test_pattern();
 #endif
-    DebugPrint("Sound initialisation\r");
+    vga_print("Sound initialisation\r");
     sound_init();
-    DebugPrint("video initialization\r");
-    VideoInit();
-    DebugPrint("keyboard initialization\r");
+    tune((unsigned int*)&e3k[0]);
+    vga_print("keyboard initialization\r");
     KeyboardInit();
 //    text_coord_t cpos;
-    DebugPrint("SD initialization: ");
-    if (!mount(0)){
-        DebugPrint("Failed\r");
-        SDCardReady=FALSE;
-    }else{
-        DebugPrint("OK\r");
-        SDCardReady=TRUE;
-    }
-    DebugPrint("SRAM initialization\r");
+//    vga_print("SD initialization: ");
+//    if (!mount(0)){
+//        vga_print("Failed\r");
+//        SDCardReady=FALSE;
+//    }else{
+//        vga_print("OK\r");
+//        SDCardReady=TRUE;
+//    }
+    vga_print("SPI RAM initialization.\r");
     sram_init();
     //test_vm();
 #if defined _DEBUG_    
@@ -178,10 +182,9 @@ void main(void) {
     delay_ms(1000);
     sram_read_block(0,&video_bmp,HRES*VRES/8);
     delay_ms(1000);
-    DebugPrint("sound test.\r");
+    UartPrint("sound test.\r");
 #endif    
-    DebugPrint("initialization completed.\r");
-    tune((unsigned int*)&e3k[0]);
+    vga_print("Initialization completed.\r");
 //    set_cursor(CR_BLOCK); // sauvegare video_buffer dans SRAM
 //    clear_screen();
 //    unsigned char c;
@@ -204,7 +207,16 @@ void main(void) {
 //    print_int(comm_channel,heap_size,0);
 //    crlf();
 #endif
-    shell();
+    char fmt[80];
+    while(1){
+        get_date_str(fmt);
+        vga_print(fmt);
+        get_time_str(fmt);
+        vga_print(fmt);
+        vga_put_char(CR);
+        delay_ms(1000);
+    }
+//    shell();
 } // main()
 
 

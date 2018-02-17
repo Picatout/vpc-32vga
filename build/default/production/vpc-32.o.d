@@ -3,23 +3,35 @@ vpc-32.c  \
 graphics.h  \
  hardware/HardwareProfile.h  \
 hardware/tvout/vga.h  \
- hardware/serial_comm/serial_comm.h  \
-hardware/ps2_kbd/keyboard.h  \
- hardware/Pinguino/diskio.h  \
-hardware/Pinguino/integer.h  \
- hardware/Pinguino/ff.h  \
-hardware/Pinguino/ffconf.h  \
- hardware/Pinguino/fileio.h  \
-hardware/Pinguino/sdmmc.h  \
- hardware/Pinguino/../HardwareProfile.h  \
+ hardware/tvout/../../console.h  \
+hardware/tvout/../../font.h  \
+ hardware/tvout/../../hardware/tvout/vga.h  \
+ hardware/tvout/../../hardware/HardwareProfile.h  \
+ hardware/tvout/../../vt100.h  \
+ hardware/tvout/../../hardware/serial_comm/serial_comm.h  \
+ hardware/tvout/../../graphics.h  \
+hardware/serial_comm/serial_comm.h  \
+ hardware/ps2_kbd/keyboard.h  \
+hardware/Pinguino/diskio.h  \
+ hardware/Pinguino/integer.h  \
+hardware/Pinguino/ff.h  \
+ hardware/Pinguino/ffconf.h  \
+hardware/Pinguino/fileio.h  \
+ hardware/Pinguino/sdmmc.h  \
+hardware/Pinguino/../HardwareProfile.h  \
  hardware/Pinguino/../store/store_spi.h  \
  hardware/Pinguino/../store/../HardwareProfile.h  \
 console.h  \
-font.h  \
  hardware/Pinguino/ff.h  \
 vpcBASIC/vm.h  \
 vpcBASIC/vpcBASIC.h  \
  hardware/sound/sound.h  \
 hardware/syscall.h  \
+ hardware/serial_comm/serial_comm.h  \
+hardware/sound/sound.h  \
+ hardware/spiram/spiram.h  \
+hardware/spiram/../store/store_spi.h  \
+ hardware/store/store_spi.h  \
+hardware/tvout/vga.h  \
 hardware/rtcc/rtcc.h  \
  hardware/rtcc/../HardwareProfile.h 

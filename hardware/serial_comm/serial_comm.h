@@ -53,8 +53,6 @@ void UartPrint(UART_MODULE channel, const char* str);
 int UartReadln(UART_MODULE channel, char * buffer, int buff_len);
 // return TRUE if received an ESC character
 int UartReceivedESC(UART_MODULE channel);
-// send debug message to serial port.
-void DebugPrint(const char* str);
 
 #endif	/* UART_H */
 

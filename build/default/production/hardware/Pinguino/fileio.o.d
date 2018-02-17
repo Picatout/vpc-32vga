@@ -13,4 +13,6 @@ hardware/Pinguino/ffconf.h  \
  hardware/Pinguino/../../console.h  \
 hardware/Pinguino/../../font.h  \
  hardware/Pinguino/../../hardware/tvout/vga.h  \
- hardware/Pinguino/../../hardware/HardwareProfile.h 
+ hardware/Pinguino/../../hardware/HardwareProfile.h  \
+ hardware/Pinguino/../../vt100.h  \
+ hardware/Pinguino/../../hardware/serial_comm/serial_comm.h 

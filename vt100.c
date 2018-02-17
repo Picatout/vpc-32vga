@@ -16,29 +16,34 @@
 *     along with VPC-32v.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-/*
- *  Name: console.c
- *  Description: text console for NTSC video output
- *  Author: Jacques Deschênes
- *  Date Created: 2013-09-06
- *  rev: 2017-08-02
- */
+#include <stdlib.h>
+#include <stdio.h>
+#include <stdint.h>
 
-#include <string.h>
-#include "console.h"
-#include "hardware/HardwareProfile.h"
-#include "hardware/serial_comm/serial_comm.h"
-#include "hardware/ps2_kbd/keyboard.h"
+#include "vt100.h"
 
 
-dev_t comm_channel=LOCAL_CON;
-
-
-
-void uppercase(char *str){// in situ uppercase
-    while (*str){
-        if (*str>='a' && *str<='z') *str-=32;
-        str++;
-    }
+void EscSeq(){
+    UartPutch(SERIO,ESC);
+    UartPutch(SERIO,LBRACKET);
 }
+
+void vt_clear(){
+    UartPutch(SERIO, FF);
+}
+
+void vt_clear_eol(){
+    UartPutch(SERIO,ESC);
+    UartPutch(SERIO,LBRACKET);
+    UartPutch(SERIO,'K');
+}
+
+void vt_clear_line(){
+    UartPutch(SERIO,ESC);
+    UartPutch(SERIO,LBRACKET);
+    UartPutch(SERIO,'2');
+    UartPutch(SERIO,'K');
+    
+}
+
 

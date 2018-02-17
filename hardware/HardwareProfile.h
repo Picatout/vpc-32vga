@@ -33,15 +33,15 @@
 
 #define VPC_32
 
-#define STDIO   UART2
-#define STDOUT  STDIO
-#define STDIN   STDIO
-#define STDERR  STDIO
+#define SERIO   UART2
+#define STDOUT  SERIO
+#define STDIN   SERIO
+#define STDERR  SERIO
 
 #define RAM_SIZE (65536)
 
 #define LOCAL_CON 0  // local console
-#define SERIAL_CON STDIO // remote console via RS-232 port
+#define SERIAL_CON SERIO // remote console via RS-232 port
 
 // RS-232 port 
 #define TX BIT_10 // UART2 TX on PB10

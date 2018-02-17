@@ -1,3 +1,22 @@
+2018-02-17
+----------
+1. transférer les fonctions relié à l'affichage vidéo vga de console.c vers vga.c
+
+2018-02-16
+----------
+1. Réorganisation du projet. Pour le moment on enlève du projet les modules shell,
+    console, vm, editor, graphics, vt100, pour se concentrer sur le coeur du système
+    d'exploitation. Il faut developper un API.
+
+2018-02-13
+----------
+1. travail sur console pour créer une interface commune entre console locale et rs-232.
+
+
+2018-02-12
+----------
+1. évaluation du temps CPU pris par les interruptions.
+
 2018-02-11
 ----------
 1. Ajout commande **clktrim** dans le shell.

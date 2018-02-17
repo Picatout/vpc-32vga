@@ -1,13 +1,19 @@
-
+#include <stdlib.h>
+#include <stdio.h>
+#include <stdint.h>
 #include <setjmp.h>
 #include <p32xxxx.h>
 #include "HardwareProfile.h"
-#include "../console.h"
+#include "serial_comm/serial_comm.h"
+
+#define _prt(s) UartPrint(SERIO,s)
 
 void _general_exception_handler(){
+
     unsigned cause,epc;
-#define _nl()  put_char(comm_channel,'\r')    
-#define _prt(n) print(comm_channel,n)
+    char fmt[64];
+
+
     asm volatile("mfc0 %0,$13":"=r"(cause));
     cause>>=2;
     cause&=0x1f;
@@ -17,10 +23,8 @@ void _general_exception_handler(){
     asm volatile("mtc0 $k0,$12");
     asm volatile("ei");
     asm volatile("ehb");
-
-    _prt("Fatal error at address: 0x");
-    print_hex(comm_channel,epc,0);
-    _nl();
+    sprintf(fmt,"Fatal error at address: %0x\r",epc);
+    _prt(fmt);
     switch (cause){
         case SYS:
             _prt("opcode syscall invoked\r");
@@ -58,7 +62,7 @@ void _general_exception_handler(){
         default:
             _prt("unknown exception\r");
     }//switch
-    _prt("<CTRL>-<ALT>-<DEL> to reboot.");
+    _prt("<CTRL>-<ALT>-<DEL> to reboot.\r");
     while (1){
         power_led(PLED_OFF);
         delay_ms(500);

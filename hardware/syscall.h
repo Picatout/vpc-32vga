@@ -11,14 +11,26 @@
 #ifdef	__cplusplus
 extern "C" {
 #endif
-
+//#include "../console.h"
+//#include "../graphics.h"
+//#include "../reader.h"
+//#include "rtcc/rtcc.h"
+#include "serial_comm/serial_comm.h"
+#include "sound/sound.h"
+#include "spiram/spiram.h"
+#include "store/store_spi.h"
+#include "tvout/vga.h"
+    
 
 typedef enum SERVICES{
-        PUTCHAR=1,
+        PUTCHAR,
         GETCHAR,
         WAITCHAR,
         PRINT,
-    }service_t;
+        PRINTINT,
+        PRINTHEX,
+        
+}service_t;
 
     
 typedef union argument{

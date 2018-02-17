@@ -36,17 +36,11 @@ extern "C" {
 #include "font.h"
 #include "hardware/tvout/vga.h"
 #include "hardware/HardwareProfile.h"
+#include "vt100.h"
     
 #define LINE_PER_SCREEN ((int)VRES/CHAR_HEIGHT)
 #define CHAR_PER_LINE ((int)(HRES/CHAR_WIDTH))
 #define TAB_WIDTH 4
-
-#define ESC 27
-#define CR  13
-#define LF  10
-#define TAB 9
-#define SPACE 32
-#define FF 12
 
 //typedef  unsigned char dev_t;
 
@@ -60,35 +54,13 @@ extern "C" {
 extern dev_t comm_channel;
 
 // fonctions de l'interface
-    void clear_screen(void); // efface l'écran et positionne le curseur à {0,0}
-    void clear_eol(void); // efface la fin de la ligne à partir du curseur.
-    void scroll_up(void); // fait glissé le texte une ligne vers le haut.
-    void scroll_down(void); // fait glissé le texte une ligne vers le bas.
-    text_coord_t get_curpos(); // retourne position curseur texte.
-    void set_curpos(unsigned short x, unsigned short y); // positionne le curseur
-    void put_char(dev_t channel, char c); //affiche le caractère à la position courante
-    void print(dev_t channel, const char *str); // imprime un chaîne à la position courante
-    void print_hex(dev_t channel, unsigned int i, int width); // imprime un nombre hexadécimal à la position courante
-    void print_int(dev_t channel, int number,  int width); // imprime un entier à la position courante.
-    void cursor_right(void); // avance le curseur, retour à la ligne si nécessaire.
-    void cursor_left(void); // recule le curseur d'une position, va à la fin de la ligne précédente si nécessaire.
-    void cursor_down(void); // descend le curseur à la ligne suivante, scroll_up() si nécessaire
-    void cursor_up(void); // monte le curseur à la ligne précédente, scroll_down() si nécessaire
-    void set_tab_width(unsigned char width); // défini la largeur des colonnes de tabulation.
-    void invert_char(void); // inverse les pixel du caractère à la position du curseur.
-    void toggle_cursor(); // inverse l'état du curseur texte.
-    void show_cursor(BOOL); // affiche ou masque le curseur texte
-    BOOL is_cursor_active(); // retourne vrai si le curseur texte est actif.
-    void set_cursor(cursor_t shape); // défini la  forme du curseur
-    void spaces(dev_t channel, int n);
-    void crlf(void); // déplace le curseur à la ligne suivante
-    unsigned char get_key(dev_t channel); // lecture touches clavier
-    unsigned char wait_key(dev_t channel); // attend qu'une touche soit enfoncée.
-    unsigned char readline(dev_t channel, unsigned char *ibuff,unsigned char max_char); // lit une ligne au clavier, retourne la longueur de texte.
-    void invert_video(unsigned char invert); // inverse vidéo des caractèrs noir/blanc
-    BOOL is_invert_video(); // renvoie le mode vidéo.
-    void println(dev_t channel, const char *str);
-    void uppercase(char *str);// in situ uppercase
+void clear_screen(dev_t dev); // efface l'écran et positionne le curseur à {0,0}
+void uppercase(char *str);// in situ uppercase
+void clear_eol(dev_t dev); // efface la fin de la ligne à partir du curseur.
+unsigned char get_key(dev_t dev); // lecture touches clavier
+unsigned char wait_key(dev_t dev); // attend qu'une touche soit enfoncée.
+unsigned char readline(dev_t dev, unsigned char *ibuff,unsigned char max_char); // lit une ligne au clavier, retourne la longueur de texte.
+
 #ifdef	__cplusplus
 }
 #endif

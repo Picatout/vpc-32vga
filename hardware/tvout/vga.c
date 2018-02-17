@@ -1,6 +1,6 @@
 /*
-* Copyright 2013,2017 Jacques Deschênes
-* This file is part of VPC-32v.
+* Copyright 2013,2017,2018 Jacques Deschênes
+* This file is part of VPC-32vga.
 *
 *     VPC-32v is free software: you can redistribute it and/or modify
 *     it under the terms of the GNU General Public License as published by
@@ -13,25 +13,26 @@
 *     GNU General Public License for more details.
 *
 *     You should have received a copy of the GNU General Public License
-*     along with VPC-32v.  If not, see <http://www.gnu.org/licenses/>.
+*     along with VPC-32vga.  If not, see <http://www.gnu.org/licenses/>.
 */
 /* 
  * File:   vga.c
  * Author: Jacques Deschênes
- * Description: VGA video signal generator.
+ * Description: VGA video signal generator and display fonctions.
  * Created on 20 août 2013, 08:48
- * rev: 2017-07-31
+ * rev: 2018-02-17
  */
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <sys/attribs.h>
 #include <plib.h>
 #include "../HardwareProfile.h"
 #include "vga.h"
 
 /*
- * The generator use an output comapre to generate a regalar train of impulsion
+ * The generator use an output compare to generate a regular train of pulses
  * for HSync signal. The vertical VSync signal in generated in software inside
  * the TIMER2 interrupt. TIMER2 is used as the horizontal period timer and as
  * the output compare reference clock for HSync output compare.
@@ -46,17 +47,29 @@
  *  buffer.
  */
 
-#define PWM_PERIOD (SYSCLK/31469)-1
-#define HSYNC  (3813/PBCLK_PER)-1  // 3,813µSec
+#define PWM_PERIOD (SYSCLK/31469)-1 // horizontal line duration.
+#define HSYNC  (3813/PBCLK_PER)-1  // 3,813µSec  horizontal sync. pulse duration.
 #define FIRST_LINE (34)   //First video output line
 #define LAST_LINE (FIRST_LINE+2*VRES+1)  // Disable video output for this frame.
-#define BITCLK ((int)(HRES * 1000000L/25)) // 25µSec one horizontal line duration.
+#define BITCLK ((int)(HRES * 1000000L/25)) // bit clock for SPI serializer.
 #define SPI_DLY 95 // video outpout delay after end of HSync pulse.
 #define _enable_video_out()  PPSOutput(3,RPB6,SDO1);SPI1CONbits.ON=1;
 #define _disable_video_out() PPSOutput(3,RPB6,NULL);SPI1CONbits.ON=0;
 
 unsigned int video_bmp[VRES][HRES/32]; // video bitmap buffer
-volatile static int *DmaSrc; // pointer for DMA source.
+volatile static int *dma_source; // pointer for DMA source.
+
+// indicateurs booléens
+#define CUR_SHOW 1  // curseur actif
+#define CUR_VIS  2  // curseur visible
+#define INV_VID  4  // inverse vidéo
+
+
+static unsigned short cx=0, cy=0;  // coordonnée courante du curseur texte en pixels.
+static unsigned char tab_width=TAB_WIDTH;
+static cursor_t cur_shape=CR_UNDER;
+static volatile unsigned short flags=0;
+
 
 #define BLINK_DELAY (40) // 40/60 secondes
 
@@ -67,6 +80,7 @@ typedef struct cursor_timer{
 } cursor_timer_t;
 
 volatile static cursor_timer_t cursor_timer={FALSE,0,NULL};
+
 
 
 // configure video generator.
@@ -93,7 +107,7 @@ void VideoInit(void){
     DmaChnOpen(0,0,DMA_OPEN_DEFAULT);
     DmaChnSetEventControl(0,DMA_EV_START_IRQ_EN|
                           DMA_EV_START_IRQ(_SPI1_TX_IRQ));
-    DmaChnSetTxfer(0,(void *)DmaSrc,(void *)&SPI1BUF,HRES/8,4,4);
+    DmaChnSetTxfer(0,(void *)dma_source,(void *)&SPI1BUF,HRES/8,4,4);
     // configuredu SPI1 
     SPI1CONbits.DISSDI=1; // SDI not used
     SPI1CONbits.FRMEN=1; // frame mode
@@ -105,6 +119,366 @@ void VideoInit(void){
     SPI1CONbits.STXISEL=1; // interrupt on TBE
     SpiChnSetBitRate(SPI_CHANNEL1, PBCLK, BITCLK); // bit rate
 }//init_video()
+
+void vga_clear_screen(){
+    if (flags&INV_VID){
+        memset(video_bmp,255,HRES/8*VRES);
+    }else{
+        memset(video_bmp,0,HRES/8*VRES);
+    }
+    cx=0;
+    cy=0;
+} // vga_clear_screen()
+
+
+
+void vga_scroll_up(){
+    char *src, *dst;
+    dst = (char*)video_bmp;
+    src = (char*)video_bmp +(CHAR_HEIGHT)*HRES/8;
+    memmove(dst,src,(LINE_PER_SCREEN-1)*CHAR_HEIGHT*HRES/8);
+    dst= (char*)video_bmp+(CHAR_HEIGHT*(LINE_PER_SCREEN-1))*HRES/8;
+    memset(dst,0,HRES/8*CHAR_HEIGHT);
+}//vga_scroll_up();
+
+void vga_scroll_down(){
+    char *src, *dst;
+    src = (char*)video_bmp;
+    dst = (char*)video_bmp+(CHAR_HEIGHT)*HRES/8;
+    memmove(dst,src,(LINE_PER_SCREEN-1)*CHAR_HEIGHT*HRES/8);
+    dst=(char*)video_bmp;
+    memset(dst,0,HRES/8*CHAR_HEIGHT);
+}//vga_scroll_down()
+
+
+void vga_cursor_right(){
+    cx += CHAR_WIDTH;
+    if (cx>=(CHAR_PER_LINE*CHAR_WIDTH)){
+        cx = 0;
+        cy += CHAR_HEIGHT;
+        if (cy>=((LINE_PER_SCREEN-1)*CHAR_HEIGHT)){
+            vga_scroll_up();
+            cy -= CHAR_HEIGHT;
+        }
+    }
+} // vga_cursor_right()
+
+void vga_cursor_left(){
+    if (cx>=(CHAR_WIDTH)){
+        cx -= CHAR_WIDTH;
+    }else{
+        cx = (CHAR_PER_LINE-1);
+        if (cy>=CHAR_HEIGHT){
+            cy -= CHAR_HEIGHT;
+        }else{
+            vga_scroll_down();
+        }
+    }
+}// vga_cursor_left()
+
+void vga_cursor_up(){
+    if (cy>=CHAR_HEIGHT){
+        cy -= CHAR_HEIGHT;
+    }else{
+        vga_scroll_down();
+    }
+}// vga_cursor_up()
+
+void vga_cursor_down(){
+    if (cy<=((CHAR_HEIGHT*(LINE_PER_SCREEN-2)))){
+        cy += CHAR_HEIGHT;
+    }else{
+        vga_scroll_up();
+    }
+}//vga_cursor_down()
+
+void vga_crlf(){
+    cx=0;
+    if (cy==((LINE_PER_SCREEN-1)*CHAR_HEIGHT)){
+        vga_scroll_up();
+    }else{
+        cy += CHAR_HEIGHT;
+    }
+}//vga_crlf()
+
+void vga_put_char(char c){
+    register int i,l,r,b,x,y;
+    x=cx;
+    y=cy;
+    switch (c){
+        case CR:
+        case NL:
+            vga_crlf();
+            break;
+        case TAB:
+            cx += (cx%tab_width);
+            if (cx>=(CHAR_PER_LINE*CHAR_WIDTH)){
+                cx = 0;
+                if (cy==((LINE_PER_SCREEN-1)*CHAR_HEIGHT)){
+                    vga_scroll_up();
+                }else{
+                    cy += CHAR_HEIGHT;
+                }
+            }
+            break;
+        case FF:
+            vga_clear_screen();
+            break;
+        case '\b':
+            vga_cursor_left();
+            break;
+        default:
+            if ((c<32) || (c>(FONT_SIZE+32))) break;
+            c -=32;
+            b=x>>5; // position index ligne video_bmp
+            r=0;
+            l=(32-CHAR_WIDTH)-(x&0x1f); // décalage  à l'intérieur de l'entier
+            if (l<0){
+                r=-l;
+            }
+            for (i=0;i<8;i++){
+                if (r){
+                    if (flags & INV_VID){
+                        video_bmp[y][b] |= (0x3f>>r);
+                        video_bmp[y][b] &=~(font6x8[c][i]>>r);
+                        video_bmp[y][b+1] |= (0x3f<<32-r);
+                        video_bmp[y][b+1] &= ~(font6x8[c][i]<<(32-r));
+                    }else{
+                        video_bmp[y][b] &= ~(0x3f>>r);
+                        video_bmp[y][b] |= font6x8[c][i]>>r;
+                        video_bmp[y][b+1] &= ~(0x3f<<32-r);
+                        video_bmp[y][b+1] |= font6x8[c][i]<<(32-r);
+                    }
+                    y++;
+                } else{
+                    if (flags & INV_VID){
+                        video_bmp[y][b] |= (0x3f<<l);
+                        video_bmp[y++][b] &=~(font6x8[c][i]<<l);
+                    }else{
+                        video_bmp[y][b] &= ~(0x3f<<l);
+                        video_bmp[y++][b] |= font6x8[c][i]<<l;
+                    }
+                }
+            }
+            vga_cursor_right();
+    }//switch(c)
+}//vga_put_char()
+
+void vga_print(const char *text){
+    while (*text){
+        vga_put_char(*text++);
+    }
+}// vga_print()
+
+void vga_println( const char *str){
+    vga_print(str);
+    vga_crlf();
+}// vga_println
+
+// imprime entier en hexadécimal
+// largeur de colonne limitée à 16 caractère.
+// un espace suis le nombre.
+// alignement à droite.
+void vga_print_hex( unsigned int hex, int width){
+    char c[18], *d;
+    int i;
+    c[17]=0;
+    c[16]=' ';
+    d= &c[15];
+    if (width>16){width=16;}
+    if (!hex){*d--='0'; width--;}
+    while (hex){
+        *d=hex%16+'0';
+        if (*d>'9'){
+            *d+=7;
+        }
+        hex>>=4;
+        d--;
+        width--;
+    }
+    while(width>0){
+        *d--=' ';
+        width--;
+    }
+    vga_print(++d);
+} // vga_print_hex()
+
+ // imprime entier,width inclu le signe
+// largeur de colonne limitée à 16 caractères
+// un espace est imprimée après le nombre.
+// alignement à droite.
+void vga_print_int( int number, int width){
+    int sign=0;
+    char str[18], *d;
+    str[17]=0;
+    str[16]=' ';
+    d=&str[15];
+    if (width>16){width=16;}
+    if (number<0){
+        sign=1;
+        number = -number;
+        width--;
+    }
+    if (!number){
+        *d--='0';
+        width--;
+    }
+    while (number>0){
+       *d--=(number%10)+'0';
+        number /= 10;
+        width--;
+    }
+    if (sign){*d--='-';}
+    while (width>0){
+        *d--=' ';
+        width--;
+    }
+    vga_print(++d);
+}// vga_print_int()
+
+void vga_set_tab_width(unsigned char width){
+    tab_width=width;
+}// vga_set_tab_width()
+
+void vga_clear_eol(void){
+    int x,y;
+    
+    y=cy;
+    while (y<(cy+CHAR_HEIGHT)){
+        x=cx;
+        while (x<HRES){
+            if (flags & INV_VID)
+                setPixel(x++,y);
+            else
+                clearPixel(x++,y);
+        }
+        y++;
+    }
+}// vga_clear_eol()
+
+text_coord_t vga_get_curpos(){
+    text_coord_t cpos;
+    cpos.x = cx/CHAR_WIDTH;
+    cpos.y = cy/CHAR_HEIGHT;
+    return cpos;
+} // vga_get_cursor_pos()
+
+void vga_set_curpos(unsigned short x, unsigned short y){// {x,y} coordonnée caractère
+    BOOL active;
+    if (x>(CHAR_PER_LINE-1) || y>(LINE_PER_SCREEN-1)){
+        return;
+    }
+    if ((active=vga_is_cursor_active())){
+        vga_show_cursor(FALSE);
+    }
+    cx=x*CHAR_WIDTH;
+    cy=y*CHAR_HEIGHT;
+    if (active){
+        vga_show_cursor(TRUE);
+    }
+}//vga_set_curpos()
+
+// inverse vidéo du caractère à la position courante
+void vga_invert_char(){
+    register int i,l,r,b,x,y;
+    x=cx;
+    y=cy;
+    b=x>>5;
+    r=0;
+    l=(32-CHAR_WIDTH)-(x&0x1f);
+    if (l<0){
+        r=-l;
+    }
+    for (i=9;i;i--){
+        if (r){
+            video_bmp[y][b] ^= (0x3f>>r);
+            video_bmp[y][b+1] ^= (0x3f<<32-r);
+            y++;
+        } else{
+            video_bmp[y++][b] ^= (0x3f<<l);
+        }
+    }
+}//vga_invert_char()
+
+static void vga_toggle_underscore(){
+    register int l,r,b,x;
+    x=cx;
+    b=x>>5;
+    r=0;
+    l=(32-CHAR_WIDTH)-(x&0x1f);
+    if (l<0){
+        r=-l;
+    }
+    if (r){
+        video_bmp[cy+CHAR_HEIGHT-1][b] ^= (0x3f>>r);
+        video_bmp[cy+CHAR_HEIGHT-1][b+1] ^= (0x3f<<32-r);
+    } else{
+        video_bmp[cy+CHAR_HEIGHT-1][b] ^= (0x3f<<l);
+    }
+}//vga_toggle_underscore()
+
+// cette fonction ne doit-être appellée
+// que par l'interruption du TIMER2 lorsque le cursor est actif.
+void vga_toggle_cursor(){
+    if (cur_shape==CR_BLOCK){
+        vga_invert_char();
+    }else{
+        vga_toggle_underscore();
+    }
+    flags ^=CUR_VIS;
+}// vga_toggle_cursor()
+
+
+void vga_show_cursor(BOOL show){
+    if (show){
+        flags |= CUR_SHOW;
+        flags &= ~CUR_VIS;
+        enable_cursor_timer(TRUE,(cursor_tmr_callback_f)vga_toggle_cursor);
+    }else{
+        enable_cursor_timer(FALSE,NULL);
+        flags &= ~CUR_SHOW;
+        if (flags & CUR_VIS){
+            vga_toggle_cursor();
+            flags &= ~CUR_VIS;
+        }
+    }
+}// vga_show_cursor()
+
+
+BOOL vga_is_cursor_active(){
+    return flags&CUR_SHOW;
+}// vga_is_cursor_active()
+
+void vga_set_cursor(cursor_t shape){
+    if (flags & CUR_VIS){
+        vga_show_cursor(FALSE);
+        cur_shape=shape;
+        vga_show_cursor(TRUE);
+    }else{
+        cur_shape=shape;
+    }
+}// vga_set_cursor()
+
+void vga_invert_video(unsigned char invert){
+    if (invert){
+        flags |= INV_VID;
+    }else{
+        flags &= ~INV_VID;
+    }
+}//vga_invert_video()
+
+// renvoie le mode video
+BOOL vga_is_invert_video(){
+    return flags&INV_VID;
+}//vga_is_invert_video()
+
+
+void vga_spaces( int n){
+    while (n){
+        vga_put_char(' ');
+        n--;
+    }
+}//vga_spaces()
 
 
 void enable_cursor_timer(BOOL enable, cursor_tmr_callback_f cb){
@@ -118,6 +492,45 @@ void enable_cursor_timer(BOOL enable, cursor_tmr_callback_f cb){
         cursor_timer.active=FALSE;
     }
 }
+
+ // lecture touche clavier, retourne 0 s'il n'y a pas de touche ou touche relâchée.
+unsigned char vga_get_key(){
+    return KbdKey();
+}//vga_get_key()
+
+unsigned char vga_wait_key(){ // attend qu'une touche soit enfoncée et retourne sa valeur.
+    unsigned short key;
+    
+    vga_show_cursor(TRUE);
+    while (!(key=KbdKey())){
+    }//while
+    vga_show_cursor(FALSE);
+    return key;
+}//wait_key()
+
+ // lit une ligne au clavier, retourne la longueur du texte.
+unsigned char vga_readline(unsigned char *ibuff,unsigned char max_char){
+    unsigned char c=0, count=0;
+    while ((c!='\r') && (count<=max_char)){
+        c=vga_wait_key();
+        if (c==CR){
+            vga_put_char('\r');
+            break;
+        }else if (c==BS){
+            if (count){
+                ibuff--;
+                count--;
+                vga_print("\b \b");
+            }
+        }else if (c >=32 && c<=127){
+            *ibuff++=c;
+            count++;
+            vga_put_char(c);
+        }
+    }// while
+    *ibuff=(char)0;
+    return count;
+} // readline()
 
 // interruption qui assure le fonctionnement du 
 // générateur vidéo.
@@ -146,7 +559,7 @@ void __ISR(_TIMER_2_VECTOR,IPL7AUTO) tmr2_isr(void){
             break;
         case FIRST_LINE:
             video=1;
-            DmaSrc=(void*)&video_bmp[0];
+            dma_source=(void*)&video_bmp[0];
             break;
         case LAST_LINE:
             video=0;
@@ -170,8 +583,8 @@ void __ISR(_TIMER_2_VECTOR,IPL7AUTO) tmr2_isr(void){
                 );
                 _enable_video_out();
                 IFS1bits.SPI1TXIF=1;
-                DCH0SSA=KVA_TO_PA((void *)DmaSrc);
-                if ((ln_cnt+1)&1) DmaSrc +=HRES/32;
+                DCH0SSA=KVA_TO_PA((void *)dma_source);
+                if ((ln_cnt+1)&1) dma_source +=HRES/32;
                 DCH0CON |=128; // Enable DMA channel 0.
             }
     }//switch (ln_cnt)

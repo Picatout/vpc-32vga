@@ -13,7 +13,7 @@
 #include "../HardwareProfile.h"
 #include "rtcc.h"
 #include "../serial_comm/serial_comm.h"
-#include "../../console.h"
+//#include "../../console.h"
 #include "../tvout/vga.h"
 #include "../sound/sound.h"
 
@@ -489,31 +489,32 @@ static  const unsigned int ring_tone[8]={329,250,523,250,329,250,0,0};
     text_coord_t cpos;
     uint8_t scr_save[HRES];
     BOOL active,invert;
- 
-    if ((active=is_cursor_active())){
-        show_cursor(FALSE);
+#define print_msg(s) vga_print(s)
+    
+    if ((active=vga_is_cursor_active())){
+        vga_show_cursor(FALSE);
     }
-    invert=is_invert_video();
-    invert_video(TRUE);
+    invert=vga_is_invert_video();
+    vga_invert_video(TRUE);
     tune(ring_tone);
     msg[31]=0;
     memcpy((void*)scr_save,video_bmp,HRES);
-    cpos=get_curpos();
-    set_curpos(0,0);
-    clear_eol();
-    print(comm_channel,"ALARM: ");
-    print(comm_channel,msg);
-    print(comm_channel,"  <any key> to exit");
-    wait_key(comm_channel);
+    cpos=vga_get_curpos();
+    vga_set_curpos(0,0);
+    vga_clear_eol();
+    print_msg("ALARM: ");
+    print_msg(msg);
+    print_msg("  <any key> to exit\r");
+    vga_wait_key();
     memcpy(video_bmp,(void*)scr_save,HRES);
     if (!invert){
-        invert_video(FALSE);
+        vga_invert_video(FALSE);
     }
-    set_curpos(cpos.x,cpos.y);
+    vga_set_curpos(cpos.x,cpos.y);
     if (active){
-        show_cursor(TRUE);
+        vga_show_cursor(TRUE);
     }else{
-        show_cursor(FALSE);
+        vga_show_cursor(FALSE);
     }
     
 }

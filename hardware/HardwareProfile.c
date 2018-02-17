@@ -33,7 +33,6 @@
 volatile unsigned int  sys_ticks; // milliseconds counter.
 static volatile unsigned int timers[TMR_COUNT]; // count down timer
 
-
 // boot time hardware initialization
 void HardwareInit(){
    SYSTEMConfig(mGetSystemClock(), SYS_CFG_WAIT_STATES | SYS_CFG_PCACHE);
