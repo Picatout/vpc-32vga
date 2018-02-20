@@ -13,12 +13,9 @@
 #include "../HardwareProfile.h"
 #include "rtcc.h"
 #include "../serial_comm/serial_comm.h"
-//#include "../../console.h"
+#include "../ps2_kbd/keyboard.h"
 #include "../tvout/vga.h"
 #include "../sound/sound.h"
-
-
-
 
 
 #define I2C_CTRL_BYTE (0xDE)
@@ -32,16 +29,7 @@
 #define _set_sda_as_output() RTCC_SDA_LATSET=RTCC_SDA_PIN;\
                              RTCC_SDA_TRISCLR=RTCC_SDA_PIN
 
-#define I2C_CLK_PER (3)
-
-//#define _usec_delay(usec)   PR1=40*usec;IFS0bits.T1IF=0;\
-//                            T1CONbits.ON=1;\
-//                            while (!IFS0bits.T1IF);
-
-#define _usec_delay(x)   asm volatile (".set noreorder\n");\
-                         asm volatile ("addiu $t0,$zero,%0"::"I"(x*20));\
-                         asm volatile ("1: bne $t0,$zero,1b\naddiu $t0,$t0,-1\n");\
-                         asm volatile (".set reorder\n");
+#define I2C_CLK_PER (5)
 
 BOOL rtcc_error;
 static jmp_buf  env;
@@ -178,7 +166,7 @@ static uint8_t i2c_receive_byte(BOOL send_ack){
     return byte;
 }
 
-uint8_t rtcc_read_next(){
+static uint8_t rtcc_read_next(){
     uint8_t byte;
     rtcc_error=FALSE;
     if (!setjmp(env)){
@@ -192,7 +180,7 @@ uint8_t rtcc_read_next(){
     }
 }
 
-void rtcc_read_buf(uint8_t addr,uint8_t *buf, uint8_t size){
+static void rtcc_read_buf(uint8_t addr,uint8_t *buf, uint8_t size){
     uint8_t dummy;
     if (!size) return;
     rtcc_error=FALSE;
@@ -213,7 +201,7 @@ void rtcc_read_buf(uint8_t addr,uint8_t *buf, uint8_t size){
     }
 }
 
-uint8_t rtcc_read_byte(uint8_t addr){
+static uint8_t rtcc_read_byte(uint8_t addr){
     uint8_t byte;
     
     rtcc_error=FALSE;
@@ -231,7 +219,7 @@ uint8_t rtcc_read_byte(uint8_t addr){
     }
 }
 
-void rtcc_write_buf(uint8_t addr,uint8_t *buf, uint8_t size){
+static void rtcc_write_buf(uint8_t addr,uint8_t *buf, uint8_t size){
     rtcc_error=FALSE;
     if (!setjmp(env)){
         i2c_start_bit();
@@ -249,7 +237,7 @@ void rtcc_write_buf(uint8_t addr,uint8_t *buf, uint8_t size){
     }
 }
 
-void rtcc_write_byte(uint8_t addr, uint8_t byte){
+static void rtcc_write_byte(uint8_t addr, uint8_t byte){
     rtcc_error=FALSE;
     if (!setjmp(env)){
         i2c_start_bit();
@@ -264,8 +252,8 @@ void rtcc_write_byte(uint8_t addr, uint8_t byte){
     }
 };
 
-void rtcc_init(){
-    uint8_t byte;
+rtcc_error_t rtcc_init(){
+    uint8_t byte,tries;
     // l'entrée alarme recevant le signal du MCP7940N
     // la sortie sur le RTCC est open drain
     // on active le weak pullup sur l'entrée du MCU.
@@ -285,12 +273,26 @@ void rtcc_init(){
     _usec_delay(5);
     byte=rtcc_read_byte(RTC_WKDAY);
     if (!rtcc_error){
-        if (!(byte&(1<<5))){ // oscillateur inactif
+        tries=3;
+        while (tries && !(byte&OSCRUN_MSK)){ // oscillateur inactif
+            ser_print("rtcc oscillator not running.\r");
             rtcc_write_byte(RTC_SEC,128); //activation oscillateur
+            delay_ms(5);
+            byte=rtcc_read_byte(RTC_WKDAY);
+            tries--;
         }
-        if (!(byte&(1<<3))){// support pile désactivé.
+        if (!(byte&OSCRUN_MSK)){return RTCC_ERR_OSCRUN;}
+        tries=3;
+        while (tries && !(byte&VBATEN_MSK)){// support pile désactivé.
+            ser_print("rtcc battery disabled.\r");
             rtcc_write_byte(RTC_WKDAY,(1<<3)); // activation support pile.
+            delay_ms(5);
+            byte=rtcc_read_byte(RTC_WKDAY);
+            tries--;
         };
+        if (!(byte&VBATEN_MSK)){return RTCC_ERR_VBATEN;}
+    }else{
+        return RTCC_ERR_COMM;
     }
     // interruption lorsque la broche alarm descend à zéro.
     CNCONBbits.ON=1;
@@ -302,6 +304,8 @@ void rtcc_init(){
         IFS1bits.CNBIF=0;
         IEC1bits.CNBIE=1;
     }
+    rtcc_error=0;
+    return RTCC_ERR_NONE;
 }
 
 
@@ -336,7 +340,7 @@ static uint8_t dec2bcd(uint8_t dec){
 }
 
 
-void get_time(stime_t* time){
+void rtcc_get_time(stime_t* time){
     uint8_t buf[3];
     rtcc_read_buf(RTC_SEC,buf,3);
     time->sec=bcd2dec(buf[0]&0x7f);
@@ -345,7 +349,7 @@ void get_time(stime_t* time){
 
 }
 
-void set_time(stime_t time){
+void rtcc_set_time(stime_t time){
     uint8_t byte[3];
     byte[0]=128+dec2bcd(time.sec);
     byte[1]=dec2bcd(time.min);
@@ -353,7 +357,7 @@ void set_time(stime_t time){
     rtcc_write_buf(RTC_SEC,byte,3);
 }
 
-void get_date(sdate_t* date){
+void rtcc_get_date(sdate_t* date){
     uint8_t buf[4];
     rtcc_read_buf(RTC_WKDAY,buf,4);
     date->wkday=buf[0]&7;
@@ -363,7 +367,7 @@ void get_date(sdate_t* date){
 }
 
 
-void set_date(sdate_t date){
+void rtcc_set_date(sdate_t date){
     uint8_t byte[4];
     byte[0]=8+dec2bcd(date.wkday);
     byte[1]=dec2bcd(date.day);
@@ -374,15 +378,16 @@ void set_date(sdate_t date){
 
 const char *weekdays[7]={"Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"};
 
-void get_date_str(char *date_str){
+void rtcc_get_date_str(char *date_str){
     sdate_t d;
-    get_date(&d);
+    rtcc_get_date(&d);
+    if (d.wkday<1) d.wkday=1;
     sprintf(date_str,"%s %4d/%02d/%02d ",weekdays[d.wkday-1],d.year,d.month,d.day);
 }
 
-void  get_time_str(char *time_str){
+void  rtcc_get_time_str(char *time_str){
     stime_t t;
-    get_time(&t);
+    rtcc_get_time(&t);
     sprintf(time_str,"%02d:%02d:%02d ",t.hour,t.min,t.sec);
 }
 
@@ -411,7 +416,7 @@ BOOL leap_year(unsigned short year){
     }
 }
 
-BOOL set_alarm(sdate_t date, stime_t time, uint8_t *msg){
+BOOL rtcc_set_alarm(sdate_t date, stime_t time, uint8_t *msg){
     uint8_t byte, buf[6];
     
     byte=rtcc_read_byte(RTC_CONTROL);
@@ -439,7 +444,7 @@ BOOL set_alarm(sdate_t date, stime_t time, uint8_t *msg){
 }
 
 // rapporte l'état des 2 alarmes
-void get_alarms(alm_state_t *alm_st){
+void rtcc_get_alarms(alm_state_t *alm_st){
 static const int alarm[2]={RTC_ALM0SEC,RTC_ALM1SEC};
 static const int enable[2]={ALM0EN_MSK,ALM1EN_MSK};
     uint8_t ctrl_byte, alm_regs[6];
@@ -458,7 +463,7 @@ static const int enable[2]={ALM0EN_MSK,ALM1EN_MSK};
     }
 }
 
-void cancel_alarm(uint8_t n){
+void rtcc_cancel_alarm(uint8_t n){
     uint8_t ctrl_byte;
     ctrl_byte=rtcc_read_byte(RTC_CONTROL);
     if (!n){
@@ -469,7 +474,7 @@ void cancel_alarm(uint8_t n){
     rtcc_write_byte(RTC_CONTROL,ctrl_byte);
 }
 
-void power_down_stamp(alm_state_t *pdown){
+void rtcc_power_down_stamp(alm_state_t *pdown){
     uint8_t wkday, buf[4];
     rtcc_read_buf(RTC_PWRDNMIN,buf,4); 
     pdown->min=bcd2dec(buf[0]);
@@ -505,7 +510,7 @@ static  const unsigned int ring_tone[8]={329,250,523,250,329,250,0,0};
     print_msg("ALARM: ");
     print_msg(msg);
     print_msg("  <any key> to exit\r");
-    vga_wait_key();
+    kbd_wait_key();
     memcpy(video_bmp,(void*)scr_save,HRES);
     if (!invert){
         vga_invert_video(FALSE);

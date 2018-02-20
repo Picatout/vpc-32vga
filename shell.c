@@ -51,6 +51,8 @@
 #include "shell.h"
 #include "vpcBASIC/vpcBASIC.h"
 #include "hardware/rtcc/rtcc.h"
+//#include "hardware/serial_comm/serial_comm.h"
+#include "console.h"
 
 #define MAX_LINE_LEN 80
 #define MAX_TOKEN 5
@@ -90,14 +92,14 @@ void print_error_msg(SH_ERROR err_code,const char *detail,FRESULT io_code){
         fmt=malloc(64);
         if (fmt){
             sprintf(fmt,ERR_MSG[ERR_FIO],io_code);
-            print(comm_channel,fmt);
+            print(con,fmt);
             free(fmt);
         }
     }else{
-       print(comm_channel,ERR_MSG[err_code]);
+       print(con,ERR_MSG[err_code]);
     }
     if (detail){
-       print(comm_channel,detail);
+       print(con,detail);
     }
 }//print_error_msg()
 
@@ -139,16 +141,16 @@ void display_cmd_list(){
     int i;
     text_coord_t pos;
     for(i=0;i<nbr_cmd;i++){
-        pos=get_curpos();
+        pos=get_curpos(con);
         if (pos.x>(CHAR_PER_LINE-strlen(commands[i])-2)){
-            put_char(comm_channel,'\r');
+            put_char(con,'\r');
         }
-        print(comm_channel,commands[i]);
+        print(con,commands[i]);
         if (i<(nbr_cmd-1)){
-            print(comm_channel," ");
+            print(con," ");
         }
     }
-    put_char(comm_channel,'\r');
+    put_char(con,'\r');
 }
 
 // calibration oscillateur du RTCC
@@ -160,7 +162,7 @@ void cmd_clktrim(int i){
         trim=atoi(cmd_tokens[1]);
         trim=rtcc_calibration(trim);
     }else{
-        print(comm_channel,
+        print(con,
             "RTCC oscillator calibration\n"
             "USAGE: clktrim n\n"
             "n is added to actual value\n"
@@ -168,7 +170,7 @@ void cmd_clktrim(int i){
         trim=rtcc_calibration(0);
     }
     sprintf(fmt,"Actual RTCC oscillator trim value: %d",trim);
-    print(comm_channel,fmt);
+    print(con,fmt);
 }
 
 
@@ -188,7 +190,7 @@ void cmd_uptime(){
     remainder%=60000;
     sec=remainder/1000;
     sprintf(fmt,"%02dd%02dh%02dm%02ds\n",day,hour,min,sec);
-    print(comm_channel,fmt);
+    print(con,fmt);
 }
 
 
@@ -196,12 +198,12 @@ void cmd_format(int i){
     if (i==2){
         print_error_msg(ERR_NOT_DONE,NULL,0);
     }else{
-        print(comm_channel,"USAGE: format volume_name\r");
+        print(con,"USAGE: format volume_name\r");
     }
 }
 
 void cmd_forth(int i){
-    test_vm();
+//    test_vm();
 }
 
 static int next_token(void){
@@ -282,8 +284,8 @@ void cd(int i){ // change le répertoire courant.
        if (path){
           error=f_getcwd(path,255);
           if(!error){
-              print(comm_channel,path);
-              put_char(comm_channel,'\r');
+              print(con,path);
+              put_char(con,'\r');
           }
           free(path);
        }
@@ -381,7 +383,7 @@ void copy(int i){ // copie un fichier
                 print_error_msg(ERR_FIO,"copy failed.\r",error);
             }
         }else{
-            print(comm_channel,ERR_MSG[ERR_ALLOC]);
+            print(con,ERR_MSG[ERR_ALLOC]);
         }
     }else{
         print_error_msg(ERR_USAGE,"copy file USAGE: copy file_name new_file_name\r",0);
@@ -393,7 +395,7 @@ void cmd_send(int i){ // envoie un fichier via uart
    if (i==2){
        print_error_msg(ERR_NOT_DONE,NULL,0);
    }else{
-       print(comm_channel, "send file via serial, USAGE: send file_name\r");
+       print(con, "send file via serial, USAGE: send file_name\r");
    }
 }//cmd_send()
 
@@ -402,7 +404,7 @@ void receive(int i){ // reçois un fichier via uart
    if (i==2){
        print_error_msg(ERR_NOT_DONE,NULL,0);
    }else{
-       print(comm_channel, "receive file from serial, USAGE: receive file_name\r");
+       print(con, "receive file from serial, USAGE: receive file_name\r");
    }
 }//receive()
 
@@ -424,7 +426,7 @@ void cmd_hdump(int i){ // affiche un fichier en hexadécimal
     if (i==2){
         fh=malloc(sizeof(FIL));
         if (fh && ((error=f_open(fh,cmd_tokens[1],FA_READ))==FR_OK)){
-            if (comm_channel==LOCAL_CON) clear_screen();
+            if (con==LOCAL_CON) clear_screen(con);
             buff=malloc(512);
             fmt=malloc(CHAR_PER_LINE);
             if (fmt && buff){
@@ -437,23 +439,23 @@ void cmd_hdump(int i){ // affiche un fichier en hexadécimal
                     for(;n && key!=ESC;n--){
                         if (!col){
                             sprintf(fmt,"%08X  ",addr);
-                            print(comm_channel,fmt);
+                            print(con,fmt);
                         }
                         c=*rbuff++;
                         sprintf(fmt,"%02X ",c);
-                        //print_hex(comm_channel,c,2); put_char(comm_channel,32);
+                        //print_hex(con,c,2); put_char(con,32);
                         if (c>=32) line[col]=c; else line[col]=32;
-                        print(comm_channel,fmt);
+                        print(con,fmt);
                         col++;
                         if (col==16){
-                            print(comm_channel,line);
+                            print(con,line);
                             col=0;
                             addr+=16;
                             scr_line++;
                             if (scr_line==(LINE_PER_SCREEN-1)){
-                                print(comm_channel,"more...");
-                                key=wait_key(comm_channel);
-                                clear_screen();
+                                print(con,"more...");
+                                key=wait_key(con);
+                                clear_screen(con);
                                 scr_line=0;
                             }
                         }
@@ -462,11 +464,11 @@ void cmd_hdump(int i){ // affiche un fichier en hexadécimal
                 if (col){
                     strcpy(fmt,"   ");
                     while (col<16){
-                        print(comm_channel,fmt);
+                        print(con,fmt);
                         line[col]=32;
                         col++;
                     }
-                    print(comm_channel,line);
+                    print(con,line);
                 }
                 f_close(fh);
                 free(fh);
@@ -514,14 +516,14 @@ void more(int i){ // affiche à l'écran le contenu d'un fichier texte
     }
     FRESULT error=FR_OK;
     if (i==2){
-        clear_screen();
+        clear_screen(con);
         fh=malloc(sizeof(FIL));
         if (fh && ((error=f_open(fh,cmd_tokens[1],FA_READ))==FR_OK)){
             buff=malloc(512);
             fmt=malloc(CHAR_PER_LINE);
             if (fmt && buff){
                 sprintf(fmt,"File: %s, size %d bytes\r",cmd_tokens[1],fh->fsize);
-                print(comm_channel,fmt);
+                print(con,fmt);
                 key=0;
                 while (key!=ESC && f_read(fh,buff,512,&n)==FR_OK){
                     if (!n) break;
@@ -529,22 +531,22 @@ void more(int i){ // affiche à l'écran le contenu d'un fichier texte
                     for(;n;n--){
                         c=*rbuff++;
                         if ((c!=TAB && c!=CR && c!=LF) && (c<32 || c>126)) {c=32;}
-                        put_char(comm_channel,c);
-                        if (comm_channel==LOCAL_CON){
-                            cpos=get_curpos();
+                        put_char(con,c);
+                        if (con==LOCAL_CON){
+                            cpos=get_curpos(con);
                             if (cpos.x==0){
                                 if (cpos.y>=(LINE_PER_SCREEN-1)){
                                     cpos.y=LINE_PER_SCREEN-1;
-                                    invert_video(TRUE);
-                                    print(comm_channel,"-- next --");
-                                    invert_video(FALSE);
-                                    key=wait_key(comm_channel);
+                                    invert_video(con,TRUE);
+                                    print(con,"-- next --");
+                                    invert_video(con,FALSE);
+                                    key=wait_key(con);
                                     if (key=='q' || key==ESC){key=ESC; break;}
                                     if (key==CR){
-                                        set_curpos(cpos.x,cpos.y);
-                                        clear_eol();
+                                        set_curpos(con,cpos.x,cpos.y);
+                                        clear_eol(con);
                                     }else{
-                                        clear_screen();
+                                        clear_screen(con);
                                     }
                                 }
                             }
@@ -555,9 +557,9 @@ void more(int i){ // affiche à l'écran le contenu d'un fichier texte
                                 lcnt++;
                                 if (lcnt==22){
                                     lcnt=0;
-                                   // print(comm_channel,"\r-- next --\r");
-                                    put_char(comm_channel,'\r');
-                                    key=wait_key(comm_channel);
+                                   // print(con,"\r-- next --\r");
+                                    put_char(con,'\r');
+                                    key=wait_key(con);
                                     if (key=='q' || key==ESC){key=ESC;break;}
                                 }
                             }
@@ -602,12 +604,12 @@ void mkdir(int i){
         fmt=malloc(CHAR_PER_LINE+1);
         if (fmt && (error=f_mkdir(cmd_tokens[1])==FR_OK)){
             sprintf(fmt,"directory %s created\r",cmd_tokens[1]);
-            print(comm_channel,fmt);
+            print(con,fmt);
         }else{
             if (!fmt){
-                print(comm_channel,ERR_MSG[ERR_ALLOC]);
+                print(con,ERR_MSG[ERR_ALLOC]);
             }else{
-                print(comm_channel,ERR_MSG[ERR_MKDIR]);
+                print(con,ERR_MSG[ERR_MKDIR]);
             }
         }
     }else{
@@ -633,7 +635,7 @@ void list_directory(int i){
             fh=malloc(sizeof(FIL));
             if (fh && ((error=f_open(fh,cmd_tokens[1],FA_READ))==FR_OK)){
                 sprintf(fmt,"File: %s, size %d bytes\r",cmd_tokens[1],fh->fsize);
-                print(comm_channel,fmt);
+                print(con,fmt);
                 f_close(fh);
                 free(fh);
             }
@@ -645,18 +647,18 @@ void list_directory(int i){
 }//list_directory()
 
 void cmd_puts(int i){
-    print(comm_channel, "puts, to be done.\r");
+    print(con, "puts, to be done.\r");
 }//puts()
 
 void expr(int i){
-    print(comm_channel, "expr, to be done.\r");
+    print(con, "expr, to be done.\r");
 }//expr()
 
 //display heap status
 void cmd_free(int i){
     char fmt[55];
     sprintf(fmt,"free RAM %d/%d BYTES\r",free_heap(),heap_size);
-    print(comm_channel,fmt);
+    print(con,fmt);
 }
 
 void parse_time(char *time_str,stime_t *time){
@@ -707,21 +709,21 @@ void cmd_date(int i){
     
     if (i>1){
         parse_date(cmd_tokens[1],&date);
-        set_date(date);
-        if (rtcc_error) DebugPrint("set-date() error\r");
+        rtcc_set_date(date);
+        if (rtcc_error) print(con,"rtcc_set_date() error\r");
     }else{
-        get_date_str(fmt);
-        print(comm_channel,fmt);
+        rtcc_get_date_str(fmt);
+        print(con,fmt);
     }
 }
 
 // affiche la date et l'heure
 void display_date_time(){
     char fmt[32];
-    get_date_str(fmt);
-    print(comm_channel,fmt);
-    get_time_str(fmt);
-    print(comm_channel,fmt);
+    rtcc_get_date_str(fmt);
+    print(con,fmt);
+    rtcc_get_time_str(fmt);
+    print(con,fmt);
 }
 
 // affiche ou saisie de  l'heure
@@ -731,11 +733,11 @@ void cmd_time(int i){
     stime_t t;
     if (i>1){
         parse_time(cmd_tokens[1],&t);
-        set_time(t);
-        if (rtcc_error) DebugPrint("error set_time\r");
+        rtcc_set_time(t);
+        if (rtcc_error) print(con,"error set_time\r");
     }else {
-        get_time_str(fmt);
-        print(comm_channel,fmt);
+        rtcc_get_time_str(fmt);
+        print(con,fmt);
     }
 }
 
@@ -745,18 +747,18 @@ void report_alarms_state(){
     
     sdate_t date;
     alm_state_t state[2];
-    get_date(&date);
-    get_alarms(state);
+    rtcc_get_date(&date);
+    rtcc_get_alarms(state);
     for (i=0;i<2;i++){
         if (state[i].enabled){
             sprintf(fmt,"alarm %d set to %s %d/%02d/%02d %02d:%02d:%02d  %s\n",i,
                     weekdays[state[i].wkday-1],date.year,state[i].month,
                     state[i].day,state[i].hour,state[i].min,state[i].sec,
                     (char*)state[i].msg);
-            print(comm_channel,fmt);
+            print(con,fmt);
         }else{
             sprintf(fmt,"alarm %d inactive\n",i);
-            print(comm_channel,fmt);
+            print(con,fmt);
         }
     }
     
@@ -772,10 +774,10 @@ void cmd_alarm(int i){
             if (!strcmp(cmd_tokens[1],"-s")){
                 parse_date(cmd_tokens[2],&date);
                 parse_time(cmd_tokens[3],&time);
-                strcpy(msg,cmd_tokens[4]); print(STDIO,msg);
+                strcpy(msg,cmd_tokens[4]); print(SERIO,msg);
                 msg[31]=0;
-                if (!set_alarm(date,time,(uint8_t*)msg)){
-                    print(comm_channel, "Failed to set alarm, none free.\n");
+                if (!rtcc_set_alarm(date,time,(uint8_t*)msg)){
+                    print(con, "Failed to set alarm, none free.\n");
                 }
                 break;
             }
@@ -786,11 +788,11 @@ void cmd_alarm(int i){
             }
         case 3:
             if (!strcmp(cmd_tokens[1],"-c")){
-                cancel_alarm(atoi(cmd_tokens[2]));
+                rtcc_cancel_alarm(atoi(cmd_tokens[2]));
                 break;
             }
         default:
-            print(comm_channel,"USAGE: alarm []|[-c 0|1]|[-d ]|[-s date time \"message\"]\n");
+            print(con,"USAGE: alarm []|[-c 0|1]|[-d ]|[-s date time \"message\"]\n");
     }//switch
 }
 
@@ -798,8 +800,8 @@ void cmd_echo(int i){
     int j;
     
     for (j=1;j<i;j++){
-        print(comm_channel,cmd_tokens[j]);
-        spaces(comm_channel,1);
+        print(con,cmd_tokens[j]);
+        spaces(con,1);
     }
 }
 
@@ -852,10 +854,10 @@ void execute_cmd(int i){
                 expr(i);
                 break;
             case CMD_CLEAR: // efface l'écran
-                if (comm_channel==LOCAL_CON){
-                    clear_screen();
+                if (con==LOCAL_CON){
+                    clear_screen(con);
                 }else{
-                    print(comm_channel,"\E[2J\E[H"); // VT100 commands
+                    print(con,"\E[2J\E[H"); // VT100 commands
                 }
                 break;
             case CMD_MOUNT:
@@ -893,7 +895,7 @@ void execute_cmd(int i){
                 cmd_clktrim(i);
                 break;
             default:
-                print(comm_channel,"unknown command!\r");
+                print(con,"unknown command!\r");
     }
 }// execute_cmd()
 
@@ -930,11 +932,11 @@ void last_shutdown(){
     alm_state_t shutdown;
     char fmt[32];
     
-    power_down_stamp(&shutdown);
+    rtcc_power_down_stamp(&shutdown);
     if (shutdown.day){
         sprintf(fmt,"Last power down: %s %02d/%02d %02d:%02d\n",weekdays[shutdown.wkday],
                 shutdown.month,shutdown.day,shutdown.hour,shutdown.min);
-        print(comm_channel,fmt);
+        print(con,fmt);
     }
 }
 
@@ -942,47 +944,16 @@ void shell(void){
     int i;
     char fmt[32];
 
-    print(comm_channel,"VPC-32 shell\rfree RAM (bytes): ");
-    print_int(comm_channel,free_heap(),0);
-    crlf();
+    print(con,"VPC-32 shell\rfree RAM (bytes): ");
+    print_int(con,free_heap(),0);
+    crlf(con);
     last_shutdown();
-    crlf();
+    crlf(con);
     display_date_time();
     free_tokens();
-#ifndef RTCC
-    sdate_t date;
-    stime_t time;
-    print(comm_channel,"date? (yy/mm/dd) ");
-    cmd_line.len=readline(comm_channel,cmd_line.buff,12);
-    if (cmd_line.len){
-        i=tokenize();
-        cmd_tokens[1]=cmd_tokens[0];
-        cmd_date(2);
-        free_tokens();
-    }else{
-        date.y=2000;
-        date.m=1;
-        date.d=1;
-        set_date(date);
-    }
-    print(comm_channel,"time? (hh:mm:ss) ");
-    cmd_line.len=readline(comm_channel,cmd_line.buff,9);
-    if (cmd_line.len){
-        i=tokenize();
-        cmd_tokens[1]=cmd_tokens[0];
-        cmd_time(2);
-        free_tokens();
-    }else{
-        time.h=0;
-        time.m=0;
-        time.s=0;
-        set_time(time);
-    }
-    display_date_time();
-#endif    
     while (1){
-        print(comm_channel,prompt);
-        cmd_line.len=readline(comm_channel,cmd_line.buff,CHAR_PER_LINE);
+        print(con,prompt);
+        cmd_line.len=read_line(con,cmd_line.buff,CHAR_PER_LINE);
         if (cmd_line.len){
             i=tokenize();
             if (i) {

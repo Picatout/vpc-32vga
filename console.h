@@ -36,30 +36,33 @@ extern "C" {
 #include "font.h"
 #include "hardware/tvout/vga.h"
 #include "hardware/HardwareProfile.h"
+#include "hardware/tvout/vga.h"
 #include "vt100.h"
     
-#define LINE_PER_SCREEN ((int)VRES/CHAR_HEIGHT)
-#define CHAR_PER_LINE ((int)(HRES/CHAR_WIDTH))
-#define TAB_WIDTH 4
 
 //typedef  unsigned char dev_t;
 
-    typedef struct{
-        unsigned short x;
-        unsigned short y;
-    } text_coord_t;
-    
-    typedef enum _CURSOR_SHAPE {CR_UNDER=0,CR_BLOCK} cursor_t;
-
-extern dev_t comm_channel;
+extern dev_t con;
 
 // fonctions de l'interface
-void clear_screen(dev_t dev); // efface l'écran et positionne le curseur à {0,0}
 void uppercase(char *str);// in situ uppercase
+void clear_screen(dev_t dev); // efface l'écran et positionne le curseur à {0,0}
 void clear_eol(dev_t dev); // efface la fin de la ligne à partir du curseur.
 unsigned char get_key(dev_t dev); // lecture touches clavier
 unsigned char wait_key(dev_t dev); // attend qu'une touche soit enfoncée.
-unsigned char readline(dev_t dev, unsigned char *ibuff,unsigned char max_char); // lit une ligne au clavier, retourne la longueur de texte.
+unsigned char read_line(dev_t dev, unsigned char *ibuff,unsigned char max_char); // lit une ligne au clavier, retourne la longueur de texte.
+text_coord_t get_curpos(dev_t dev);
+void set_curpos(dev_t dev,int x, int y);
+void put_char(dev_t dev, char c);
+void print(dev_t dev, const char *str);
+void spaces(dev_t dev, unsigned char count);
+void invert_video(dev_t dev, BOOL yes);
+void crlf(dev_t dev);
+void print_int(dev_t dev, int number, int width);
+void print_hex(dev_t dev, unsigned hex, int width);
+void println(dev_t dev,const char *str);
+void scroll_down(dev_t dev);
+void scroll_up(dev_t dev);
 
 #ifdef	__cplusplus
 }

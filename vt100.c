@@ -23,27 +23,108 @@
 #include "vt100.h"
 
 
-void EscSeq(){
-    UartPutch(SERIO,ESC);
-    UartPutch(SERIO,LBRACKET);
+static void send_esc_seq(){
+    ser_put_char(ESC);
+    ser_put_char(LBRACKET);
 }
 
-void vt_clear(){
-    UartPutch(SERIO, FF);
+static BOOL wait_esc(){
+    char c;
+    c=ser_wait_char();
+    if (c==ESC){
+        c=ser_wait_char();
+        if (c==LBRACKET){
+            return TRUE;
+        }else{
+            return FALSE;
+        }
+    }else{
+        return FALSE;
+    }
+}
+
+// attend un paramètre numérique
+// terminé par la caractère c.
+static int get_param(char c){
+    int n=0;
+    char rx;
+    rx=ser_wait_char();
+    while ((rx!=c) && (rx>='0') && (rx<='9')){
+        n*=10;
+        n+=rx-'0';
+        rx=ser_wait_char();
+    }
+    return n;
+}
+
+
+void vt_clear_screen(){
+    ser_put_char( FF);
 }
 
 void vt_clear_eol(){
-    UartPutch(SERIO,ESC);
-    UartPutch(SERIO,LBRACKET);
-    UartPutch(SERIO,'K');
+    send_esc_seq();
+    ser_put_char('K');
 }
 
 void vt_clear_line(){
-    UartPutch(SERIO,ESC);
-    UartPutch(SERIO,LBRACKET);
-    UartPutch(SERIO,'2');
-    UartPutch(SERIO,'K');
+    send_esc_seq();
+    ser_put_char('2');
+    ser_put_char('K');
     
 }
 
+// envoie une séquence ESC [ 6 n
+// attend la réponse
+text_coord_t vt_get_curpos(){
+    char c;
+    text_coord_t coord;
+    coord.x=0;
+    coord.y=0;
+    send_esc_seq();
+    ser_print("6n");
+    if (wait_esc()){
+        coord.y=get_param(';')-1;
+        coord.x=get_param('R')-1;
+    }
+    return coord;
+}
 
+void vt_set_curpos(int x, int y){
+    char fmt[32];
+    sprintf(fmt,"\033[%d;%df",y+1,x+1);
+    ser_print(fmt);
+}
+
+
+void vt_print(const char *str){
+    ser_print(str);
+}
+
+void vt_spaces(unsigned char count){
+    while (count){
+        ser_put_char(A_SPACE);
+        count--;
+    }
+}
+
+void vt_invert_video(BOOL yes){
+    
+}
+
+void vt_crlf(){
+    ser_put_char('\r');
+}
+
+void vt_scroll_up(){
+    
+}
+
+void vt_scroll_down(){
+    
+}
+
+void vt_println(const char *str){
+    vt_print(str);
+    vt_crlf();
+}

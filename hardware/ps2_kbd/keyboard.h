@@ -29,7 +29,8 @@
 #ifdef	__cplusplus
 extern "C" {
 #endif
-
+#include "../tvout/vga.h"
+    
     enum VIRTUAL_KEY{
     VK_BACK =	8,
     VK_TAB =	9,
@@ -123,8 +124,16 @@ extern "C" {
     };
 
 // keyboard API
-void KeyboardInit();  // initialise ps/2 keyboard interface
-unsigned char KbdKey();  // read key from translated queue
+// initialise interface clavier ps/2
+int kbd_init();
+// retourne une touche du clavier si disponible
+//autrement retourne 0.
+unsigned char kbd_get_key();
+// attend une touche du clavier
+unsigned char kbd_wait_key();
+//lecture d'une ligne de texte du clavier
+unsigned char kbd_read_line(unsigned char *ibuff,unsigned char max_char);
+
 
 #ifdef	__cplusplus
 }

@@ -24,6 +24,7 @@
 
 #ifndef GRAPHICS_H
 #define	GRAPHICS_H
+#include "hardware/tvout/display.h"
 
 int getPixel(int x, int y);
 void setPixel(int x, int y);

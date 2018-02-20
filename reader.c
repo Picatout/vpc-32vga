@@ -50,8 +50,8 @@ int complevel=0;
 
 static void display_prompt(){
     int i;
-    crlf();
-    for(i=0;i<=complevel;i++) put_char(comm_channel,'>');
+    crlf(con);
+    for(i=0;i<=complevel;i++) put_char(con,'>');
 }//f
 
 //rempli le buffer
@@ -72,7 +72,7 @@ static bool fill_buffer(reader_t *reader){
     switch (reader->device){
         case eDEV_KBD:
             display_prompt();
-            reader->count=readline(comm_channel,reader->buffer,CHAR_PER_LINE);
+            reader->count=read_line(con,reader->buffer,CHAR_PER_LINE);
             reader->buffer[reader->count++]='\r';
             reader->inp=0;
             return true;

@@ -6,9 +6,9 @@
 #include "HardwareProfile.h"
 #include "serial_comm/serial_comm.h"
 
-#define _prt(s) UartPrint(SERIO,s)
 
 void _general_exception_handler(){
+#define _prt(s) ser_print(s)
 
     unsigned cause,epc;
     char fmt[64];

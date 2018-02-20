@@ -58,6 +58,8 @@ extern "C" {
 #define ALM0EN_MSK  (1<<4)
 #define ALM1EN_MSK (1<<5)
 // bit dans WKDAY
+#define VBATEN_MSK (1<<3)
+#define OSCRUN_MSK (1<<5)    
 #define PWRFAIL_MSK (1<<4)
 
 // mode bits dans RTC_ALMxWKDAY  bits:4..6
@@ -102,25 +104,29 @@ enum WEEKAYS{
 extern const char *weekdays[7];
 extern BOOL rtcc_error;
 
-void rtcc_init();
-uint8_t rtcc_read_next();
-void rtcc_read_buf(uint8_t addr, uint8_t *buf, uint8_t size);
-uint8_t rtcc_read_byte(uint8_t addr);
-void rtcc_write_many(uint8_t addr,uint8_t *data, uint8_t size);
-void rtcc_write_byte(uint8_t addr, uint8_t byte);
+typedef enum RTCC_ERROR{
+    RTCC_ERR_NONE,
+    RTCC_ERR_COMM,
+    RTCC_ERR_OSCRUN,
+    RTCC_ERR_VBATEN
+}rtcc_error_t;
+
+rtcc_error_t rtcc_init();
+
 int rtcc_calibration(int trim);
+void rtcc_get_time(stime_t* time);
+void rtcc_set_time(stime_t time);
+void rtcc_get_date(sdate_t* date);
+void rtcc_set_date(sdate_t date);
+void rtcc_get_date_str(char *date);
+void rtcc_get_time_str(char *time);
+BOOL rtcc_set_alarm(sdate_t date, stime_t time, uint8_t *msg);
+void rtcc_get_alarms(alm_state_t *alm_st);
+void rtcc_cancel_alarm(uint8_t n);
+void rtcc_power_down_stamp(alm_state_t *pdown);
 
 BOOL leap_year(unsigned short year);
-void get_time(stime_t* time);
-void set_time(stime_t time);
-void get_date(sdate_t* date);
-void set_date(sdate_t date);
-void get_date_str(char *date);
-void get_time_str(char *time);
-BOOL set_alarm(sdate_t date, stime_t time, uint8_t *msg);
-void get_alarms(alm_state_t *alm_st);
-void cancel_alarm(uint8_t n);
-void power_down_stamp(alm_state_t *pdown);
+uint8_t day_of_week(sdate_t *date);
 
 #ifndef RTCC
 void update_mcu_dt();

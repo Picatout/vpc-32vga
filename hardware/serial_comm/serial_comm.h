@@ -39,20 +39,21 @@
 #define DEFAULT_LINE_CTRL   UART_DATA_SIZE_8_BITS|UART_PARITY_NONE|UART_STOP_BITS_1
 
 
-// initialize serial port
-void UartInit( UART_MODULE channel, int baudrate, UART_LINE_CONTROL_MODE LineCtrl);
-// get a character from serial port
-char UartGetch(UART_MODULE channel);
+// initialise le port sériel.
+int ser_init(int baudrate, UART_LINE_CONTROL_MODE LineCtrl);
+// lecture d'un caractère du port sériel
+// retourne 
+char ser_get_char();
 // wait a character from serial port
-char UartWaitch(UART_MODULE channel, int delay);
+char ser_wait_char();
 // send a character to serial port
-void UartPutch(UART_MODULE channel,char c);
+void ser_put_char(char c);
 // send a string to serial port
-void UartPrint(UART_MODULE channel, const char* str);
+void ser_print(const char* str);
 // read characters from serial port up to CR
-int UartReadln(UART_MODULE channel, char * buffer, int buff_len);
-// return TRUE if received an ESC character
-int UartReceivedESC(UART_MODULE channel);
+int ser_read_line(char * buffer, int buff_len);
+// ajuste la vitesse du port sériel
+void ser_set_baud(int baudrate);
 
 #endif	/* UART_H */
 

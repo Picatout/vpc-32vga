@@ -41,7 +41,7 @@
 #define RAM_SIZE (65536)
 
 #define LOCAL_CON 0  // local console
-#define SERIAL_CON SERIO // remote console via RS-232 port
+#define SERIAL_CON 1 // remote console via RS-232 port
 
 // RS-232 port 
 #define TX BIT_10 // UART2 TX on PB10
@@ -73,8 +73,6 @@
 #define RAM_END				 	0xA0000000+BMXDRMSZ-1
 
 #define CS_RAM
-
-#define USE_CORE_TIMER  // comment out if not using MCU core timer.
 
 //SDcard and SPIRAM share same SPI channel
 //SPI2 used by storage devices 
@@ -213,24 +211,27 @@ enum EXCEPTION_CODES{
     
 };
 
-// initialize hardware at boot time.
-void HardwareInit();
-// return size of available user RAM.
+//pour Fsys=40Mhz boucle 20 fois/usec
+#define LOOP_PER_USEC (20)
+// x {1..3276}
+#define _usec_delay(x)   asm volatile (".set noreorder\n");\
+                         asm volatile ("ori $t0,$zero,%0"::"K"(x*LOOP_PER_USEC));\
+                         asm volatile ("1: bne $t0,$zero,1b\n addiu $t0,$t0,-1\n");\
+                         asm volatile (".set reorder\n");
+
+
+// initialisation matérielle au démarrage.
+void cold_start_init();
+// mémoire RAM libre.
 unsigned free_heap();
-
-// initialize a timer and return a pointer to it.
+// obtention d'une minuterie.
 volatile unsigned int* get_timer(unsigned int msec);
-
-#ifdef USE_CORE_TIMER
-// MCU core timer ticks count.
+// compteur système incrémenté à la milliseconde.
+// mis à zéro au démarrage.
 unsigned int ticks(void);
-#endif
-// pause in microseconds
-void delay_us(unsigned int usec);
-// pause milliseconds
+// pause en millisecondes
 void delay_ms(unsigned int msec);
-
-// control power LED
+// contrôle la LED alimentation/erreur fatale.
 void power_led(pled_state_t state);
 
 #endif	/* HARDWAREPROFILE_H */

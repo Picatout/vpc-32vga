@@ -29,9 +29,10 @@
 #include "hardware/HardwareProfile.h"
 #include "hardware/serial_comm/serial_comm.h"
 #include "hardware/ps2_kbd/keyboard.h"
+#include "hardware/tvout/vga.h"
+#include "vt100.h"
 
-
-dev_t comm_channel=LOCAL_CON;
+dev_t con=SERIAL_CON;//LOCAL_CON;
 
 
 
@@ -41,4 +42,185 @@ void uppercase(char *str){// in situ uppercase
         str++;
     }
 }
+
+ // efface l'écran et positionne le curseur à {0,0}
+void clear_screen(dev_t dev){
+    if (dev==LOCAL_CON){
+        vga_clear_screen();
+    }else{
+        vt_clear_screen();
+    }
+}
+
+// efface la fin de la ligne à partir du curseur.
+void clear_eol(dev_t dev){
+    if (dev==LOCAL_CON){
+        vga_clear_eol();
+    }else{
+        vt_clear_eol();
+    }
+}
+
+// retourne une touche du clavier si disponible
+// sinon retourne 0.
+unsigned char get_key(dev_t dev){
+    if (dev==LOCAL_CON){
+        return kbd_get_key();
+    }else{
+        return ser_get_char();
+    }
+}
+ // attend réception d'un caractère
+unsigned char wait_key(dev_t dev){
+    if (dev==LOCAL_CON){
+        return kbd_wait_key();
+    }else{
+        return ser_wait_char();
+    }
+}
+
+unsigned char read_line(dev_t dev, unsigned char *ibuff,unsigned char max_char){ // lit une ligne au clavier, retourne la longueur de texte.
+    if (dev==LOCAL_CON){
+        return kbd_read_line(ibuff,max_char);
+    }else{
+        return ser_read_line(ibuff,max_char);
+    }
+}
+
+// retourne les coordonnées du curseur texte.
+text_coord_t get_curpos(dev_t dev){
+    if (dev==LOCAL_CON){
+        return vga_get_curpos();
+    }else{
+        return vt_get_curpos();
+    }
+}
+
+// positionnne le curseur texte
+void set_curpos(dev_t dev,int x, int y){
+    if (dev==LOCAL_CON){
+        vga_set_curpos(x,y);
+    }else{
+        vt_set_curpos(x,y);
+    }
+}
+
+void put_char(dev_t dev, char c){
+    if (dev==LOCAL_CON){
+        vga_put_char(c);
+    }else{
+        ser_put_char(c);
+    }
+}
+
+void print(dev_t dev, const char *str){
+    if (dev==LOCAL_CON){
+        vga_print(str);
+    }else{
+        vt_print(str);
+    }
+}
+
+void spaces(dev_t dev, unsigned char count){
+    if (dev==LOCAL_CON){
+        vga_spaces(count);
+    }else{
+        vt_spaces(count);
+    }
+}
+
+void invert_video(dev_t dev, BOOL yes){
+    if (dev==LOCAL_CON){
+        vga_invert_video(yes);
+    }else{
+        vt_invert_video(yes);
+    }
+}
+
+void crlf(dev_t dev){
+    if (dev==LOCAL_CON){
+        vga_crlf();
+    }else{
+        vt_crlf();
+    }
+}
+
+void print_int(dev_t dev, int number, int width){
+    int sign=0;
+    char str[18], *d;
+    str[17]=0;
+    str[16]=' ';
+    d=&str[15];
+    if (width>16){width=16;}
+    if (number<0){
+        sign=1;
+        number = -number;
+        width--;
+    }
+    if (!number){
+        *d--='0';
+        width--;
+    }
+    while (number>0){
+       *d--=(number%10)+'0';
+        number /= 10;
+        width--;
+    }
+    if (sign){*d--='-';}
+    while (width>0){
+        *d--=' ';
+        width--;
+    }
+    print(dev,++d);
+}
+
+void print_hex(dev_t dev, unsigned hex, int width){
+    char c[18], *d;
+    int i;
+    c[17]=0;
+    c[16]=' ';
+    d= &c[15];
+    if (width>16){width=16;}
+    if (!hex){*d--='0'; width--;}
+    while (hex){
+        *d=hex%16+'0';
+        if (*d>'9'){
+            *d+=7;
+        }
+        hex>>=4;
+        d--;
+        width--;
+    }
+    while(width>0){
+        *d--=' ';
+        width--;
+    }
+    print(dev,++d);
+}
+
+void println(dev_t dev,const char *str){
+    if (dev==LOCAL_CON){
+        vga_println(str);
+    }else{
+        vt_println(str);
+    }
+}
+
+void scroll_down(dev_t dev){
+    if (dev==LOCAL_CON){
+        vga_scroll_down();
+    }else{
+        vt_scroll_down();
+    }
+}
+
+void scroll_up(dev_t dev){
+    if (dev==LOCAL_CON){
+        vga_scroll_up();
+    }else{
+        vt_scroll_up();
+    }
+    
+}
+
 

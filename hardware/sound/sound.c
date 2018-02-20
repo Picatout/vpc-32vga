@@ -33,12 +33,13 @@ volatile unsigned char fSound=0; // flags
 volatile unsigned int duration;
 volatile static unsigned int *tones_list;
 
-void sound_init(){
+int sound_init(){
     OC3CONbits.OCM = 5; // PWM mode
     OC3CONbits.OCTSEL=1; // use TIMER3
     T3CON=(3<<4); // timer 3 prescale 1/8.
     IPC3bits.T3IP=2; // timer interrupt priority
     IPC3bits.T3IS=0; // sub-priority
+    return 0;
 }
 
 void tone(unsigned int freq, // frequency hertz

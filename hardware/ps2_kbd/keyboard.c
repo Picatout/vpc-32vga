@@ -1,19 +1,19 @@
 /*
-* Copyright 2013,2017 Jacques Deschênes
-* This file is part of VPC-32v.
+* Copyright 2013,2017,2018 Jacques Deschênes
+* This file is part of VPC-32vga.
 *
-*     VPC-32v is free software: you can redistribute it and/or modify
+*     VPC-32vga is free software: you can redistribute it and/or modify
 *     it under the terms of the GNU General Public License as published by
 *     the Free Software Foundation, either version 3 of the License, or
 *     (at your option) any later version.
 *
-*     VPC-32v is distributed in the hope that it will be useful,
+*     VPC-32vga is distributed in the hope that it will be useful,
 *     but WITHOUT ANY WARRANTY; without even the implied warranty of
 *     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 *     GNU General Public License for more details.
 *
 *     You should have received a copy of the GNU General Public License
-*     along with VPC-32v.  If not, see <http://www.gnu.org/licenses/>.
+*     along with VPC-32vga.  If not, see <http://www.gnu.org/licenses/>.
 */
 /*
  * Name: keyboard.c
@@ -29,7 +29,7 @@
 #include <stdbool.h>
 #include "../HardwareProfile.h"
 #include "keyboard.h"
-
+#include "../serial_comm/serial_comm.h"
 
 // using circular queues for received scan codes and translated codes.
 #define KBD_QUEUE_SIZE (32)
@@ -37,7 +37,7 @@ static  uint8_t kbd_queue[KBD_QUEUE_SIZE]; // keyboard translated codes queue
 volatile static unsigned char kbd_head=0, kbd_tail=0; // kbd_queue head and tail pointer
 
 // initialize UART1 keyboard receive character.
-void KeyboardInit(){
+int kbd_init(){
     U1BRG=PBCLK/16/9600-1;
     U1RXR=KBD_RP_FN;
     U1STA=(1<<12);
@@ -48,13 +48,14 @@ void KeyboardInit(){
     IEC1bits.U1EIE=1;
     IEC1bits.U1RXIE=1;
     U1MODE=(1<<15);
-} //KeyboardInit()
+    return 0;
+} //keyboard_init()
 
 
 
 // return translated key code.
 // from kbd_queue.
-unsigned char KbdKey(){
+unsigned char kbd_get_key(){
     unsigned char key;
     
     if (kbd_head==kbd_tail) return 0;
@@ -62,6 +63,42 @@ unsigned char KbdKey(){
     kbd_head&=KBD_QUEUE_SIZE-1;
     return key;
 } // GetKey()
+
+unsigned char kbd_wait_key(){ // attend qu'une touche soit enfoncée et retourne sa valeur.
+    unsigned short key;
+    
+    vga_show_cursor(TRUE);
+    while (!(key=kbd_get_key())){
+    }//while
+    vga_show_cursor(FALSE);
+    return key;
+}//kbd_wait_key()
+
+ // lit une ligne au clavier, retourne la longueur du texte.
+unsigned char kbd_read_line(unsigned char *ibuff,unsigned char max_char){
+    unsigned char c=0, count=0;
+    while ((c!='\r') && (count<=max_char)){
+        c=kbd_wait_key();
+        if (c==CR){
+            vga_put_char('\r');
+            break;
+        }else if (c==BS){
+            if (count){
+                ibuff--;
+                count--;
+                vga_print("\b \b");
+            }
+        }else if (c >=32 && c<=127){
+            *ibuff++=c;
+            count++;
+            vga_put_char(c);
+        }
+    }// while
+    *ibuff=(char)0;
+    return count;
+} // readline()
+
+
 
 // keyboard character receptionm
 void __ISR(_UART_1_VECTOR,IPL6SOFT) kbd_rx_isr(void){

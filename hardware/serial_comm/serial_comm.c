@@ -29,28 +29,35 @@
 
 static char unget;
 
+// ajuste la vitesse de transmission du port sériel.
+void ser_set_baud(int baudrate){
+   UARTSetDataRate(SERIO, mGetPeripheralClock(), baudrate);
+}
+
+
 // serial port config
-void UartInit(UART_MODULE channel, int baudrate, UART_LINE_CONTROL_MODE LineCtrl){
-   UARTConfigure(channel, UART_ENABLE_PINS_TX_RX_ONLY); // no hardware control.
-   UARTSetLineControl(channel, LineCtrl);
-   UARTSetDataRate(channel, mGetPeripheralClock(), baudrate);
+int ser_init(int baudrate, UART_LINE_CONTROL_MODE LineCtrl){
+   UARTConfigure(SERIO, UART_ENABLE_PINS_TX_RX_ONLY); // no hardware control.
+   UARTSetLineControl(SERIO, LineCtrl);
+   UARTSetDataRate(SERIO, mGetPeripheralClock(), baudrate);
    // enable peripheral
-   UARTEnable(channel, UART_ENABLE_FLAGS(UART_PERIPHERAL | UART_RX | UART_TX));
+   UARTEnable(SERIO, UART_ENABLE_FLAGS(UART_PERIPHERAL | UART_RX | UART_TX));
    unget=-1;
-   UartPutch(STDOUT,12);
+   UARTSendDataByte(SERIO,FF);
+   return 0;
 };
 
 // get character from serial port
 // return 0 if none available
-char UartGetch(UART_MODULE channel){
+char ser_get_char(){
     char ch;
     if (!unget==-1) {
         ch=unget;
         unget=-1;
         return ch;
     }else{
-        if (UARTReceivedDataIsAvailable (channel)){
-               return UARTGetDataByte(channel);
+        if (UARTReceivedDataIsAvailable (SERIO)){
+               return UARTGetDataByte(SERIO);
         }else{
             return 0;
         }
@@ -58,13 +65,13 @@ char UartGetch(UART_MODULE channel){
 };
 
 // send a character to serial port
-void UartPutch(UART_MODULE channel, char c){
-    while(!UARTTransmitterIsReady(channel));
-      UARTSendDataByte(channel, c);
+void ser_put_char(char c){
+    while(!UARTTransmitterIsReady(SERIO));
+      UARTSendDataByte(SERIO, c);
 };
 
-// wait for a character from serial port with expiration delay
-char UartWaitch(UART_MODULE channel, int delay){
+// Attend un caractère du port sériel avec délais d'expiration.
+char ser_wait_char(){
     int t;
     char ch;
     if (!unget==-1){
@@ -72,26 +79,25 @@ char UartWaitch(UART_MODULE channel, int delay){
         unget=-1;
         return unget;
     }
-    if (!delay) while (1) if (UARTReceivedDataIsAvailable(channel)) return UARTGetDataByte(channel);
-    t=ticks()+delay;
-    while (ticks()<delay){
-       if (UARTReceivedDataIsAvailable(channel)) return UARTGetDataByte(channel);
-    }
-    return 0;
+    while (1){
+        if (UARTReceivedDataIsAvailable(SERIO)){
+                return UARTGetDataByte(SERIO);
+        }//if
+    }//while
 }
 
 // send a string to serial port.
-void UartPrint(UART_MODULE channel, const char* str){
+void ser_print(const char* str){
    while(*str != (char)0)
    {
-      while(!UARTTransmitterIsReady(channel));
-      UARTSendDataByte(channel, *str++);
+      while(!UARTTransmitterIsReady(SERIO));
+      UARTSendDataByte(SERIO, *str++);
    }
-   while(!UARTTransmissionHasCompleted(channel));
+   while(!UARTTransmissionHasCompleted(SERIO));
 };
 
 // read a line from serial port
-int UartReadln(UART_MODULE channel, char *buffer, int buff_len){
+int ser_read_line(char *buffer, int buff_len){
     int count=0;
     char c;
     if (!unget==-1){
@@ -101,35 +107,26 @@ int UartReadln(UART_MODULE channel, char *buffer, int buff_len){
         if (c==CR) return;
     }
     while (count < (buff_len-1)){
-        if (UARTReceivedDataIsAvailable(channel)){
-            c = UARTGetDataByte(channel);
-            if (c==CR){UartPutch(channel,'\r'); break;}
+        if (UARTReceivedDataIsAvailable(SERIO)){
+            c = UARTGetDataByte(SERIO);
+            if (c==CR){ser_put_char('\r'); break;}
             if (c==BS){
                 if (count){
                     buffer--;
                     count--;
-                    UartPrint(channel,"\b \b");
+                    ser_print("\b \b");
                 }
             }else{
                 *buffer++=c;
                 count++;
-                UartPutch(channel,c);
+                ser_put_char(c);
             }
             
         }
     }
     if (count) *buffer = (char)0;
-    UartPutch(channel,'\r');
+    ser_put_char('\r');
     return count;
 }
 
-// return TRUE if received an ESC character
-int UartReceivedESC(UART_MODULE channel){
-   char ch;
-   if (unget==-1 && UARTReceivedDataIsAvailable(channel)) {
-       ch=UARTGetDataByte(channel);
-       if (ch==ESC) return 1; else unget=ch;
-   }
-   return 0;
-}
 

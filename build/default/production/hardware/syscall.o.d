@@ -8,10 +8,8 @@ hardware/spiram/spiram.h  \
  hardware/spiram/../store/../HardwareProfile.h  \
 hardware/store/store_spi.h  \
  hardware/tvout/vga.h  \
-hardware/tvout/../../console.h  \
- hardware/tvout/../../font.h  \
-hardware/tvout/../../hardware/tvout/vga.h  \
- hardware/tvout/../../hardware/HardwareProfile.h  \
- hardware/tvout/../../vt100.h  \
- hardware/tvout/../../hardware/serial_comm/serial_comm.h  \
- hardware/tvout/../../graphics.h 
+hardware/tvout/../../ascii.h  \
+ hardware/tvout/../../graphics.h  \
+ hardware/tvout/../../hardware/tvout/display.h  \
+hardware/tvout/display.h  \
+ hardware/tvout/../../font.h 

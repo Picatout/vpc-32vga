@@ -54,7 +54,7 @@ extern "C" {
 #endif    
 // SPI RAM API
      // initialize SPI RAM operation mode.
-    void sram_init();
+    int sram_init();
      // read a byte from SPI RAM
     unsigned char sram_read_byte(unsigned addr);
      // write a byte from SPI RAM

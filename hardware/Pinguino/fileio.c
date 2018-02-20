@@ -190,7 +190,7 @@ unsigned listDir(const char *path) {
                 res=-1;
             }else{
                 sprintf(fmt,"\rreading dirctory: ('%s')\r", path);
-                print(comm_channel,fmt);
+                print(con,fmt);
             }
         }else{
             return res;
@@ -216,31 +216,31 @@ unsigned listDir(const char *path) {
 				(Finfo.fattrib & AM_HID) ? 'H' : '-',
 				(Finfo.fattrib & AM_SYS) ? 'S' : '-',
 				(Finfo.fattrib & AM_ARC) ? 'A' : '-');
-                print(comm_channel, fmt);
+                print(con, fmt);
 		sprintf(fmt,"%u/%02u/%02u %02u:%02u ",
                 (Finfo.fdate >> 9) + 1980,
 				(Finfo.fdate >> 5) & 15, Finfo.fdate & 31, (Finfo.ftime >> 11),
 				(Finfo.ftime >> 5) & 63);
-                print(comm_channel, fmt);
+                print(con, fmt);
                 sprintf(fmt," %9u ", Finfo.fsize);
-                print(comm_channel, fmt);
+                print(con, fmt);
 		sprintf(fmt, " %-12s %s\r", Finfo.fname,
 #if _USE_LFN
 				Lfname);
 #else
 				"");
 #endif
-                print(comm_channel,fmt);
+                print(con,fmt);
 	}
         if (!res){
             sprintf(fmt, "\rfile count %d\rdirectory count %d\rtotal size %d\r",s1,s2,p1);
-            print(comm_channel, fmt);
+            print(con, fmt);
         }else{
             if (fmt){
                     sprintf(fmt,"file i/o error code: %d\r", res);
-                    print(comm_channel, fmt);
+                    print(con, fmt);
             }else{
-                print(comm_channel,"Memory allocation error.\r");
+                print(con,"Memory allocation error.\r");
             }
         }
         free(fmt);

@@ -32,7 +32,9 @@ extern "C" {
 
 #include "hardware/HardwareProfile.h"
 #include "hardware/serial_comm/serial_comm.h"    
-  
+#include "ascii.h"
+#include "hardware/tvout/display.h"
+    
 #define ESC 27
 #define CR  13
 #define LF  10
@@ -42,11 +44,19 @@ extern "C" {
 #define LBRACKET 91
     
     
-    void vt_clear();
+    void vt_clear_screen();
     void vt_clear_eol();
     void vt_clear_line();
+    text_coord_t vt_get_curpos();
+    void vt_set_curpos(int x, int y);
+    void vt_print(const char *str);
+    void vt_spaces(unsigned char count);
+    void vt_invert_video(BOOL yes);
+    void vt_crlf();
+    void vt_scroll_up();
+    void vt_scroll_down();
+    void vt_println(const char *str);
     
-
 #ifdef	__cplusplus
 }
 #endif

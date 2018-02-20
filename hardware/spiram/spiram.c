@@ -69,9 +69,10 @@ unsigned char sram_read_mode(){
 
 // initialize SPI RAM operating mode
 // use sequencial mode, SPI interface.
-void sram_init(){
+int sram_init(){
     if (!store_initialized) store_spi_init();
     sram_write_mode(SRAM_SQMD);
+    return 0;
 }
 
 // sram_clear()

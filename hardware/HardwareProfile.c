@@ -33,15 +33,13 @@
 volatile unsigned int  sys_ticks; // milliseconds counter.
 static volatile unsigned int timers[TMR_COUNT]; // count down timer
 
-// boot time hardware initialization
-void HardwareInit(){
+// initialisation matérielle au démarrage.
+void cold_start_init(){
    SYSTEMConfig(mGetSystemClock(), SYS_CFG_WAIT_STATES | SYS_CFG_PCACHE);
    INTEnableSystemMultiVectoredInt();
     // MCU core timer configuration
-#ifdef USE_CORE_TIMER
    OpenCoreTimer(CORE_TICK_RATE); // 1 msec interrupt rate.
    mConfigIntCoreTimer((CT_INT_ON | CT_INT_PRIOR_2 | CT_INT_SUB_PRIOR_2));
-#endif
    // disable all analogs inputs, not used by vpc32-v.
    ANSELBCLR=0xFFFFFFFF;
    ANSELACLR=0xFFFFFFFF;
@@ -98,8 +96,7 @@ inline unsigned int ticks(void){
 
 
 
-// pause execution for duration in microsecond.
-// idle loop.
+// suspend exécution pour une durée en microsecondes.
 inline void delay_us(unsigned int usec){
     T1CON=0;
     IFS0bits.T1IF=0;
@@ -112,15 +109,9 @@ inline void delay_us(unsigned int usec){
 // pause execution for duration in millisecond.
 // idle loop.
 void delay_ms(unsigned int msec){
-#ifdef USE_CORE_TIMER
     unsigned int t0;
     t0=sys_ticks+msec;
     while (sys_ticks!=t0);
-#else
-    while (msec--){
-        delay_us(1000);
-    }
-#endif
 } // delay_ms()
 
 // get_timer())
@@ -162,7 +153,6 @@ unsigned free_heap(){
     return size;
 }
 
-#ifdef USE_CORE_TIMER
 //MCU core timer interrupt
 // period 1msec
 // also control TONE timer
@@ -185,5 +175,5 @@ void __ISR(_CORE_TIMER_VECTOR, IPL2SOFT) CoreTimerHandler(void){
         if (timers[i]) timers[i]--;
      }
 }
-#endif
+
 

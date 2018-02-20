@@ -30,19 +30,23 @@
 extern "C" {
 #endif
 #include <GenericTypeDefs.h>
-#include "../../console.h"
+#include "../../ascii.h"
 #include "../../graphics.h"    
+#include "display.h"
+#include "../../font.h"
     
-#define FRAME_LINES 525 // lines per VGA frame
-#define VRES 240  // vertical pixels
-#define HRES 480  // horizontal pixels
-#define PPB 8     // pixels per byte
-#define BMP_SIZE (VRES*HRES/PPB) // video buffer size
-
 extern unsigned int video_bmp[VRES][HRES/32];
 
 typedef void (*cursor_tmr_callback_f)(void);
 
+typedef struct cursor_timer{
+    BOOL active;
+    unsigned int period;
+    cursor_tmr_callback_f  cb;
+} cursor_timer_t;
+
+
+//API vidéo
 void enable_cursor_timer(BOOL enable, cursor_tmr_callback_f cb);
 void vga_toggle_cursor(); // inverse l'état du curseur texte.
 void vga_show_cursor(BOOL); // affiche ou masque le curseur texte
@@ -50,14 +54,12 @@ BOOL vga_is_cursor_active(); // retourne vrai si le curseur texte est actif.
 void vga_set_cursor(cursor_t shape); // défini la  forme du curseur
 void vga_clear_screen();
 void vga_clear_eol(); // efface la fin de la ligne à partir du curseur.
-void vga_scroll_up( ); // fait glissé le texte une ligne vers le haut.
+void vga_scroll_up(); // fait glissé le texte une ligne vers le haut.
 void vga_scroll_down(); // fait glissé le texte une ligne vers le bas.
 text_coord_t vga_get_curpos(); // retourne position curseur texte.
 void vga_set_curpos(unsigned short x, unsigned short y); // positionne le curseur
 void vga_put_char( char c); //affiche le caractère à la position courante
 void vga_print( const char *str); // imprime un chaîne à la position courante
-void vga_print_hex( unsigned int i, int width); // imprime un nombre hexadécimal à la position courante
-void vga_print_int( int number,  int width); // imprime un entier à la position courante.
 void vga_cursor_right(); // avance le curseur, retour à la ligne si nécessaire.
 void vga_cursor_left(); // recule le curseur d'une position, va à la fin de la ligne précédente si nécessaire.
 void vga_cursor_down(); // descend le curseur à la ligne suivante, scroll_up() si nécessaire
@@ -68,17 +70,14 @@ void vga_toggle_cursor(); // inverse l'état du curseur texte.
 void vga_show_cursor(BOOL); // affiche ou masque le curseur texte
 BOOL vga_is_cursor_active(); // retourne vrai si le curseur texte est actif.
 void vga_set_cursor(cursor_t shape); // défini la  forme du curseur
-void vga_spaces( int n);
+void vga_spaces(unsigned char count);
 void vga_crlf(); // déplace le curseur à la ligne suivante
 void vga_invert_video( unsigned char invert); // inverse vidéo des caractèrs noir/blanc
 BOOL vga_is_invert_video(); // renvoie le mode vidéo.
 void vga_println( const char *str);
-unsigned char vga_get_key();
-unsigned char vga_wait_key();
-unsigned char vga_readline(unsigned char *ibuff,unsigned char max_char);
 
 // Hardware initialization
-    void VideoInit(void);
+ int vga_init(void);
 
 #ifdef	__cplusplus
 }

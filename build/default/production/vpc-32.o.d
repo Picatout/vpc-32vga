@@ -1,17 +1,16 @@
 build/default/production/vpc-32.o:  \
 vpc-32.c  \
 graphics.h  \
- hardware/HardwareProfile.h  \
+ hardware/tvout/display.h  \
+hardware/HardwareProfile.h  \
 hardware/tvout/vga.h  \
- hardware/tvout/../../console.h  \
+ hardware/tvout/../../ascii.h  \
+hardware/tvout/../../graphics.h  \
+ hardware/tvout/display.h  \
 hardware/tvout/../../font.h  \
- hardware/tvout/../../hardware/tvout/vga.h  \
- hardware/tvout/../../hardware/HardwareProfile.h  \
- hardware/tvout/../../vt100.h  \
- hardware/tvout/../../hardware/serial_comm/serial_comm.h  \
- hardware/tvout/../../graphics.h  \
-hardware/serial_comm/serial_comm.h  \
- hardware/ps2_kbd/keyboard.h  \
+ hardware/serial_comm/serial_comm.h  \
+hardware/ps2_kbd/keyboard.h  \
+ hardware/ps2_kbd/../tvout/vga.h  \
 hardware/Pinguino/diskio.h  \
  hardware/Pinguino/integer.h  \
 hardware/Pinguino/ff.h  \
@@ -22,7 +21,10 @@ hardware/Pinguino/../HardwareProfile.h  \
  hardware/Pinguino/../store/store_spi.h  \
  hardware/Pinguino/../store/../HardwareProfile.h  \
 console.h  \
- hardware/Pinguino/ff.h  \
+font.h  \
+vt100.h  \
+ ascii.h  \
+hardware/Pinguino/ff.h  \
 vpcBASIC/vm.h  \
 vpcBASIC/vpcBASIC.h  \
  hardware/sound/sound.h  \

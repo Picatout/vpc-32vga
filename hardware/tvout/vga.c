@@ -30,6 +30,8 @@
 #include <plib.h>
 #include "../HardwareProfile.h"
 #include "vga.h"
+#include "../serial_comm/serial_comm.h"
+
 
 /*
  * The generator use an output compare to generate a regular train of pulses
@@ -73,19 +75,13 @@ static volatile unsigned short flags=0;
 
 #define BLINK_DELAY (40) // 40/60 secondes
 
-typedef struct cursor_timer{
-    BOOL active;
-    unsigned int period;
-    cursor_tmr_callback_f  cb;
-} cursor_timer_t;
-
 volatile static cursor_timer_t cursor_timer={FALSE,0,NULL};
 
 
 
 // configure video generator.
 // use TIMER2 as horizontal period timer.
-void VideoInit(void){
+int vga_init(void){
     T2CON = 0;
     PR2=PWM_PERIOD;
     OC2CONbits.OCM = 5; // pulse train mode (HSync)
@@ -118,6 +114,7 @@ void VideoInit(void){
     SPI1CONbits.MODE32=1; // 32 bits mode
     SPI1CONbits.STXISEL=1; // interrupt on TBE
     SpiChnSetBitRate(SPI_CHANNEL1, PBCLK, BITCLK); // bit rate
+    return 0;
 }//init_video()
 
 void vga_clear_screen(){
@@ -275,67 +272,6 @@ void vga_println( const char *str){
     vga_crlf();
 }// vga_println
 
-// imprime entier en hexadécimal
-// largeur de colonne limitée à 16 caractère.
-// un espace suis le nombre.
-// alignement à droite.
-void vga_print_hex( unsigned int hex, int width){
-    char c[18], *d;
-    int i;
-    c[17]=0;
-    c[16]=' ';
-    d= &c[15];
-    if (width>16){width=16;}
-    if (!hex){*d--='0'; width--;}
-    while (hex){
-        *d=hex%16+'0';
-        if (*d>'9'){
-            *d+=7;
-        }
-        hex>>=4;
-        d--;
-        width--;
-    }
-    while(width>0){
-        *d--=' ';
-        width--;
-    }
-    vga_print(++d);
-} // vga_print_hex()
-
- // imprime entier,width inclu le signe
-// largeur de colonne limitée à 16 caractères
-// un espace est imprimée après le nombre.
-// alignement à droite.
-void vga_print_int( int number, int width){
-    int sign=0;
-    char str[18], *d;
-    str[17]=0;
-    str[16]=' ';
-    d=&str[15];
-    if (width>16){width=16;}
-    if (number<0){
-        sign=1;
-        number = -number;
-        width--;
-    }
-    if (!number){
-        *d--='0';
-        width--;
-    }
-    while (number>0){
-       *d--=(number%10)+'0';
-        number /= 10;
-        width--;
-    }
-    if (sign){*d--='-';}
-    while (width>0){
-        *d--=' ';
-        width--;
-    }
-    vga_print(++d);
-}// vga_print_int()
-
 void vga_set_tab_width(unsigned char width){
     tab_width=width;
 }// vga_set_tab_width()
@@ -473,10 +409,10 @@ BOOL vga_is_invert_video(){
 }//vga_is_invert_video()
 
 
-void vga_spaces( int n){
-    while (n){
+void vga_spaces(unsigned char count){
+    while (count){
         vga_put_char(' ');
-        n--;
+        count--;
     }
 }//vga_spaces()
 
@@ -492,45 +428,6 @@ void enable_cursor_timer(BOOL enable, cursor_tmr_callback_f cb){
         cursor_timer.active=FALSE;
     }
 }
-
- // lecture touche clavier, retourne 0 s'il n'y a pas de touche ou touche relâchée.
-unsigned char vga_get_key(){
-    return KbdKey();
-}//vga_get_key()
-
-unsigned char vga_wait_key(){ // attend qu'une touche soit enfoncée et retourne sa valeur.
-    unsigned short key;
-    
-    vga_show_cursor(TRUE);
-    while (!(key=KbdKey())){
-    }//while
-    vga_show_cursor(FALSE);
-    return key;
-}//wait_key()
-
- // lit une ligne au clavier, retourne la longueur du texte.
-unsigned char vga_readline(unsigned char *ibuff,unsigned char max_char){
-    unsigned char c=0, count=0;
-    while ((c!='\r') && (count<=max_char)){
-        c=vga_wait_key();
-        if (c==CR){
-            vga_put_char('\r');
-            break;
-        }else if (c==BS){
-            if (count){
-                ibuff--;
-                count--;
-                vga_print("\b \b");
-            }
-        }else if (c >=32 && c<=127){
-            *ibuff++=c;
-            count++;
-            vga_put_char(c);
-        }
-    }// while
-    *ibuff=(char)0;
-    return count;
-} // readline()
 
 // interruption qui assure le fonctionnement du 
 // générateur vidéo.

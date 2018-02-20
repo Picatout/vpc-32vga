@@ -136,31 +136,47 @@ const unsigned int e3k[]={ // rencontre du 3ième type
 };
 
 
+enum PRT_DEV {VGA,SERIAL,BOTH};
+
+void init_msg(int output, int code, const char *msg){
+    char fmt[CHAR_PER_LINE];
+
+    if (!code){
+        sprintf(fmt,"%s initialization completed.\r",msg);
+    }else{
+        sprintf(fmt,"%s failed to initialize, error code %d\r",msg,code);
+    }
+    switch (output){
+        case VGA:
+            vga_print(fmt);
+            break;
+        case SERIAL:
+            ser_print(fmt);
+            break;
+        case BOTH:
+            vga_print(fmt);
+            ser_print(fmt);
+    }//switch
+}
 
 //__attribute__((mips16))
 void main(void) {
 #if defined _DEBUG_
     debug=-1;
 #endif  
-    HardwareInit();
-    VideoInit();
+    cold_start_init();
+    init_msg(SERIAL,ser_init(115200,DEFAULT_LINE_CTRL),"Serial port");
+    vga_init();
+    init_msg(BOTH,vga_init(),"video");
     vga_clear_screen();
-    vga_print("video initialization completed.\r");
-#ifdef RTCC
-    vga_print("Real Time Clock Calendar initialization.\r");
-    rtcc_init();
-#endif
-    vga_print("Serial port initialization.\r");
-    UartInit(SERIO,115200,DEFAULT_LINE_CTRL);
+    init_msg(BOTH,rtcc_init(),"RTCC");
     heap_size=free_heap();
 #if defined _DEBUG_
     test_pattern();
 #endif
-    vga_print("Sound initialisation\r");
-    sound_init();
+    init_msg(BOTH,sound_init(),"Sound");
     tune((unsigned int*)&e3k[0]);
-    vga_print("keyboard initialization\r");
-    KeyboardInit();
+    init_msg(BOTH,kbd_init(),"keyboard");
 //    text_coord_t cpos;
 //    vga_print("SD initialization: ");
 //    if (!mount(0)){
@@ -170,8 +186,7 @@ void main(void) {
 //        vga_print("OK\r");
 //        SDCardReady=TRUE;
 //    }
-    vga_print("SPI RAM initialization.\r");
-    sram_init();
+    init_msg(BOTH,sram_init(),"SPI RAM");
     //test_vm();
 #if defined _DEBUG_    
     // sram test
@@ -184,7 +199,7 @@ void main(void) {
     delay_ms(1000);
     UartPrint("sound test.\r");
 #endif    
-    vga_print("Initialization completed.\r");
+    init_msg(BOTH,0,"hardware");
 //    set_cursor(CR_BLOCK); // sauvegare video_buffer dans SRAM
 //    clear_screen();
 //    unsigned char c;
@@ -207,16 +222,22 @@ void main(void) {
 //    print_int(comm_channel,heap_size,0);
 //    crlf();
 #endif
-    char fmt[80];
-    while(1){
-        get_date_str(fmt);
-        vga_print(fmt);
-        get_time_str(fmt);
-        vga_print(fmt);
-        vga_put_char(CR);
-        delay_ms(1000);
-    }
-//    shell();
+//    char fmt[40];
+//    text_coord_t curpos;
+//    vga_crlf();
+//    curpos=vga_get_curpos();
+//    while(1){
+//        vga_set_curpos(curpos.x,curpos.y);
+//        rtcc_get_date_str(fmt);
+//        vga_print(fmt);
+//        rtcc_get_time_str(fmt);
+//        vga_print(fmt);
+//        vga_put_char(CR);
+//        sprintf(fmt,"system ticks %d\r",ticks());
+//        vga_print(fmt);
+//        _usec_delay(3000);
+//    }
+    shell();
 } // main()
 
 
