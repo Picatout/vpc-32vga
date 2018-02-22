@@ -32,8 +32,6 @@
 #include "hardware/tvout/vga.h"
 #include "vt100.h"
 
-dev_t con=SERIAL_CON;//LOCAL_CON;
-
 
 
 void uppercase(char *str){// in situ uppercase
@@ -45,7 +43,7 @@ void uppercase(char *str){// in situ uppercase
 
  // efface l'écran et positionne le curseur à {0,0}
 void clear_screen(dev_t dev){
-    if (dev==LOCAL_CON){
+    if (dev==VGA_CONSOLE){
         vga_clear_screen();
     }else{
         vt_clear_screen();
@@ -54,7 +52,7 @@ void clear_screen(dev_t dev){
 
 // efface la fin de la ligne à partir du curseur.
 void clear_eol(dev_t dev){
-    if (dev==LOCAL_CON){
+    if (dev==VGA_CONSOLE){
         vga_clear_eol();
     }else{
         vt_clear_eol();
@@ -64,7 +62,7 @@ void clear_eol(dev_t dev){
 // retourne une touche du clavier si disponible
 // sinon retourne 0.
 unsigned char get_key(dev_t dev){
-    if (dev==LOCAL_CON){
+    if (dev==VGA_CONSOLE){
         return kbd_get_key();
     }else{
         return ser_get_char();
@@ -72,7 +70,7 @@ unsigned char get_key(dev_t dev){
 }
  // attend réception d'un caractère
 unsigned char wait_key(dev_t dev){
-    if (dev==LOCAL_CON){
+    if (dev==VGA_CONSOLE){
         return kbd_wait_key();
     }else{
         return ser_wait_char();
@@ -80,7 +78,7 @@ unsigned char wait_key(dev_t dev){
 }
 
 unsigned char read_line(dev_t dev, unsigned char *ibuff,unsigned char max_char){ // lit une ligne au clavier, retourne la longueur de texte.
-    if (dev==LOCAL_CON){
+    if (dev==VGA_CONSOLE){
         return kbd_read_line(ibuff,max_char);
     }else{
         return ser_read_line(ibuff,max_char);
@@ -89,7 +87,7 @@ unsigned char read_line(dev_t dev, unsigned char *ibuff,unsigned char max_char){
 
 // retourne les coordonnées du curseur texte.
 text_coord_t get_curpos(dev_t dev){
-    if (dev==LOCAL_CON){
+    if (dev==VGA_CONSOLE){
         return vga_get_curpos();
     }else{
         return vt_get_curpos();
@@ -98,7 +96,7 @@ text_coord_t get_curpos(dev_t dev){
 
 // positionnne le curseur texte
 void set_curpos(dev_t dev,int x, int y){
-    if (dev==LOCAL_CON){
+    if (dev==VGA_CONSOLE){
         vga_set_curpos(x,y);
     }else{
         vt_set_curpos(x,y);
@@ -106,7 +104,7 @@ void set_curpos(dev_t dev,int x, int y){
 }
 
 void put_char(dev_t dev, char c){
-    if (dev==LOCAL_CON){
+    if (dev==VGA_CONSOLE){
         vga_put_char(c);
     }else{
         ser_put_char(c);
@@ -114,7 +112,7 @@ void put_char(dev_t dev, char c){
 }
 
 void print(dev_t dev, const char *str){
-    if (dev==LOCAL_CON){
+    if (dev==VGA_CONSOLE){
         vga_print(str);
     }else{
         vt_print(str);
@@ -122,7 +120,7 @@ void print(dev_t dev, const char *str){
 }
 
 void spaces(dev_t dev, unsigned char count){
-    if (dev==LOCAL_CON){
+    if (dev==VGA_CONSOLE){
         vga_spaces(count);
     }else{
         vt_spaces(count);
@@ -130,7 +128,7 @@ void spaces(dev_t dev, unsigned char count){
 }
 
 void invert_video(dev_t dev, BOOL yes){
-    if (dev==LOCAL_CON){
+    if (dev==VGA_CONSOLE){
         vga_invert_video(yes);
     }else{
         vt_invert_video(yes);
@@ -138,7 +136,7 @@ void invert_video(dev_t dev, BOOL yes){
 }
 
 void crlf(dev_t dev){
-    if (dev==LOCAL_CON){
+    if (dev==VGA_CONSOLE){
         vga_crlf();
     }else{
         vt_crlf();
@@ -199,7 +197,7 @@ void print_hex(dev_t dev, unsigned hex, int width){
 }
 
 void println(dev_t dev,const char *str){
-    if (dev==LOCAL_CON){
+    if (dev==VGA_CONSOLE){
         vga_println(str);
     }else{
         vt_println(str);
@@ -207,7 +205,7 @@ void println(dev_t dev,const char *str){
 }
 
 void scroll_down(dev_t dev){
-    if (dev==LOCAL_CON){
+    if (dev==VGA_CONSOLE){
         vga_scroll_down();
     }else{
         vt_scroll_down();
@@ -215,7 +213,7 @@ void scroll_down(dev_t dev){
 }
 
 void scroll_up(dev_t dev){
-    if (dev==LOCAL_CON){
+    if (dev==VGA_CONSOLE){
         vga_scroll_up();
     }else{
         vt_scroll_up();

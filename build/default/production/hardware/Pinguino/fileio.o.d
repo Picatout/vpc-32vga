@@ -16,6 +16,7 @@ hardware/Pinguino/../../font.h  \
  hardware/Pinguino/../../hardware/tvout/../../ascii.h  \
  hardware/Pinguino/../../hardware/tvout/../../graphics.h  \
  hardware/Pinguino/../../hardware/tvout/../../hardware/tvout/display.h  \
+ hardware/Pinguino/../../hardware/tvout/../../hardware/tvout/../../font.h  \
  hardware/Pinguino/../../hardware/tvout/display.h  \
  hardware/Pinguino/../../hardware/tvout/../../font.h  \
  hardware/Pinguino/../../hardware/HardwareProfile.h  \

@@ -29,6 +29,8 @@
 #ifdef	__cplusplus
 extern "C" {
 #endif
+#include "../../font.h"
+
 
 #define TAB_WIDTH (4)
 #define FRAME_LINES (525) // lines per VGA frame

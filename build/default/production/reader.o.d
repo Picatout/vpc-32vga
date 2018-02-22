@@ -18,10 +18,11 @@ hardware/tvout/vga.h  \
  hardware/tvout/../../ascii.h  \
 hardware/tvout/../../graphics.h  \
  hardware/tvout/../../hardware/tvout/display.h  \
-hardware/tvout/display.h  \
- hardware/tvout/../../font.h  \
+ hardware/tvout/../../hardware/tvout/../../font.h  \
+ hardware/tvout/display.h  \
+hardware/tvout/../../font.h  \
 vt100.h  \
-hardware/serial_comm/serial_comm.h  \
- ascii.h  \
+ hardware/serial_comm/serial_comm.h  \
+ascii.h  \
 hardware/tvout/display.h  \
-reader.h 
+ reader.h 

@@ -42,6 +42,11 @@ extern "C" {
 
 //typedef  unsigned char dev_t;
 
+typedef enum{
+    VGA_CONSOLE,
+    SERIAL_CONSOLE            
+}console_t;
+    
 extern dev_t con;
 
 // fonctions de l'interface

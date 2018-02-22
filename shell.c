@@ -55,22 +55,20 @@
 #include "console.h"
 
 #define MAX_LINE_LEN 80
-#define MAX_TOKEN 5
 
-/*
-typedef enum {
-    ERR_NONE=0,
-    ERR_NOT_DONE,
-    ERR_ALLOC,
-    ERR_USAGE,
-    ERR_FIL_OPEN,
-    ERR_CPY,
-    ERR_MKDIR,
-    ERR_NOTEXIST,
-    ERR_DENIED,
-    ERR_FIO
-} SH_ERROR;
-*/
+const char version[]="1.0";
+const char local_console[]="VGA";
+const char remote_console[]="SERIAL";
+
+//dev_t con=SERIAL_CONSOLE;
+dev_t con=VGA_CONSOLE;
+
+const env_var_t shell_version={NULL,"SHELL_VERSION",(char*)version};
+env_var_t console={(env_var_t*)&shell_version,"CONSOLE",(char*)local_console};
+env_var_t *shell_vars=&console;
+
+env_var_t *search_var(char *name);
+void erase_var(env_var_t *var);
 
 const char *ERR_MSG[]={
     "no error\r",
@@ -111,46 +109,48 @@ typedef struct{
 } input_buff_t;
 
 static input_buff_t cmd_line;
+
+#define MAX_TOKEN 5
+
 static char *cmd_tokens[MAX_TOKEN];
 
-typedef enum CMDS {CMD_ALARM,CMD_CD,CMD_CLKTRIM,CMD_CLEAR,CMD_CPY,CMD_DATE,CMD_DEL,
-                   CMD_DIR,CMD_ECHO,CMD_ED,CMD_EXPR,
-                   CMD_FREE,CMD_FORMAT,CMD_FORTH,CMD_HDUMP,CMD_HELP,CMD_MKDIR,CMD_MOUNT,CMD_MORE,
-                   CMD_PUTS,CMD_REBOOT,CMD_RCV,CMD_REN,CMD_SND,CMD_TIME,CMD_UMOUNT,CMD_UPTIME
-                   } cmds_t;
+extern int nbr_cmd;
 
-const char *commands[]={"alarm","cd","clktrim","cls","copy","date","del",
-    "dir","echo","edit","expr","free","format","forth","hdump","help",
-    "mkdir","mount","more","puts","reboot","receive",
-    "ren","send","time","umount","uptime"};
+typedef struct shell_cmd{
+    char *name;
+    void (*fn)(int);
+}shell_cmd_t;
 
-
-int nbr_cmd=sizeof(commands)/sizeof(char*);
+extern const shell_cmd_t commands[];
 
 int cmd_search(char *target){
     int i;
     for (i=nbr_cmd-1;i>=0;i--){
-        if (!strcmp(target,commands[i])){
+        if (!strcmp(target,commands[i].name)){
             break;
         }
     }
     return i;
 }//cmd_search()
 
-void display_cmd_list(){
+void cmd_help(){
     int i;
     text_coord_t pos;
     for(i=0;i<nbr_cmd;i++){
         pos=get_curpos(con);
-        if (pos.x>(CHAR_PER_LINE-strlen(commands[i])-2)){
+        if (pos.x>(CHAR_PER_LINE-strlen(commands[i].name)-2)){
             put_char(con,'\r');
         }
-        print(con,commands[i]);
+        print(con,commands[i].name);
         if (i<(nbr_cmd-1)){
             print(con," ");
         }
     }
     put_char(con,'\r');
+}
+
+void cmd_cls(int i){
+    clear_screen(con);
 }
 
 // calibration oscillateur du RTCC
@@ -265,7 +265,7 @@ static int next_token(void){
         return 0;
 }//next_token()
 
-void cd(int i){ // change le répertoire courant.
+void cmd_cd(int i){ // change le répertoire courant.
     char *path;
     if (!SDCardReady){
         if (!mount(0)){
@@ -292,7 +292,7 @@ void cd(int i){ // change le répertoire courant.
    }
 }//cd()
 
-void del(int i){ // efface un fichier
+void cmd_del(int i){ // efface un fichier
     FILINFO *fi;
     if (!SDCardReady){
         if (!mount(0)){
@@ -327,7 +327,7 @@ void del(int i){ // efface un fichier
    }
 }//del()
 
-void ren(int i){ // renomme un fichier
+void cmd_ren(int i){ // renomme un fichier
     if (!SDCardReady){
         if (!mount(0)){
             print_error_msg(ERR_NO_SDCARD,NULL,0);
@@ -343,7 +343,7 @@ void ren(int i){ // renomme un fichier
     }
 }//ren
 
-void copy(int i){ // copie un fichier
+void cmd_copy(int i){ // copie un fichier
     FIL *fsrc, *fnew;
     char *buff;
     int n;
@@ -399,7 +399,7 @@ void cmd_send(int i){ // envoie un fichier via uart
    }
 }//cmd_send()
 
-void receive(int i){ // reçois un fichier via uart
+void cmd_receive(int i){ // reçois un fichier via uart
     // to do
    if (i==2){
        print_error_msg(ERR_NOT_DONE,NULL,0);
@@ -426,7 +426,7 @@ void cmd_hdump(int i){ // affiche un fichier en hexadécimal
     if (i==2){
         fh=malloc(sizeof(FIL));
         if (fh && ((error=f_open(fh,cmd_tokens[1],FA_READ))==FR_OK)){
-            if (con==LOCAL_CON) clear_screen(con);
+            if (con==VGA_CONSOLE) clear_screen(con);
             buff=malloc(512);
             fmt=malloc(CHAR_PER_LINE);
             if (fmt && buff){
@@ -501,7 +501,8 @@ void cmd_umount(int i){
     SDCardReady=FALSE;
 }
 
-void more(int i){ // affiche à l'écran le contenu d'un fichier texte
+// affiche à l'écran le contenu d'un fichier texte
+void cmd_more(int i){
     FIL *fh;
     char *fmt, *buff, *rbuff, c, prev,key;
     int n,lcnt,colcnt=0;
@@ -522,8 +523,6 @@ void more(int i){ // affiche à l'écran le contenu d'un fichier texte
             buff=malloc(512);
             fmt=malloc(CHAR_PER_LINE);
             if (fmt && buff){
-                sprintf(fmt,"File: %s, size %d bytes\r",cmd_tokens[1],fh->fsize);
-                print(con,fmt);
                 key=0;
                 while (key!=ESC && f_read(fh,buff,512,&n)==FR_OK){
                     if (!n) break;
@@ -532,40 +531,25 @@ void more(int i){ // affiche à l'écran le contenu d'un fichier texte
                         c=*rbuff++;
                         if ((c!=TAB && c!=CR && c!=LF) && (c<32 || c>126)) {c=32;}
                         put_char(con,c);
-                        if (con==LOCAL_CON){
-                            cpos=get_curpos(con);
-                            if (cpos.x==0){
-                                if (cpos.y>=(LINE_PER_SCREEN-1)){
-                                    cpos.y=LINE_PER_SCREEN-1;
-                                    invert_video(con,TRUE);
-                                    print(con,"-- next --");
-                                    invert_video(con,FALSE);
-                                    key=wait_key(con);
-                                    if (key=='q' || key==ESC){key=ESC; break;}
-                                    if (key==CR){
-                                        set_curpos(con,cpos.x,cpos.y);
-                                        clear_eol(con);
-                                    }else{
-                                        clear_screen(con);
-                                    }
-                                }
-                            }
-                        }else{
-                            colcnt++;
-                            if ((colcnt==CHAR_PER_LINE)||(c=='\r')){
-                                colcnt=0;
-                                lcnt++;
-                                if (lcnt==22){
-                                    lcnt=0;
-                                   // print(con,"\r-- next --\r");
-                                    put_char(con,'\r');
-                                    key=wait_key(con);
-                                    if (key=='q' || key==ESC){key=ESC;break;}
-                                }
-                            }
-                        }
-                    }
-                }
+                        cpos=get_curpos(con);
+                        if (cpos.x==0){
+                            if (cpos.y>=(LINE_PER_SCREEN-1)){
+                                cpos.y=LINE_PER_SCREEN-1;
+                                invert_video(con,TRUE);
+                                print(con,"-- next --");
+                                invert_video(con,FALSE);
+                                key=wait_key(con);
+                                if (key=='q' || key==ESC){key=ESC; break;}
+                                if (key==CR){
+                                    set_curpos(con,cpos.x,cpos.y);
+                                    clear_eol(con);
+                                }else{
+                                    clear_screen(con);
+                                }//if
+                            }//if
+                        }//if
+                    }//for
+                }//while
                 f_close(fh);
                 free(fh);
                 free(buff);
@@ -589,7 +573,7 @@ void cmd_edit(int i){ // lance l'éditeur de texte
     }
 }//f
 
-void mkdir(int i){
+void cmd_mkdir(int i){
     FRESULT error=FR_OK;
     char *fmt;
     if (!SDCardReady){
@@ -617,7 +601,7 @@ void mkdir(int i){
     }
 }// mkdir()
 
-void list_directory(int i){
+void cmd_dir(int i){
     FRESULT error;
     FIL *fh;
     char fmt[55];
@@ -650,7 +634,7 @@ void cmd_puts(int i){
     print(con, "puts, to be done.\r");
 }//puts()
 
-void expr(int i){
+void cmd_expr(int i){
     print(con, "expr, to be done.\r");
 }//expr()
 
@@ -715,15 +699,6 @@ void cmd_date(int i){
         rtcc_get_date_str(fmt);
         print(con,fmt);
     }
-}
-
-// affiche la date et l'heure
-void display_date_time(){
-    char fmt[32];
-    rtcc_get_date_str(fmt);
-    print(con,fmt);
-    rtcc_get_time_str(fmt);
-    print(con,fmt);
 }
 
 // affiche ou saisie de  l'heure
@@ -805,98 +780,120 @@ void cmd_echo(int i){
     }
 }
 
+void cmd_reboot(int i){
+    asm("lui $t0, 0xbfc0"); // _on_reset
+    asm("j  $t0\n nop");
+}
+
+
+env_var_t *search_var(char *name){
+    env_var_t *list;
+    list=shell_vars;
+    while (list){
+        if (!strcmp(name,list->name)) break;
+        list=list->link;
+    }
+    return list;
+}
+
+void erase_var(env_var_t *var){
+    shell_vars=var->link;
+    free(var->name);
+    free(var->value);
+    free(var);
+}
+
+void list_vars(){
+    char *name, *value;
+    env_var_t *list;
+    list=shell_vars;
+    while (list){
+        name=list->name;
+        if (name){
+            print(con,name);
+            put_char(con,'=');
+            println(con,list->value);
+        }
+        list=list->link;
+    }
+}
+
+void cmd_set(int i){
+    env_var_t *var;
+    char *name, *value;
+    if (i>=2){
+        var=search_var(cmd_tokens[1]);
+        if (var){
+            if (i==2){
+                erase_var(var);
+            }else{
+                value=malloc(strlen(cmd_tokens[2])+1);
+                strcpy(value,cmd_tokens[2]);
+                free(var->value);
+                var->value=value;
+            }
+        }else if (i==3){
+            var=malloc(sizeof(env_var_t));
+            name=malloc(strlen(cmd_tokens[1]+1));
+            value=malloc(strlen(cmd_tokens[2])+1);
+            if (!(var && name && value)){
+                print_error_msg(ERR_ALLOC,"insufficiant memory",0);
+                return;
+            }
+            strcpy(name,cmd_tokens[1]);
+            strcpy(value,cmd_tokens[2]);
+            var->link=shell_vars;
+            var->name=name;
+            var->value=value;
+            shell_vars=var;
+        }
+    }else{
+        list_vars();
+    }
+}
+
+const shell_cmd_t commands[]={
+    {"alarm",cmd_alarm},
+    {"cd",cmd_cd},
+    {"clktrim",cmd_clktrim},
+    {"cls",cmd_cls},
+    {"copy",cmd_copy},
+    {"date",cmd_date},
+    {"del",cmd_del},
+    {"dir",cmd_dir},
+    {"echo",cmd_echo},
+    {"edit",cmd_edit},
+    {"expr",cmd_expr},
+    {"free",cmd_free},
+    {"format",cmd_format},
+    {"forth",cmd_forth},
+    {"hdump",cmd_hdump},
+    {"help",cmd_help},
+    {"mkdir",cmd_mkdir},
+    {"mount",cmd_mount},
+    {"more",cmd_more},
+    {"puts",cmd_puts},
+    {"reboot",cmd_reboot},
+    {"receive",cmd_receive},
+    {"ren",cmd_ren},
+    {"send",cmd_send},
+    {"set",cmd_set},
+    {"time",cmd_time},
+    {"umount",cmd_umount},
+    {"uptime",cmd_uptime}
+};
+
+int nbr_cmd=sizeof(commands)/sizeof(shell_cmd_t);
+
 
 void execute_cmd(int i){
-        switch (cmd_search(cmd_tokens[0])){
-            case CMD_HELP:
-                display_cmd_list(i);
-                break;
-            case CMD_CD:
-                cd(i);
-                break;
-            case CMD_DIR: // liste des fichiers sur la carte SD
-                list_directory(i);
-                break;
-            case CMD_ECHO:
-                cmd_echo(i);
-                break;
-            case CMD_FORMAT:
-                cmd_format(i);
-                break;
-            case CMD_FORTH:
-                cmd_forth(i);
-                break;
-            case CMD_FREE:
-                cmd_free(i);
-                break;
-            case CMD_MKDIR:
-                mkdir(i);
-                break;
-            case CMD_DEL: // efface un fichier
-                del(i);
-                break;
-            case CMD_REN: // renomme ou déplace un fichier
-                ren(i);
-                break;
-            case CMD_ED: // editeur
-                cmd_edit(i);
-                break;
-            case CMD_SND:  // envoie un fichier vers la sortie uart
-                cmd_send(i);
-                break;
-            case CMD_RCV:  // reçoit un fichier du uart
-                receive(i);
-                break;
-            case CMD_CPY:   // copie un fichier
-                copy(i);
-                break;
-            case CMD_EXPR: // évalue une expression
-                expr(i);
-                break;
-            case CMD_CLEAR: // efface l'écran
-                if (con==LOCAL_CON){
-                    clear_screen(con);
-                }else{
-                    print(con,"\E[2J\E[H"); // VT100 commands
-                }
-                break;
-            case CMD_MOUNT:
-                cmd_mount(i);
-                break;
-            case CMD_UMOUNT:
-                cmd_umount(i);
-                break;
-            case CMD_MORE:
-                more(i);
-                break;
-            case CMD_HDUMP:
-                cmd_hdump(i);
-                break;
-            case CMD_PUTS: // affiche un texte à l'écran
-                cmd_puts(i);
-                break;
-            case CMD_REBOOT: // redémarrage à froid.
-                asm("lui $t0, 0xbfc0"); // _on_reset
-                asm("j  $t0");
-                break;
-            case CMD_TIME:
-                cmd_time(i);
-                break;
-            case CMD_DATE:
-                cmd_date(i);
-                break;
-            case CMD_UPTIME:
-                cmd_uptime();
-                break;
-            case CMD_ALARM:
-                cmd_alarm(i);
-                break;
-            case CMD_CLKTRIM:
-                cmd_clktrim(i);
-                break;
-            default:
-                print(con,"unknown command!\r");
-    }
+    int cmd;
+        cmd=cmd_search(cmd_tokens[0]);
+        if (cmd>=0){
+            commands[cmd].fn(i);
+        }else{
+            print(con,"unknown command!\r");
+        }
 }// execute_cmd()
 
 const char *prompt="\r$";
@@ -912,6 +909,42 @@ void free_tokens(){
     }
 }//free_tokens()
 
+char *var_substitution(char *token){
+#define W_INCR (80)
+    
+    int wlen;
+    char *dollar, *word, *var_name;
+    env_var_t *var=NULL;
+
+    dollar=strchr(token,'$');
+    if (dollar){
+        wlen=W_INCR;
+        word=calloc(wlen,sizeof(char));
+        *dollar=0;
+        strcpy(word,token);
+        do {
+            var_name=++dollar;
+            dollar=strchr(var_name,'$');
+            if (dollar){
+                *dollar=0;
+            }    
+            var=search_var(var_name);
+            if (var){
+                if (wlen<=(strlen(word)+strlen(var->value))){
+                    wlen+=W_INCR;
+                    word=realloc(word,wlen);
+                }
+                strcat(word,var->value);
+            }//if
+        } while (dollar);
+        free(token);
+        word=realloc(word,strlen(word)+1);
+        return word;
+    }else{
+        return token;
+    }
+}
+
 int tokenize(){ // découpe la ligne d'entrée en mots
     int i;
     char *token;
@@ -922,6 +955,7 @@ int tokenize(){ // découpe la ligne d'entrée en mots
         token=malloc(sizeof(char)*(cmd_line.next-cmd_line.first+1));
         memcpy(token,&cmd_line.buff[cmd_line.first],cmd_line.next-cmd_line.first);
         *(token+cmd_line.next-cmd_line.first)=(char)0;
+        token=var_substitution(token);
         cmd_tokens[i]=token;
         i++;
     }//while
@@ -943,13 +977,8 @@ void last_shutdown(){
 void shell(void){
     int i;
     char fmt[32];
-
-    print(con,"VPC-32 shell\rfree RAM (bytes): ");
-    print_int(con,free_heap(),0);
-    crlf(con);
-    last_shutdown();
-    crlf(con);
-    display_date_time();
+    sprintf(fmt,"\rVPC-32 shell version %s \r",version);
+    print(con,fmt);
     free_tokens();
     while (1){
         print(con,prompt);

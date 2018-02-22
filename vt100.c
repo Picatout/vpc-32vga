@@ -109,7 +109,12 @@ void vt_spaces(unsigned char count){
 }
 
 void vt_invert_video(BOOL yes){
-    
+    send_esc_seq();
+    if (yes){
+        ser_print("7m");
+    }else{
+        ser_print("0m");
+    }
 }
 
 void vt_crlf(){

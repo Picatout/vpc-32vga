@@ -8,6 +8,7 @@ hardware/rtcc/rtcc.h  \
  hardware/rtcc/../ps2_kbd/../tvout/../../ascii.h  \
  hardware/rtcc/../ps2_kbd/../tvout/../../graphics.h  \
  hardware/rtcc/../ps2_kbd/../tvout/../../hardware/tvout/display.h  \
+ hardware/rtcc/../ps2_kbd/../tvout/../../hardware/tvout/../../font.h  \
  hardware/rtcc/../ps2_kbd/../tvout/display.h  \
  hardware/rtcc/../ps2_kbd/../tvout/../../font.h  \
  hardware/rtcc/../tvout/vga.h  \

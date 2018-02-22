@@ -145,7 +145,7 @@ static void ed_error(const char *msg, int code){//static uint8_t *llen;
     println(con,msg);
     print(con,"error code: ");
     print_int(con,code,0);
-    if (con==LOCAL_CON){
+    if (con==VGA_CONSOLE){
         prompt_continue();
         clear_screen(con);
     }
@@ -646,7 +646,7 @@ void editor(const char* name){
     quit=false;
     while(!quit){
         key=wait_key(con);
-        print_int(SERIAL_CON,key,0);
+        print_int(SERIAL_CONSOLE,key,0);
         switch(key){
             case VK_UP:
                 line_up();

@@ -40,8 +40,6 @@
 
 #define RAM_SIZE (65536)
 
-#define LOCAL_CON 0  // local console
-#define SERIAL_CON 1 // remote console via RS-232 port
 
 // RS-232 port 
 #define TX BIT_10 // UART2 TX on PB10

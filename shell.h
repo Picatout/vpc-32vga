@@ -46,6 +46,12 @@ typedef enum {
 } SH_ERROR;
 
 
+typedef struct env_var{
+    struct env_var *link;
+    char *name;
+    char *value;
+} env_var_t;
+
 
 void print_error_msg(SH_ERROR err_code, const char *detail, FRESULT io_code);
 

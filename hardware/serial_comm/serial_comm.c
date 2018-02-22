@@ -74,7 +74,7 @@ void ser_put_char(char c){
 char ser_wait_char(){
     int t;
     char ch;
-    if (!unget==-1){
+    if (unget!=-1){
         ch=unget;
         unget=-1;
         return unget;

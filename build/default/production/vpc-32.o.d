@@ -2,22 +2,22 @@ build/default/production/vpc-32.o:  \
 vpc-32.c  \
 graphics.h  \
  hardware/tvout/display.h  \
-hardware/HardwareProfile.h  \
+hardware/tvout/../../font.h  \
+ hardware/HardwareProfile.h  \
 hardware/tvout/vga.h  \
  hardware/tvout/../../ascii.h  \
 hardware/tvout/../../graphics.h  \
  hardware/tvout/display.h  \
-hardware/tvout/../../font.h  \
- hardware/serial_comm/serial_comm.h  \
-hardware/ps2_kbd/keyboard.h  \
- hardware/ps2_kbd/../tvout/vga.h  \
-hardware/Pinguino/diskio.h  \
- hardware/Pinguino/integer.h  \
-hardware/Pinguino/ff.h  \
- hardware/Pinguino/ffconf.h  \
-hardware/Pinguino/fileio.h  \
- hardware/Pinguino/sdmmc.h  \
-hardware/Pinguino/../HardwareProfile.h  \
+hardware/serial_comm/serial_comm.h  \
+ hardware/ps2_kbd/keyboard.h  \
+hardware/ps2_kbd/../tvout/vga.h  \
+ hardware/Pinguino/diskio.h  \
+hardware/Pinguino/integer.h  \
+ hardware/Pinguino/ff.h  \
+hardware/Pinguino/ffconf.h  \
+ hardware/Pinguino/fileio.h  \
+hardware/Pinguino/sdmmc.h  \
+ hardware/Pinguino/../HardwareProfile.h  \
  hardware/Pinguino/../store/store_spi.h  \
  hardware/Pinguino/../store/../HardwareProfile.h  \
 console.h  \

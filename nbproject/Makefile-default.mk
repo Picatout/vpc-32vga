@@ -57,17 +57,17 @@ OBJECTDIR=build/${CND_CONF}/${IMAGE_TYPE}
 DISTDIR=dist/${CND_CONF}/${IMAGE_TYPE}
 
 # Source Files Quoted if spaced
-SOURCEFILES_QUOTED_IF_SPACED=hardware/ps2_kbd/keyboard.c hardware/rtcc/rtcc.c hardware/Pinguino/sdmmc.c hardware/Pinguino/diskio.c hardware/serial_comm/serial_comm.c hardware/sound/sound.c hardware/spiram/spiram.c hardware/store/store_spi.c hardware/tvout/vga.c hardware/HardwareProfile.c hardware/exception.c hardware/syscall.c font.c vpc-32.c graphics.c console.c vt100.c shell.c hardware/Pinguino/ff.c hardware/Pinguino/fileio.c editor.c reader.c
+SOURCEFILES_QUOTED_IF_SPACED=hardware/ps2_kbd/keyboard.c hardware/rtcc/rtcc.c hardware/Pinguino/sdmmc.c hardware/Pinguino/diskio.c hardware/serial_comm/serial_comm.c hardware/sound/sound.c hardware/spiram/spiram.c hardware/store/store_spi.c hardware/tvout/vga.c hardware/HardwareProfile.c hardware/exception.c hardware/syscall.c hardware/Pinguino/ff.c hardware/Pinguino/fileio.c font.c vpc-32.c graphics.c console.c vt100.c shell.c editor.c reader.c
 
 # Object Files Quoted if spaced
-OBJECTFILES_QUOTED_IF_SPACED=${OBJECTDIR}/hardware/ps2_kbd/keyboard.o ${OBJECTDIR}/hardware/rtcc/rtcc.o ${OBJECTDIR}/hardware/Pinguino/sdmmc.o ${OBJECTDIR}/hardware/Pinguino/diskio.o ${OBJECTDIR}/hardware/serial_comm/serial_comm.o ${OBJECTDIR}/hardware/sound/sound.o ${OBJECTDIR}/hardware/spiram/spiram.o ${OBJECTDIR}/hardware/store/store_spi.o ${OBJECTDIR}/hardware/tvout/vga.o ${OBJECTDIR}/hardware/HardwareProfile.o ${OBJECTDIR}/hardware/exception.o ${OBJECTDIR}/hardware/syscall.o ${OBJECTDIR}/font.o ${OBJECTDIR}/vpc-32.o ${OBJECTDIR}/graphics.o ${OBJECTDIR}/console.o ${OBJECTDIR}/vt100.o ${OBJECTDIR}/shell.o ${OBJECTDIR}/hardware/Pinguino/ff.o ${OBJECTDIR}/hardware/Pinguino/fileio.o ${OBJECTDIR}/editor.o ${OBJECTDIR}/reader.o
-POSSIBLE_DEPFILES=${OBJECTDIR}/hardware/ps2_kbd/keyboard.o.d ${OBJECTDIR}/hardware/rtcc/rtcc.o.d ${OBJECTDIR}/hardware/Pinguino/sdmmc.o.d ${OBJECTDIR}/hardware/Pinguino/diskio.o.d ${OBJECTDIR}/hardware/serial_comm/serial_comm.o.d ${OBJECTDIR}/hardware/sound/sound.o.d ${OBJECTDIR}/hardware/spiram/spiram.o.d ${OBJECTDIR}/hardware/store/store_spi.o.d ${OBJECTDIR}/hardware/tvout/vga.o.d ${OBJECTDIR}/hardware/HardwareProfile.o.d ${OBJECTDIR}/hardware/exception.o.d ${OBJECTDIR}/hardware/syscall.o.d ${OBJECTDIR}/font.o.d ${OBJECTDIR}/vpc-32.o.d ${OBJECTDIR}/graphics.o.d ${OBJECTDIR}/console.o.d ${OBJECTDIR}/vt100.o.d ${OBJECTDIR}/shell.o.d ${OBJECTDIR}/hardware/Pinguino/ff.o.d ${OBJECTDIR}/hardware/Pinguino/fileio.o.d ${OBJECTDIR}/editor.o.d ${OBJECTDIR}/reader.o.d
+OBJECTFILES_QUOTED_IF_SPACED=${OBJECTDIR}/hardware/ps2_kbd/keyboard.o ${OBJECTDIR}/hardware/rtcc/rtcc.o ${OBJECTDIR}/hardware/Pinguino/sdmmc.o ${OBJECTDIR}/hardware/Pinguino/diskio.o ${OBJECTDIR}/hardware/serial_comm/serial_comm.o ${OBJECTDIR}/hardware/sound/sound.o ${OBJECTDIR}/hardware/spiram/spiram.o ${OBJECTDIR}/hardware/store/store_spi.o ${OBJECTDIR}/hardware/tvout/vga.o ${OBJECTDIR}/hardware/HardwareProfile.o ${OBJECTDIR}/hardware/exception.o ${OBJECTDIR}/hardware/syscall.o ${OBJECTDIR}/hardware/Pinguino/ff.o ${OBJECTDIR}/hardware/Pinguino/fileio.o ${OBJECTDIR}/font.o ${OBJECTDIR}/vpc-32.o ${OBJECTDIR}/graphics.o ${OBJECTDIR}/console.o ${OBJECTDIR}/vt100.o ${OBJECTDIR}/shell.o ${OBJECTDIR}/editor.o ${OBJECTDIR}/reader.o
+POSSIBLE_DEPFILES=${OBJECTDIR}/hardware/ps2_kbd/keyboard.o.d ${OBJECTDIR}/hardware/rtcc/rtcc.o.d ${OBJECTDIR}/hardware/Pinguino/sdmmc.o.d ${OBJECTDIR}/hardware/Pinguino/diskio.o.d ${OBJECTDIR}/hardware/serial_comm/serial_comm.o.d ${OBJECTDIR}/hardware/sound/sound.o.d ${OBJECTDIR}/hardware/spiram/spiram.o.d ${OBJECTDIR}/hardware/store/store_spi.o.d ${OBJECTDIR}/hardware/tvout/vga.o.d ${OBJECTDIR}/hardware/HardwareProfile.o.d ${OBJECTDIR}/hardware/exception.o.d ${OBJECTDIR}/hardware/syscall.o.d ${OBJECTDIR}/hardware/Pinguino/ff.o.d ${OBJECTDIR}/hardware/Pinguino/fileio.o.d ${OBJECTDIR}/font.o.d ${OBJECTDIR}/vpc-32.o.d ${OBJECTDIR}/graphics.o.d ${OBJECTDIR}/console.o.d ${OBJECTDIR}/vt100.o.d ${OBJECTDIR}/shell.o.d ${OBJECTDIR}/editor.o.d ${OBJECTDIR}/reader.o.d
 
 # Object Files
-OBJECTFILES=${OBJECTDIR}/hardware/ps2_kbd/keyboard.o ${OBJECTDIR}/hardware/rtcc/rtcc.o ${OBJECTDIR}/hardware/Pinguino/sdmmc.o ${OBJECTDIR}/hardware/Pinguino/diskio.o ${OBJECTDIR}/hardware/serial_comm/serial_comm.o ${OBJECTDIR}/hardware/sound/sound.o ${OBJECTDIR}/hardware/spiram/spiram.o ${OBJECTDIR}/hardware/store/store_spi.o ${OBJECTDIR}/hardware/tvout/vga.o ${OBJECTDIR}/hardware/HardwareProfile.o ${OBJECTDIR}/hardware/exception.o ${OBJECTDIR}/hardware/syscall.o ${OBJECTDIR}/font.o ${OBJECTDIR}/vpc-32.o ${OBJECTDIR}/graphics.o ${OBJECTDIR}/console.o ${OBJECTDIR}/vt100.o ${OBJECTDIR}/shell.o ${OBJECTDIR}/hardware/Pinguino/ff.o ${OBJECTDIR}/hardware/Pinguino/fileio.o ${OBJECTDIR}/editor.o ${OBJECTDIR}/reader.o
+OBJECTFILES=${OBJECTDIR}/hardware/ps2_kbd/keyboard.o ${OBJECTDIR}/hardware/rtcc/rtcc.o ${OBJECTDIR}/hardware/Pinguino/sdmmc.o ${OBJECTDIR}/hardware/Pinguino/diskio.o ${OBJECTDIR}/hardware/serial_comm/serial_comm.o ${OBJECTDIR}/hardware/sound/sound.o ${OBJECTDIR}/hardware/spiram/spiram.o ${OBJECTDIR}/hardware/store/store_spi.o ${OBJECTDIR}/hardware/tvout/vga.o ${OBJECTDIR}/hardware/HardwareProfile.o ${OBJECTDIR}/hardware/exception.o ${OBJECTDIR}/hardware/syscall.o ${OBJECTDIR}/hardware/Pinguino/ff.o ${OBJECTDIR}/hardware/Pinguino/fileio.o ${OBJECTDIR}/font.o ${OBJECTDIR}/vpc-32.o ${OBJECTDIR}/graphics.o ${OBJECTDIR}/console.o ${OBJECTDIR}/vt100.o ${OBJECTDIR}/shell.o ${OBJECTDIR}/editor.o ${OBJECTDIR}/reader.o
 
 # Source Files
-SOURCEFILES=hardware/ps2_kbd/keyboard.c hardware/rtcc/rtcc.c hardware/Pinguino/sdmmc.c hardware/Pinguino/diskio.c hardware/serial_comm/serial_comm.c hardware/sound/sound.c hardware/spiram/spiram.c hardware/store/store_spi.c hardware/tvout/vga.c hardware/HardwareProfile.c hardware/exception.c hardware/syscall.c font.c vpc-32.c graphics.c console.c vt100.c shell.c hardware/Pinguino/ff.c hardware/Pinguino/fileio.c editor.c reader.c
+SOURCEFILES=hardware/ps2_kbd/keyboard.c hardware/rtcc/rtcc.c hardware/Pinguino/sdmmc.c hardware/Pinguino/diskio.c hardware/serial_comm/serial_comm.c hardware/sound/sound.c hardware/spiram/spiram.c hardware/store/store_spi.c hardware/tvout/vga.c hardware/HardwareProfile.c hardware/exception.c hardware/syscall.c hardware/Pinguino/ff.c hardware/Pinguino/fileio.c font.c vpc-32.c graphics.c console.c vt100.c shell.c editor.c reader.c
 
 
 CFLAGS=
@@ -178,6 +178,18 @@ ${OBJECTDIR}/hardware/syscall.o: hardware/syscall.c  nbproject/Makefile-${CND_CO
 	@${RM} ${OBJECTDIR}/hardware/syscall.o 
 	@${FIXDEPS} "${OBJECTDIR}/hardware/syscall.o.d" $(SILENT) -rsi ${MP_CC_DIR}../  -c ${MP_CC}  $(MP_EXTRA_CC_PRE) -g -D__DEBUG -DPICkit3PlatformTool=1  -fframe-base-loclist  -x c -c -mprocessor=$(MP_PROCESSOR_OPTION)  -mno-float -O1 -MMD -MF "${OBJECTDIR}/hardware/syscall.o.d" -o ${OBJECTDIR}/hardware/syscall.o hardware/syscall.c    -DXPRJ_default=$(CND_CONF)  -no-legacy-libc  $(COMPARISON_BUILD)  -D_SUPPRESS_PLIB_WARNING -D_DISABLE_OPENADC10_CONFIGPORT_WARNING  -D_VM_TEST_ 
 	
+${OBJECTDIR}/hardware/Pinguino/ff.o: hardware/Pinguino/ff.c  nbproject/Makefile-${CND_CONF}.mk
+	@${MKDIR} "${OBJECTDIR}/hardware/Pinguino" 
+	@${RM} ${OBJECTDIR}/hardware/Pinguino/ff.o.d 
+	@${RM} ${OBJECTDIR}/hardware/Pinguino/ff.o 
+	@${FIXDEPS} "${OBJECTDIR}/hardware/Pinguino/ff.o.d" $(SILENT) -rsi ${MP_CC_DIR}../  -c ${MP_CC}  $(MP_EXTRA_CC_PRE) -g -D__DEBUG -DPICkit3PlatformTool=1  -fframe-base-loclist  -x c -c -mprocessor=$(MP_PROCESSOR_OPTION)  -mno-float -O1 -MMD -MF "${OBJECTDIR}/hardware/Pinguino/ff.o.d" -o ${OBJECTDIR}/hardware/Pinguino/ff.o hardware/Pinguino/ff.c    -DXPRJ_default=$(CND_CONF)  -no-legacy-libc  $(COMPARISON_BUILD)  -D_SUPPRESS_PLIB_WARNING -D_DISABLE_OPENADC10_CONFIGPORT_WARNING  -D_VM_TEST_ 
+	
+${OBJECTDIR}/hardware/Pinguino/fileio.o: hardware/Pinguino/fileio.c  nbproject/Makefile-${CND_CONF}.mk
+	@${MKDIR} "${OBJECTDIR}/hardware/Pinguino" 
+	@${RM} ${OBJECTDIR}/hardware/Pinguino/fileio.o.d 
+	@${RM} ${OBJECTDIR}/hardware/Pinguino/fileio.o 
+	@${FIXDEPS} "${OBJECTDIR}/hardware/Pinguino/fileio.o.d" $(SILENT) -rsi ${MP_CC_DIR}../  -c ${MP_CC}  $(MP_EXTRA_CC_PRE) -g -D__DEBUG -DPICkit3PlatformTool=1  -fframe-base-loclist  -x c -c -mprocessor=$(MP_PROCESSOR_OPTION)  -mno-float -O1 -MMD -MF "${OBJECTDIR}/hardware/Pinguino/fileio.o.d" -o ${OBJECTDIR}/hardware/Pinguino/fileio.o hardware/Pinguino/fileio.c    -DXPRJ_default=$(CND_CONF)  -no-legacy-libc  $(COMPARISON_BUILD)  -D_SUPPRESS_PLIB_WARNING -D_DISABLE_OPENADC10_CONFIGPORT_WARNING  -D_VM_TEST_ 
+	
 ${OBJECTDIR}/font.o: font.c  nbproject/Makefile-${CND_CONF}.mk
 	@${MKDIR} "${OBJECTDIR}" 
 	@${RM} ${OBJECTDIR}/font.o.d 
@@ -213,18 +225,6 @@ ${OBJECTDIR}/shell.o: shell.c  nbproject/Makefile-${CND_CONF}.mk
 	@${RM} ${OBJECTDIR}/shell.o.d 
 	@${RM} ${OBJECTDIR}/shell.o 
 	@${FIXDEPS} "${OBJECTDIR}/shell.o.d" $(SILENT) -rsi ${MP_CC_DIR}../  -c ${MP_CC}  $(MP_EXTRA_CC_PRE) -g -D__DEBUG -DPICkit3PlatformTool=1  -fframe-base-loclist  -x c -c -mprocessor=$(MP_PROCESSOR_OPTION)  -mno-float -O1 -MMD -MF "${OBJECTDIR}/shell.o.d" -o ${OBJECTDIR}/shell.o shell.c    -DXPRJ_default=$(CND_CONF)  -no-legacy-libc  $(COMPARISON_BUILD)  -D_SUPPRESS_PLIB_WARNING -D_DISABLE_OPENADC10_CONFIGPORT_WARNING  -D_VM_TEST_ 
-	
-${OBJECTDIR}/hardware/Pinguino/ff.o: hardware/Pinguino/ff.c  nbproject/Makefile-${CND_CONF}.mk
-	@${MKDIR} "${OBJECTDIR}/hardware/Pinguino" 
-	@${RM} ${OBJECTDIR}/hardware/Pinguino/ff.o.d 
-	@${RM} ${OBJECTDIR}/hardware/Pinguino/ff.o 
-	@${FIXDEPS} "${OBJECTDIR}/hardware/Pinguino/ff.o.d" $(SILENT) -rsi ${MP_CC_DIR}../  -c ${MP_CC}  $(MP_EXTRA_CC_PRE) -g -D__DEBUG -DPICkit3PlatformTool=1  -fframe-base-loclist  -x c -c -mprocessor=$(MP_PROCESSOR_OPTION)  -mno-float -O1 -MMD -MF "${OBJECTDIR}/hardware/Pinguino/ff.o.d" -o ${OBJECTDIR}/hardware/Pinguino/ff.o hardware/Pinguino/ff.c    -DXPRJ_default=$(CND_CONF)  -no-legacy-libc  $(COMPARISON_BUILD)  -D_SUPPRESS_PLIB_WARNING -D_DISABLE_OPENADC10_CONFIGPORT_WARNING  -D_VM_TEST_ 
-	
-${OBJECTDIR}/hardware/Pinguino/fileio.o: hardware/Pinguino/fileio.c  nbproject/Makefile-${CND_CONF}.mk
-	@${MKDIR} "${OBJECTDIR}/hardware/Pinguino" 
-	@${RM} ${OBJECTDIR}/hardware/Pinguino/fileio.o.d 
-	@${RM} ${OBJECTDIR}/hardware/Pinguino/fileio.o 
-	@${FIXDEPS} "${OBJECTDIR}/hardware/Pinguino/fileio.o.d" $(SILENT) -rsi ${MP_CC_DIR}../  -c ${MP_CC}  $(MP_EXTRA_CC_PRE) -g -D__DEBUG -DPICkit3PlatformTool=1  -fframe-base-loclist  -x c -c -mprocessor=$(MP_PROCESSOR_OPTION)  -mno-float -O1 -MMD -MF "${OBJECTDIR}/hardware/Pinguino/fileio.o.d" -o ${OBJECTDIR}/hardware/Pinguino/fileio.o hardware/Pinguino/fileio.c    -DXPRJ_default=$(CND_CONF)  -no-legacy-libc  $(COMPARISON_BUILD)  -D_SUPPRESS_PLIB_WARNING -D_DISABLE_OPENADC10_CONFIGPORT_WARNING  -D_VM_TEST_ 
 	
 ${OBJECTDIR}/editor.o: editor.c  nbproject/Makefile-${CND_CONF}.mk
 	@${MKDIR} "${OBJECTDIR}" 
@@ -311,6 +311,18 @@ ${OBJECTDIR}/hardware/syscall.o: hardware/syscall.c  nbproject/Makefile-${CND_CO
 	@${RM} ${OBJECTDIR}/hardware/syscall.o 
 	@${FIXDEPS} "${OBJECTDIR}/hardware/syscall.o.d" $(SILENT) -rsi ${MP_CC_DIR}../  -c ${MP_CC}  $(MP_EXTRA_CC_PRE)  -g -x c -c -mprocessor=$(MP_PROCESSOR_OPTION)  -mno-float -O1 -MMD -MF "${OBJECTDIR}/hardware/syscall.o.d" -o ${OBJECTDIR}/hardware/syscall.o hardware/syscall.c    -DXPRJ_default=$(CND_CONF)  -no-legacy-libc  $(COMPARISON_BUILD)  -D_SUPPRESS_PLIB_WARNING -D_DISABLE_OPENADC10_CONFIGPORT_WARNING  -D_VM_TEST_ 
 	
+${OBJECTDIR}/hardware/Pinguino/ff.o: hardware/Pinguino/ff.c  nbproject/Makefile-${CND_CONF}.mk
+	@${MKDIR} "${OBJECTDIR}/hardware/Pinguino" 
+	@${RM} ${OBJECTDIR}/hardware/Pinguino/ff.o.d 
+	@${RM} ${OBJECTDIR}/hardware/Pinguino/ff.o 
+	@${FIXDEPS} "${OBJECTDIR}/hardware/Pinguino/ff.o.d" $(SILENT) -rsi ${MP_CC_DIR}../  -c ${MP_CC}  $(MP_EXTRA_CC_PRE)  -g -x c -c -mprocessor=$(MP_PROCESSOR_OPTION)  -mno-float -O1 -MMD -MF "${OBJECTDIR}/hardware/Pinguino/ff.o.d" -o ${OBJECTDIR}/hardware/Pinguino/ff.o hardware/Pinguino/ff.c    -DXPRJ_default=$(CND_CONF)  -no-legacy-libc  $(COMPARISON_BUILD)  -D_SUPPRESS_PLIB_WARNING -D_DISABLE_OPENADC10_CONFIGPORT_WARNING  -D_VM_TEST_ 
+	
+${OBJECTDIR}/hardware/Pinguino/fileio.o: hardware/Pinguino/fileio.c  nbproject/Makefile-${CND_CONF}.mk
+	@${MKDIR} "${OBJECTDIR}/hardware/Pinguino" 
+	@${RM} ${OBJECTDIR}/hardware/Pinguino/fileio.o.d 
+	@${RM} ${OBJECTDIR}/hardware/Pinguino/fileio.o 
+	@${FIXDEPS} "${OBJECTDIR}/hardware/Pinguino/fileio.o.d" $(SILENT) -rsi ${MP_CC_DIR}../  -c ${MP_CC}  $(MP_EXTRA_CC_PRE)  -g -x c -c -mprocessor=$(MP_PROCESSOR_OPTION)  -mno-float -O1 -MMD -MF "${OBJECTDIR}/hardware/Pinguino/fileio.o.d" -o ${OBJECTDIR}/hardware/Pinguino/fileio.o hardware/Pinguino/fileio.c    -DXPRJ_default=$(CND_CONF)  -no-legacy-libc  $(COMPARISON_BUILD)  -D_SUPPRESS_PLIB_WARNING -D_DISABLE_OPENADC10_CONFIGPORT_WARNING  -D_VM_TEST_ 
+	
 ${OBJECTDIR}/font.o: font.c  nbproject/Makefile-${CND_CONF}.mk
 	@${MKDIR} "${OBJECTDIR}" 
 	@${RM} ${OBJECTDIR}/font.o.d 
@@ -346,18 +358,6 @@ ${OBJECTDIR}/shell.o: shell.c  nbproject/Makefile-${CND_CONF}.mk
 	@${RM} ${OBJECTDIR}/shell.o.d 
 	@${RM} ${OBJECTDIR}/shell.o 
 	@${FIXDEPS} "${OBJECTDIR}/shell.o.d" $(SILENT) -rsi ${MP_CC_DIR}../  -c ${MP_CC}  $(MP_EXTRA_CC_PRE)  -g -x c -c -mprocessor=$(MP_PROCESSOR_OPTION)  -mno-float -O1 -MMD -MF "${OBJECTDIR}/shell.o.d" -o ${OBJECTDIR}/shell.o shell.c    -DXPRJ_default=$(CND_CONF)  -no-legacy-libc  $(COMPARISON_BUILD)  -D_SUPPRESS_PLIB_WARNING -D_DISABLE_OPENADC10_CONFIGPORT_WARNING  -D_VM_TEST_ 
-	
-${OBJECTDIR}/hardware/Pinguino/ff.o: hardware/Pinguino/ff.c  nbproject/Makefile-${CND_CONF}.mk
-	@${MKDIR} "${OBJECTDIR}/hardware/Pinguino" 
-	@${RM} ${OBJECTDIR}/hardware/Pinguino/ff.o.d 
-	@${RM} ${OBJECTDIR}/hardware/Pinguino/ff.o 
-	@${FIXDEPS} "${OBJECTDIR}/hardware/Pinguino/ff.o.d" $(SILENT) -rsi ${MP_CC_DIR}../  -c ${MP_CC}  $(MP_EXTRA_CC_PRE)  -g -x c -c -mprocessor=$(MP_PROCESSOR_OPTION)  -mno-float -O1 -MMD -MF "${OBJECTDIR}/hardware/Pinguino/ff.o.d" -o ${OBJECTDIR}/hardware/Pinguino/ff.o hardware/Pinguino/ff.c    -DXPRJ_default=$(CND_CONF)  -no-legacy-libc  $(COMPARISON_BUILD)  -D_SUPPRESS_PLIB_WARNING -D_DISABLE_OPENADC10_CONFIGPORT_WARNING  -D_VM_TEST_ 
-	
-${OBJECTDIR}/hardware/Pinguino/fileio.o: hardware/Pinguino/fileio.c  nbproject/Makefile-${CND_CONF}.mk
-	@${MKDIR} "${OBJECTDIR}/hardware/Pinguino" 
-	@${RM} ${OBJECTDIR}/hardware/Pinguino/fileio.o.d 
-	@${RM} ${OBJECTDIR}/hardware/Pinguino/fileio.o 
-	@${FIXDEPS} "${OBJECTDIR}/hardware/Pinguino/fileio.o.d" $(SILENT) -rsi ${MP_CC_DIR}../  -c ${MP_CC}  $(MP_EXTRA_CC_PRE)  -g -x c -c -mprocessor=$(MP_PROCESSOR_OPTION)  -mno-float -O1 -MMD -MF "${OBJECTDIR}/hardware/Pinguino/fileio.o.d" -o ${OBJECTDIR}/hardware/Pinguino/fileio.o hardware/Pinguino/fileio.c    -DXPRJ_default=$(CND_CONF)  -no-legacy-libc  $(COMPARISON_BUILD)  -D_SUPPRESS_PLIB_WARNING -D_DISABLE_OPENADC10_CONFIGPORT_WARNING  -D_VM_TEST_ 
 	
 ${OBJECTDIR}/editor.o: editor.c  nbproject/Makefile-${CND_CONF}.mk
 	@${MKDIR} "${OBJECTDIR}" 

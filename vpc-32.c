@@ -135,6 +135,15 @@ const unsigned int e3k[]={ // rencontre du 3ième type
 0,0
 };
 
+// affiche la date et l'heure
+void display_date_time(){
+    char fmt[32];
+    rtcc_get_date_str(fmt);
+    print(con,fmt);
+    rtcc_get_time_str(fmt);
+    println(con,fmt);
+}
+
 
 enum PRT_DEV {VGA,SERIAL,BOTH};
 
@@ -237,6 +246,11 @@ void main(void) {
 //        vga_print(fmt);
 //        _usec_delay(3000);
 //    }
+    print(con,"free RAM (bytes): ");
+    print_int(con,free_heap(),0);
+    crlf(con);
+    last_shutdown();
+    display_date_time();
     shell();
 } // main()
 
