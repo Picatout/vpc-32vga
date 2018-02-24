@@ -1,8 +1,12 @@
+2018-02-23
+----------
+1. Travail sur shell.c
+
 2018-02-21
 ----------
 1. Travail sur shell.c
 2. modification organisation des commandes en un tableau de type command_t
-3. ajout commande set et substitution de variables.
+3. ajout de la commande 'set' et substitution de variables.
 
 2018-02-19
 ----------

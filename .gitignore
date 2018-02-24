@@ -1,3 +1,5 @@
-/docs/eForth-mips/eForth_test.X/build/default/
-/docs/eForth-mips/eForth_test.X/dist/default/
-/docs/eForth-mips/eForth_test.X/nbproject/private/
+build/*
+debug/*
+dist/*
+disassembly/*
+

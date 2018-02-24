@@ -33,6 +33,7 @@ extern "C" {
     
 typedef enum {
     ERR_NONE=0,
+    ERR_NOT_CMD,            
     ERR_NOT_DONE,
     ERR_ALLOC,
     ERR_USAGE,

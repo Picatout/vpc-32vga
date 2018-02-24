@@ -1,0 +1,1688 @@
+<!doctype html>
+<html>
+<header>
+<title>PV16SOG BASIC</title>
+<meta http-equiv="content-type" content="text/html; charset=utf-8" />
+<meta name="Author" content="Jacques Deschênes">
+<meta name="Created on" content="2016-04-16">
+<meta name="version" content="1.0">
+<meta name="licence" content="CC-NC-SA-BY V3.0">
+<link rel="stylesheet" type="text/css" href="style.css">
+</header>
+<body>
+<a name="top"></a>	
+<h2>Langage BASIC du PV16SOG</h2>
+<h4>Licence</h4>
+<p>  
+  Ce document fait partie du projet <a href="https://github.com/picatout/pv16sog">PV16SOG</a> et est fourni sous licence <a href="https://creativecommons.org/">CC-NC-SA-BY V3.0</a><br><br>
+  <b>auteur:</b> Jacques Deschênes<br>
+  <b>révision</b> 1.0</br>
+  <b>Copyright:</b> 2015,2016, Jacques Deschênes<br>	
+
+</p>
+<h3></a>Présentation</h3>
+<p>
+	L'ordinateur PV16SOG possède un interpréteur BASIC inspiré de QBASIC. Le code source BASIC est d'abord compilé en bytecode pour être exécuté sur
+	une machine virtuelle à piles. Ce document décris ce langage BASIC et son utilisation. 
+</p>
+<p>
+<ul>
+<li><a href="#language">Caractéristiques du langage.</a></li>
+<li><a href="#reference">référence du langage</a></li>
+<li><a href="#examples">examples</a>
+<ol>
+<li><a href="#conway">conway.bas</a></li>
+<li><a href="#spred">spred.bas</a></li>
+<li><a href="#jstick">joystick.bas</a></li>
+</ol>
+</li>
+</ul>
+</p>
+<h3><a name="language"></a></a>Caractéristques du langage.</h3>
+<p>
+<ul>
+<li>Types de données<br>
+  <ul>
+	  <li>Entier 16 bits signé, {-32768-32767}</li>
+	  <li>Entier 8 bits (octet) non signé, {0-255}</li>
+	  <li>Chaîne de caractères ASCII, {0-127}</li>
+	  <li>Tableau unidimensionnel de ces 3 types de données</li>
+  </ul>
+</li>
+<li>Programmation structurée<br>
+  Contrairement au BASIC des années 70-80 <b>PV16SOG BASIC</b> est un language de programmation structuré de type procédural basé sur
+  des fonctions déclarées avec le mot réservé <b>FUNC</b> ainsi que des sous-routines déclarées avec
+  le mot résservé <b>SUB</b>. Il n'y a pas de numéros de lignes ni de <b>GOTO</b> ou <b>GOSUB</b> comme dans les versions plus ancienne de BASIC.
+  Pour l'essentiel je me suis inspiré de <a href="https://fr.wikipedia.org/wiki/QBasic">QBASIC</a> qui venait avec MS-DOS à partir de 1991.<br>
+  La compilation se fait en 1 seule passe, il n'est donc pas possible d'appeller des fonctions ou sous-routines définies plus loin dans le texte.
+  Il en va de même avec les variables tableaux qui doivent-être définies avec la commande <b>DIM</b> avant d'être référencées. Par contre une variable
+  scalaire globale est créée automatiquement lors de la première référence si elle n'existe pas. Cette auto-création des variables
+  scalaire n'est valide qu'à l'extérieur des fonctions et sous-routines.
+</li>
+
+</li>
+</ul>	
+</p>
+<hr class="l1">
+<h3><a name="reference">Référence des commandes BASIC</a></h3>
+<p>
+	PV16SOG BASIC est insensible à casse tous les mots réservés et indentificateurs de variables sont convertis en majuscules par le compilateur.
+</p>
+<h4>conventions typographiques
+</h4>
+<p>
+	les éléments de syntaxe indiqués entre <b>'['</b> et <b>']'</b> sont des éléments optionnels. si le caractère <b>'+'</b>
+	suit le caractère <b>']'</b> l'élément peut-être répété un nombre abritraire de fois.
+</p>
+<p>le caractère <b>'|'</b> sépare les alternatives</p>
+<p>
+  Dans les examples le <b>&gt;</b> au début d'une ligne représente l'invite de la ligne de commande.
+</p>
+
+<p>
+	<i>expr</i>  signifit une expression arithmétique.<br>
+	<i>expr_list</i> liste d'expression numérique. Les éléments sont séparés par la virgule <b>','</b>.<br>
+	<i>cond</i>  signifit une condition logique résultant de la comparaison de 2 <i>expr</i>.<br>
+	<i>log_expr</i> signigit un ensemble de <i>cond</i> reliées par les opérateurs logiques <b>AND</b> et <b>OR</b>.<br>
+	<i>arg_list</i> est la liste des arguments passés à une sous-routine ou fonction. La virgule <b>','</b> est le séparateur de liste.<br>
+	<i>val_list</i> est une liste de valeur numérique ou chaîne servant à initialiser un tableau lors de sa déclaration.<br>
+	<i>var</i> représente un nom de variable.<br>
+	<i>num</i> représente un nombre entier.<br>
+	<i>const</i> représente une constante numérique.<br>
+	<i>block</i> groupe d'instructions BASIC.<br>
+</p>
+<h4>Opérateurs par ordre de précédence</h4>
+<p>Cette table montre les opérateurs par ordre de précédence. À précédence égale les opérateurs sont traités de gauche à droite.</p>
+<table border="single">
+<tr><th>opérateur</th><th>description</th></tr>
+<tr><td>()</td><td>Parenthèse de groupement d'expression. Le groupement entre parenthèses est réservé aux expression arithmétiques. 
+Les <i>cond</i> et les <i>log_expr</i> ne peuvent pas être regroupées.</td></tr>
+<tr><td>func()</td><td>Les fonctions ont la plus haute priorité dans les expression arithmétiques.</td></tr>
+<tr><td>* / %</td><td>multiplication, division entière, modulo</td></tr>
+<tr><td>+ -</td><td>addition soustraction</td></tr>
+<tr><td>= &gt;= &lt; &lt;= &lt;&gt; &gt;&lt; </td><td>les opérateurs de comparaison utilisés dans les <i>cond</i></td></tr>
+<tr><td>NOT</td><td> négation logique appliquée au résultat d'une <i>cond</i></td> </tr>
+<tr><td>AND</td><td>conjonction logique appliqué entre les <i>cond</i></td> </tr>
+<tr><td>OR</td><td>alternative logique appliqué entre les <i>cond</i></td> </tr>
+</table>
+<h4>nom de variables</h4>
+<p>
+	Les noms de variables sont insensibles à la casse. Tous les noms sont convertis en majuscules par le compilateur. Un nom peut 
+	avoir un maximum de 31 caractères, doit commencer par une lettre mais peut contenir des chiffres et le caractère <b>'_'</b>.
+	Si le nom de la variable se termine par le caractère <b>'$'</b> il s'agit d'une variable chaîne. Si le nom se termine par le
+	caractère <b>'#'</b> il s'agit d'une variable octet {0-255}. Autrement il s'agit d'une variable de type entier 16 bits dans l'interval
+	de valeurs {-32768 - 32767}. Les tableaux peuvent-être de ces 3 types de données et ne peuvent avoir qu'une seule dimension.
+</p>
+<p>
+	Les variables chaîne sont en fait des constantes, une fois une valeur assignée à une telle variable celle-ci ne peut-être changée
+	sauf en utilisant un truc de programmation avancé.
+</p>
+<h4>valeurs litérales</h4>
+<p>
+Les valeurs litérales numérique peuvent-être saisie sous 3 formes:
+<ol>
+	<li><b>décimal</b>  23, -267 , -32560, 255</li>
+	<li><b>hexadécimal</b> $23f2, $fff3</li>
+	<li><b>binaire</b> #101, #100011</li>
+</ol>
+</p>
+<p>
+Les chaînes de caractères sont saisies entre guillemets <b>'"'</b>. 
+Un caractère ASCII est saisie en le précédent de la barre oblique <b>'\'</b>
+<div>
+<pre><code> example: 
+&gt;print "Hello world"
+Hello world
+&gt;putc \a
+a
+&gt;|
+</code></pre><br>
+</div>
+</p>
+<h4>fonctions et sous-routines</h4>
+<p>
+	Les paramètres des fonctions et sous-routines sont passées par valeur sauf si le nom de la variable est précédé du 
+	caractère <b>'@'</b>. Dans ce cas le paramètre doit-être le nom d'une variable qui est passée par référence.
+	<div>
+    <pre><code>example:
+    sprite(10,10,8,8,@lem#,@rest#) ' lem# est le nom d'une variable taleau qui contient un sprite.
+                                   ' ce tableau doit-être passé par référence.
+                                   ' rest# sauvegarde le fond d'écran couvert par le sprite.
+    </code></pre></div>
+</p><p>                            
+    La valeur de retour d'une fonction peut-être ignorée. Si la fonction est appellée comme une commande la 
+    valeur de retour est simplement jetée. 
+</p>
+<h4>commandes BASIC</h4>
+<h5><a name="indexBasic"></a>index</h5>
+<ul>
+	<li><a href="#abs">ABS</a></li>
+	<li><a href="#and">AND</a></li>
+	<li><a href="#BEEP">BEEP</a></li>
+	<li><a href="#BOX">BOX</a></li>
+	<li><a href="#BTEST">BTEST</a></li>
+	<li><a href="#BYE">BYE</a></li>
+	<li><a href="#CASE">CASE</a></li>
+	<li><a href="#CIRCLE">CIRCLE</a></li>
+	<li><a href="#CLS">CLS</a></li>
+	<li><a href="#COLOR">COLOR</a></li>
+	<li><a href="#CONST">CONST</a></li>
+	<li><a href="#CURCOL">CURCOL</a></li>
+	<li><a href="#CURLINE">CURLINE</a></li>
+	<li><a href="#DIM">DIM</a></li>
+	<li><a href="#DO">DO</a></li>
+	<li><a href="#ELLIPSE">ELLIPSE</a></li>
+	<li><a href="#ELSE">ELSE</a></li>
+	<li><a href="#END">END</a></li>
+	<li><a href="#EXIT">EXIT</a></li>
+	<li><a href="#for">FOR</a></li>
+	<li><a href="#function">FUNC</a></li>
+	<li><a href="#GETPIXEL">GETPIXEL</a></li>
+	<li><a href="#if">IF</a></li>
+	<li><a href="#INPUT">INPUT</a></li>
+	<li><a href="#KEY">KEY</a></li>
+	<li><a href="#LEN">LEN</a></li>
+	<li><a href="#LET">LET</a></li>
+	<li><a href="#LINE">LINE</a></li>
+	<li><a href="#LOCAL">LOCAL</a></li>
+	<li><a href="#LOCATE">LOCATE</a></li>
+	<li><a href="#LOOP">LOOP</a></li>
+	<li><a href="#MAX">MAX</a></li>
+	<li><a href="#MDIV">MDIV</a></li>
+	<li><a href="#MIN">MIN</a></li>
+	<li><a href="#NEXT">NEXT</a></li>
+	<li><a href="#NOISE">NOISE</a></li>
+	<li><a href="#NOT">NOT</a></li>
+	<li><a href="#OR">OR</a></li>
+	<li><a href="#PAUSE">PAUSE</a></li>
+	<li><a href="#PRINT">PRINT</a></li>
+	<li><a href="#PUTC">PUTC</a></li>
+	<li><a href="#RANDOMIZE">RANDOMIZE</a></li>
+	<li><a href="#JSTICK">JSTICK</a></li>
+	<li><a href="#RECT">RECT</a></li>
+	<li><a href="#REM">REM</a></li>
+	<li><a href="#RESTSCR">RESTSCR</a></li>
+	<li><a href="#REMSPR">REMSPR</a></li>
+	<li><a href="#RETURN">RETURN</a></li>
+	<li><a href="#RND">RND</a></li>
+	<li><a href="#SAVESCR">SAVESCR</a></li>
+	<li><a href="#SCRLUP">SCRLUP</a></li>
+	<li><a href="#SCRLDN">SCRLDN</a></li>
+	<li><a href="#SCRLRT">SCRLRT</a></li>
+	<li><a href="#SCRLLT">SCRLLT</a></li>
+	<li><a href="#SELECT">SELECT</a></li>
+	<li><a href="#SETPIXEL">SETPIXEL</a></li>
+	<li><a href="#SETTMR">SETTMR</a></li>
+	<li><a href="#SHL">SHL</a></li>
+	<li><a href="#SHR">SHR</a></li>
+	<li><a href="#SPRITE">SPRITE</a></li>
+	<li><a href="#SRCLEAR">SRCLEAR</a></li>
+	<li><a href="#SRLOAD">SRLOAD</a></li>
+	<li><a href="#SRREAD">SRREAD</a></li>
+	<li><a href="#SRSAVE">SRSAVE</a></li>
+	<li><a href="#SRWRITE">SRWRITE</a></li>
+	<li><a href="#SUB">SUB</a></li>
+	<li><a href="#THEN">THEN</a></li>
+	<li><a href="#TICKS">TICKS</a></li>
+	<li><a href="#TIMEOUT">TIMEOUT</a></li>
+	<li><a href="#TONE">TONE</a></li>
+	<li><a href="#TRACE">TRACE</a></li>
+	<li><a href="#UBOUND">UBOUND</a></li>
+	<li><a href="#UNTIL">UNTIL</a></li>
+	<li><a href="#USE">USE</a></li>
+	<li><a href="#VIDEO">VIDEO</a></li>
+	<li><a href="#WAITKEY">WAITKEY</a></li>
+	<li><a href="#WHILE">WEND</a></li>
+	<li><a href="#WHILE">WHILE</a></li>
+	<li><a href="#XORPIXEL">XORPIXEL</a></li>
+</ul>
+<hr class="l1">
+<p>
+	<ul>
+	<li><a name="abs"></a><b>ABS(expr)</b><br>
+	Fonction qui retourne la valeur absolue de l'expresssion passée comme paramètre.
+	<pre><code>example:
+	&gt;b=-5
+	&gt;? abs(3*b)
+	15
+	&gt;|
+	</code></pre>
+	<a href="#indexBasic">index BASIC</a>
+	</li>
+	<li><a name="and"></a><b>AND</b><br>
+	conjonction logique <b>ET</b> utilisé dans les <i>log_expr</i>.
+	<pre><code>example:
+	if hour>=12 and hour<=17 then print "afternoon" end if
+	REM si la varialbe <i>hour</i> a une valeur entre 12 et 17 imprime le mot <i>afternoon</i>.
+	</code></pre>
+	<a href="#indexBasic">index BASIC</a>
+	</li>
+	<li><a name="BEEP"></a><b>BEEP(freq,msec,wait)</b><br> sous-routine qui génère une tonalité.
+	<ul>
+	<li><b>freq</b> fréquence en Hertz.</li>
+	<li><b>msec</b> durée en millisecondes.</li>
+	<li><b>wait</b> représente une valeur booléenne {0,1} et indique si l'exécution du programme doit-être 
+	suspendue pour la durée de la tonalitée. Si on passe la valeur
+	<b>0</b> les instructions qui suivent s'exécutent immédiatement sans attendre la fin de la tonalité.
+	</li></ul>
+	<pre><code>example:
+	BEEP(440,1000,1)
+	REM génère une tonalitée de 440Hertz pour une durée de 1 seconde. Suspend l'exécution.</code></pre>
+	<a href="#indexBasic">index BASIC</a>
+    </li>
+	<li><a name="BOX"></a><b>BOX(x0,y0,width,height,color)</b><br> sous-routine qui dessine un rectangle plein. 
+	<ul><li><b>{x0,y0}</b> représente la position du coin supérieur gauche.</li>
+	<li><b>width</b> représente la largeur de la boite.</li>
+	<li><b>height</b> représente la hauteur de la boite.</li>
+	<li><b>color</b> est la couleur de la boite (ton de gris).</li></ul>
+	<pre><code>example:
+	BOX(10,20,100,50,7)
+	REM boite dont le coin supérieur gauche est à la position {10,20} de largeur 100 pixels,
+	REM hauteur de 50 pixels avec un ton de gris de 7.</code></pre>
+	<a href="#indexBasic">index BASIC</a>
+	</li>
+	<li><a name="BTEST"></a><b>BTEST(<i>expr</i>,bit)</b><br> fonction qui vérifie l'état d'un bit. Retourne <i>vrai</i> si le bit est à 1 sinon
+	retourne <i>faux</i>.
+	<ul>
+	<li><b>expr</b> valeur pour laquelle on veut vérifier l'état d'un bit.</li>
+	<li><b>bit</b> bit est une expression de valeur comprise entre 0 et 15 puisque les entiers sont de 16 bits. <b>0</b> est le bit 
+	le plus faible et <b>15</b> le plus fort.</li>
+	</ul>
+	<pre><code>example:
+	if btest(v1,0) then print "nombre impair" end if
+	REM si le bit zéro est à 1 il s'agit d'un nombre impair.
+	if btest(v2,15) then print "nombre negatif" end if
+	REM si le bit 15 est à 1 il s'agit d'un nombre négatif.</code></pre>
+	<a href="#indexBasic">index BASIC</a>
+	</li>
+	<li><a name="BYE"></a><b>BYE</b><br> Cette commande termine l'éxécution d'un programme et peut-être utilisée n'importe où à l'intérieur
+	d'un programme.
+	<pre><code>example:
+	if key()='q' then BYE end if
+	REM termine l'exécution si la touche 'Q' est enfoncée.
+	</code></pre>
+	<a href="#indexBasic">index BASIC</a>
+    </li>
+	<li><a name="CASE"></a><b>CASE</b><br> Voir <a href="#selectcase">SELECT CASE</a><br>
+	<a href="#indexBasic">index BASIC</a>
+    </li>
+    <li><a name="CIRCLE"></a><b>CIRCLE(xc,yc,r,color)</b><br>
+    Desssine un cercle.<br>
+    <ul>
+    <li><b>xc,yc</b> coordonnées du centre du cercle.</li>
+    <li><b>r</b> rayon du cercle.</li>
+    <li><b>color</b> couleur du trait.</li>
+    </ul>
+    <pre><code>example:
+    circle(100,100,45,7) 'dessine un cercle de rayon 45 pixels centré sur {100,100}
+    </code></pre>
+	<a href="#indexBasic">index BASIC</a>
+    </li>
+	<li><a name="CLS"></a><b>CLS [color]</b><br> Efface l'écran. Si le paramètre <i>color</i> est présent assigne cette valeur
+	comme nouvelle couleur de fond avant d'effacer l'écran.
+	<pre><code>example:
+	CLS 7
+	REM la nouvelle couleur de fond sera <b>7</b> et tous les pixels auront cette couleur après cette commande.</code></pre>
+	<a href="#indexBasic">index BASIC</a>
+    </li>
+	<li><a name="COLOR"></a><b>COLOR(police,fond)</b><br> Fixe la couleur de la police de caractère et du fond d'écran.
+	<ul>
+	<li><b>police</b> expression arithmétique dont la valeur doit-être entre 0 et 15. Détermine la couleur des caractères.</li>
+	<li><b>fond</b> expression arithmétqiue dont la valeur doit-être entre 0 et 15. Détermine la couleur de fond d'écran.
+	<pre><code>example:
+	COLOR(15,0)
+	REM caractère blanc sur fond noir.</code></pre></li></ul>
+	<a href="#indexBasic">index BASIC</a>
+	</li>
+	<li><a name="CONST"></a><b>CONST nom=valeur [,nom=valeur]</b><br> Déclare une ou plusieurs constantes séparées par une virgule <b>','</b>.
+	<ul><li><b>nom</b> est le nom de la constante. Les constantes sont de types entier 16 bits ou chaîne ASCII.</li>
+	<li><b>valeur</b> selon le type de la constante il s'agit d'un entier ou d'une chaîne ASCII.</li></ul>
+	<pre><code>example:
+	CONST age=30, salaire=32000, nom$="Capitaine Bonhomme"
+	REM défini 3 constantes dans la même déclaration.</code></pre>
+	<a href="#indexBasic">index BASIC</a>
+	</li>
+	<li><a name="CURCOL"></a><b>CURCOL()</b><br> Retourne la poisition colonne du curseur texte.
+	<pre><code>example:
+	if curcol()=38 then locate(curline()+1,0) end if
+	</code></pre>
+	<a href="#indexBasic">index BASIC</a>
+    </li>
+	<li><a name="CURLINE"></a><b>CURLINE()</b><br> Retourne la position ligne du curseur texte.
+	<pre><code>example:
+	if curline()=20 and curcol()=39 then scrlup(8): locate(curline(),0) end if</code></pre>
+	<a href="#indexBasic">index BASIC</a>
+	</li>
+	<li><a name="DIM"></a><b>DIM <i>var</i>[=<i>value</i>] [,<i>var</i>[=<i>value</i>]]</b><br>
+	 <b>DIM <i>var</i>(<i>number|constant</i>)[=(value_list)] [,<i>var</i>(<i>number|constant</i>)[=(value_list)]]</b><br>
+	 Cette commande sert à déclarer des variables. Les variables peuvent-être initialisées lors de leur déclaration.
+	 Les variables tableaux doivent-être initialisées avec le nombre exact d'éléments déclarés dans la dimension  du tableau.
+	 Les valeurs d'initialisation sont soit des entiers, des chaînes ou des constantes pré-définies.
+	 <pre><code>example:
+	 DIM v1=34, v2#=234 ' la variable entier 16 bits v1 prend la valeur 34
+	                    ' la variable octet v2 prend la valeur 234
+	 DIM t1(4)=(1,2,3,4) ' le tableau t1 contient 4 éléments qui sont initialisées.
+	 DIM msg$(3)=("nom","prenom","age") ' tableau de 3 chaînes initialisé.
+	 </code></pre>
+	<a href="#indexBasic">index BASIC</a>
+	</li>
+	<li><a name="DO"></a><a name="do"></a><b>DO</b><br>
+	  <i>block</i><br>
+	  <b>LOOP WHILE <i>log_expr</i></b><br>
+	  Le bloc d'instruction est exécuté en boucle tant que <i>log_expr</i> est vrai.<br>
+	  <b>DO</b><br>
+	  <i>block</i><br>
+	  <b>LOOP UNTIL <i>log_expr</i></b></b><br> 
+	  Le bloc d'instruction est exécuté en boucle jusqu'à ce que <i>log_expr</i> soit vrai.
+	<pre><code>example:
+	&gt;i=0 : DO ? i : i=i+1 LOOP UNTIL i=5
+	0
+	1
+	2
+	3
+	4
+	&gt;i=9 : DO ? i : i=i-1 : LOOP WHILE i
+	9
+	8
+	7
+	6
+	5
+	4
+	3
+	2
+	1
+	</code></pre>
+	<a href="#indexBasic">index BASIC</a>
+	</li>
+	<li><a name="ELLIPSE"></a><b>ELLIPSE(xc,yc,w,h,color)</b><br>
+	Dessine une ellipse centrée sur les coordonnées {xc,yc}.<br>
+	<ul>
+	<li><b>{xc,yc}</b> Centre de l'ellipse.</li>
+	<li><b>w</b> largeur de l'ellipse en pixels.</li>
+	<li><b>h</b> hauteur de l'ellipse en pixels.</li>
+	<li><b>color</b> couleur du trait.</li>
+	</ul>
+	<pre><code>example:
+	ellipse(120,85,120,85,15) ' dessine une ellipse centrée sur {120,85} de largeur 120 et hauteur 85
+	</code></pre>
+	<a href="#indexBasic">index BASIC</a>
+	</li>
+	<li><a name="ELSE"></a><b>ELSE</b><br>
+	Est utilisé avec le <a href="#if">IF</a> et le <a href="#selectcase">SELECT CASE</a>.<br>
+	<a href="#indexBasic">index BASIC</a>
+	</li>
+	<li><a name="END"></a><b>END FUNC</b><br>
+	Voir <a href="#function">FUNC</a>.<br>
+	<b> END SUB</b><br>
+	Voir <a href="#sub">SUB</a>.<br>
+	<b>END IF</b><br>
+	Voir <a href="#if">IF</a><br>
+	<b>END SELECT</b><br>
+	Voir <a href="#selectcase">SELECT CASE</a>.<br>
+	<a href="#indexBasic">index BASIC</a>
+	</li>
+	<li><a name="EXIT"></a><b>EXIT SUB</b><br> Voir <a href="#sub">SUB</a>.</li>
+	<li><a name="for"></a><b>FOR <i>var=expr</i> TO <i>expr</i> [STEP <i>expr</i>]</b><br>
+	  <i>block</i><br>
+	<b>NEXT <i>var</i></b><br>
+	Permet l'exécution d'un bloc d'instructions en boucle un nombre de fois déterminé par l'incrémentation d'une variable. Le programme sort de
+	la boucle lorsque la variable dépasse la valeur de la limite. l'incrément par défaut est <b>1</b>. Si <b>STEP</b> est présent l'incrément est
+	le résultat d'<i>expression</i> et peut-être un entier quelconque. La valeur de la variable de contrôle est vérifiée au début de la boucle
+	d'instructions. Si au départ elle dépasse la limite le bloc d'instruction n'est jamais exécuté.<br>
+	<pre><code>example:
+	FOR i=0 TO 10 STEP 2
+	  print i
+	next i
+	REM  affiche les nombres pairs de 0 à 10</code></pre>
+	<a href="#indexBasic">index BASIC</a>
+	</li>
+	<li><b><a name="function"></a>FUNC name(<i>arg_list</i>)</b><br>
+	[<b>LOCAL var_list</b>]<br>
+	<i>block</i><br>
+	<b>RETURN <i>expr</i></b><br>
+	<b>END FUNC</b><br>
+	Sert à définir une fonction.<br>
+	<ul>
+		<li><b>name</b> est le nom de la fonction qui sera utilisé pour son appel.</li>
+		<li><i>arg_list</i> Liste du nom des arguments de la fonctions. Les éléments sont séparé par la virgule <b>','</b></li>
+		<li><b>LOCAL var_list</b> Si la fonction utilise des variables locales la liste doit-être donnée au début.</li>
+		<li><i>block</i> bloc d'instructions exécuté par cette fonction.</li>
+		<li><b>RETURN <i>expr</i></b> Cette directive termine la fonction en retournant la valeur de l'expresssion qui suit. Cette 
+		directive peut apparaître plusieurs fois dans le bloc d'instruction dans une structure conditionnelle.
+		<pre><code>example:
+		REM cette fonction calcule  la factorielle d'un entier
+		REM méthode récursive
+		FUNC fact(n)
+		  if n&lt;1 then 1/0 end if ' nombre &lt; 1 génère une exception
+		  if n=1 then return 1 end if
+		  return n*fact(n-1)
+		END FUNC
+		
+		REM même fonction mais en utilisant une boucle FOR
+		FUNC fact(n)
+		LOCAL f,i
+		   f=1
+		   for i=2 to n 
+		     f=f*i
+		   next i
+		   return f
+		END FUNC
+		</code></pre>
+	</li>
+	</ul>
+	<a href="#indexBasic">index BASIC</a>
+	</li>
+	<li><a name="GETPIXEL"></a><b>GETPIXEL(x,y)</b><br>
+	Retourne la couleur du pixel à la position {x,y}.
+	<pre><code>example:
+	? GETPIXEL(10,20) ' affiche la couleur du pixel à la coordonnée {10,20]</code></pre>
+	<a href="#indexBasic">index BASIC</a>
+	</li>
+	<li><a name="if"></a><b>IF <i>log_expr</i> THEN</b><br>
+	<i>block</i><br>
+	<b>ELSE</b><br>
+	<i>block</i><br>
+	<b>END IF</b><br>
+	L'expression logique qui suit le <b>IF</b> est évaluée et si la valeur est vrai le bloc d'instruction qui
+	suit le <b>THEN</b> est exécuté. Dans le cas contraire c'est le bloc d'instruction qui suit le <b>ELSE</b>
+	qui est exécuté.
+	<pre><code>example:
+	IF btest(4,0) then
+	  ? "nombre impair"
+	ELSE
+	  ? "nombre pair"
+	END IF
+	REM va imprimé <i>nombre pair</i>
+	</code></pre>
+	<a href="#indexBasic">index BASIC</a>
+	</li>
+	<li><a name="INPUT"></a><b>INPUT [<i>chaîne</i>,] <i>var_list</i></b>
+	<ul>
+		<li><i>chaîne</i> est un message facultatif à imprimer à l'écran avant la saisie des données.</li>
+		<li><i>var_list</i> est la liste des variables auquelles les valeur saisies au clavier seront affectées.
+		La saisie se fait une variable à la fois dans leur ordre d'apparation dans la liste. Pour chaque variable
+		son nom est affichée à l'écran suivit d'un point d'interrogation.</li>
+	</ul>
+	<pre><code>example:
+	INPUT "Entrez votre prenom et votre age", nom$, age
+	'ceci apparaît à l'écran:
+	 Entrez votre prenom et votre age
+	 prenom? <i>Arthur</i>
+	 age? <i>40</i>
+	 
+	 &gt;? nom$, age
+	 Arthur 40
+	</code></pre>
+	<a href="#indexBasic">index BASIC</a>
+	</li>
+	<li><a name="JSTICK"></a><b>JSTICK()</b><br>
+	Lecture du joystick. Retourne zéro si aucun contact n'est fermé. Autrement retourne une valeur
+	qui correspond à la combinaison des constacts fermés. 
+	<table border="single">
+	<tr><th>contact</th><th>valeur</th></tr>
+	<tr><td>bouton</td><td>1</td></tr>
+	<tr><td>levier vers la droite</td><td>2</td></tr>
+	<tr><td>levier vers la gauche</td><td>4</td></tr>
+	<tr><td>levier vers le bas</td><td>8</td></tr>
+	<tr><td>levier vers le haut</td><td>16</td></tr>
+	</table>
+	Deux contacts peuvent-être fermés en même temps. Par exemple si le levier est poussé vers le haut et la droite la valeur
+	retourné est 18.
+	<pre><code>example:
+	select case jstick()
+	case 1
+	  bye
+	case 2
+	  ? "droite"
+	case 4
+	  ? "gauche"
+	case 8
+	  ? "bas"
+	case 16
+	  ? "haut"
+	case 18
+	  ? "haut et droite"
+	case else
+	  ? "etc"
+	end select  
+	</code></pre>
+	<a href="#indexBasic">index BASIC</a>
+	</li>
+	<li><a name="KEY"></a><b>KEY()</b><br>
+	Cette fonction retourne la touche tapée au clavier ou <b>0</b> si aucune touche n'est tapée.
+	<pre><code>example:
+	CASE SELECT key()
+	case \q 'quitte le programme
+	  bye
+	case \e ' efface l'écran
+	  cls
+	case \h ' salutation
+	  print "hello\n" ' \n à l'intérieur d'une chaîne pour imposer un retour à la ligne.
+	end SELECT
+	REM j'ai mélanger intentionnellement les mots réservés entre majuscules et minuscules
+	REM pour montrer que la casse n'a pas d'importance.
+	</code></pre>
+	<a href="#indexBasic">index BASIC</a>
+	</li>
+	<li><a name="LEN"></a><b>LEN(<i>var$</i>)</b><br>
+	<b>LEN ("chaîne")</b><br> 
+	Cette fonction retourne la longueur de la chaîne ASCII.
+	<pre><code>example:
+	&gt;nom$="Arthur Roy"
+	&gt;? len(nom$)
+	10
+	&gt;? len("hello world")
+	11
+	&gt;|</code></pre>
+	<a href="#indexBasic">index BASIC</a>
+	</li>
+    <li><a name="LET"></a><b>[LET] <i>var_name[#]</i>i>[(<i>epxr</i>)]=<i>expr</i></b><br>
+    <b>[LET] <i>var_name$</i>[(<i>expr</i>)]=<i>chaîne</i></b><br>
+    Assigne une valeur à une variable. Le mot réservé <b>LET</b> est entre crochets car il est optionnel.
+    <pre><code>example:
+    LET a=34*5
+    a=34*5  REM c'est la même chose
+    REM ça peut aussi être une variable tableau
+    DIM tab(4)
+    tab(1)=-1234  ' le premier élément du tableau vaut maintenenat <b>-1234</b>
+    </code></pre>
+	<a href="#indexBasic">index BASIC</a>
+    </li>
+    <li><a name="LINE"></a><b>LINE(x0,y0,x1,y1,color)</b><br>
+    Dessine une ligne à l'écran.
+    <ul>
+    <li><b>{x0,y0}</b> coordonnées première extrémité de la ligne.</li>
+    <li><b>{x1,y1}</b> coordonnées de l'autre extrémité de la ligne.</li>
+    <li><b>color</b> couleur (ton de gris) de la ligne.</li>
+    </ul>
+    <pre><code>example:
+    line(0,0,100,100,15)</code></pre>
+	<a href="#indexBasic">index BASIC</a>
+    </li>
+	<li><a name="LOCAL"></a><b>LOCAL <i>var_list</i></b><br>
+	Déclaration de la liste des variables utilisées dans une 
+	<a href="#function">fonction</a> ou une <a href="#sub">sous-routine.</a><br>
+	<a href="#indexBasic">index BASIC</a>
+	</li>
+	<li><a name="LOCATE"></a><b>LOCATE(ligne,colonne)</b><br>
+	Positionne le curseur texte à l'endroit désigné.
+	<ul>
+		<li><i>ligne</i> numéro de la ligne, {0-20}</li>
+		<li><i>colonne</i> numéro de la colonne, {0-39}</li>
+	</ul>
+	<pre><code>example:
+	LOCATE(10,0) ' le curseur texte est maintenant au début de la 11ième ligne.
+	</code></pre>
+	<a href="#indexBasic">index BASIC</a>
+	</li>
+	<li><a name="LOOP"></a><b>LOOP</b><br>
+	voir <a href="#do">DO</a><br>
+	<a href="#indexBasic">index BASIC</a>
+	</li>
+	<li><a name="MAX"></a><b>MAX(<i>expr1</i>,<i>expr2</i>)</b><br>
+	Cette fonction retourne le plus grand des 2 entiers.
+	<pre><code>example:
+	&gt;? max(56,30)
+	56
+	&gt;|</code></pre>
+	<a href="#indexBasic">index BASIC</a>
+	</li>
+	<li><a name="MDIV"></a><b>MDIV(<i>expr1</i>,<i>expr2</i>,<i>expr3</i>)</b><br>
+	Cette fonction retourne <i>expr1*expr2/expr3</i>. Le résultat de la 
+	multiplication est conservé sur 32 bits pour obtenir une valeur juste pour la division.
+	<pre><code>
+	&gt; ? 32540*8/33
+	-54 <i>'mauvaise réponse à cause du débordement de la multiplication.</i>	
+	&gt;? mdiv(3540,8,33)
+	7888 <i>'bonne réponse car le résultat de la multiplication est conservé sur 32 bits.</i>
+	&gt;REM multiplication d'un nombre par une approximation rationnelle de PI
+	&gt;? mdiv(5400,355,113)
+	16964 <i>'erreur &lt; 0,5 </i>
+	</code></pre>
+	<a href="#indexBasic">index BASIC</a>
+	</li>
+	<li><a name="MIN"></a><b>MIN(<i>expr1</i>,<i>expr2</i>)</b><br>
+	Cette fonction retourne le plus petit des 2 entiers.
+	<pre><code>example:
+	&gt;? min(34,-5)
+	-5
+	&gt;|</code></pre>
+	<a href="#indexBasic">index BASIC</a>
+	</li>
+	<li><a name="NEXT"></a><b>NEXT <i>var_name</i></b><br>
+	Voir <a href="#for">FOR</a><br>
+	<a href="#indexBasic">index BASIC</a>
+	</li>
+	<li><a name="NOISE"></a><b>NOISE(<i>expr</i>)</b><br>
+	Produit un bruit blanc pour une durée <i>expr</i> exprimée en millisecondes.
+	<pre><code>example:
+	&gt;noise(100) 'produit le bruit d'une chute d'eau durant 0,1 seconde.
+	</code></pre>
+	<a href="#indexBasic">index BASIC</a>
+	</li>
+	<li><a name="NOT"></a><b>NOT <i>log_expr</i></b><br>
+	Négation de la valeur d'une expression logique.
+	<pre><code>example:
+	if not 3&gt;4 then ? "3 n'est pas plus grand que 4" end if
+	3 n'est pas plus grand que 4
+	</code></pre>
+	<a href="#indexBasic">index BASIC</a>
+	</li>
+    <li><a name="OR"></a><b>OR</i></b><br>
+    Opérateur OU utilisé dans les expression logiques retourne vrai si l'une ou l'autre des 2 <i>cond</i> est vrai.
+    <pre><code>example:
+    while 1
+    if key() or jstick()=1 then bye end if
+    wend
+    REM sort de la boucle si une touche ou le bouton du joystik
+    REM est enfoncé.
+    </code></pre>
+	<a href="#indexBasic">index BASIC</a>
+    </li>
+    <li><a name="PAUSE"></a><b>PAUSE(<i>expr</i>)</b><br>
+    Suspend l'exécution du programme pour une durée en millisecondes égale à la valeur de <i>expr</i>.
+    <pre><code>example:
+    &gt;pause(1000)  REM l'invite de commande var réapparaître après 1 seconde.
+    </code></pre>
+	<a href="#indexBasic">index BASIC</a>
+    </li>
+    <li><a name="PRINT"></a><b>PRINT|? [<i>expr</i>|<i>chaîne</i>|<i>var</i>] [,<i>expr</i>|<i>chaîne</i>|<i>var</i>]+ [;]</b><br>
+    Imprime à l'écran la liste des expressions, chaîne ou variable. Un espace sépare chaque valeur. Si la commande est terminée
+    par une <b>';'</b> il n'y a pas de retour à la ligne.
+    <pre><code>example:
+    &gt;DIM a=34, msg$="hello world"
+    &gt;print a, msg$, "bonjour" 
+    34 hello world bonjour
+    
+    &gt;|
+    </code></pre>
+	<a href="#indexBasic">index BASIC</a>
+    </li>
+    <li><a name="PUTC"></a><b>PUTC expr</b><br>
+    Imprime un caractère à l'écran sans ajout d'espace ou de retour à la ligne. Si <i>expr</i> est évaluée en dehors
+    de l'intervalle {0-127} rien n'est imprimé. La majorité des codes entre 0 et 31 n'ont aucun effet. les codes reconnus sont les suivants:
+    <ul>
+		<li><b>7</b> alerte sonore</li>
+		<li><b>9</b> tabulation</li>
+		<li><b>10</b> retour à la ligne</li>
+		<li><b>12</b> efface écran</li>
+		<li><b>13</b> retour à la ligne</li>
+    </ul>
+    <pre><code>example:
+    &gt;putc \a : putc 98
+    ab
+    &gt;
+    </code></pre>
+	<a href="#indexBasic">index BASIC</a>
+    </li>
+    <li><a name="RANDOMIZE"></a><b>RANDOMIZE()</b><br>
+    Initialise le générateur de nombre pseudo aléatoire. L'initialisation est faîte par <b>seed=ticks()/3</b>. Il est bon
+    d'utiliser cette commande au début de chaque programme qui utilise <a href="#RND">RND()</a><br>
+    <pre><code>example:
+    'colore l'écran avec des pixels au hasard
+    dim x,y,c
+    RANDOMIZE()
+    while not key()
+		x=abs(rnd())%240
+		y=abs(rnd())%170
+		c=abs(rnd())%16
+		setpixel(x,y,c)
+    wend
+    </code></pre>
+	<a href="#indexBasic">index BASIC</a>
+    </li>
+    <li><a name="RECT"></a><b>RECT(x,y,width,height,color)</b><br>
+    Dessine un rectangle vide à l'écran.
+    <ul>
+    <li><b>{x,y}</b> coordonnée du coin supérieur gauche</li>
+    <li><b>width</b> largeur du  rectangle en pixels.</li>
+    <li><b>height</b> auteur du rectangle en pixels.</li>
+    <li><b>color</b> couleur (ton de gris) du périmèter du rectangle.</li>
+    </ul>
+    <pre><code>RECT(10,10,20,60,7) ' position {10,10}, largeur 20, hauteur 60,  couleur 7</code></pre>
+	<a href="#indexBasic">index BASIC</a>
+    </li>
+	<li><a name="REM"></a><b>REM|' <i>texte</i></b><br>
+	Indique un commentaire. Les commentaires se termine à la fin de la ligne.
+	<pre><code>example:
+	REM ce commentaire se termine a la fin de ligne.
+	' l'apostrophe peut remplacé le mot REM.</code></pre>
+	<a href="#indexBasic">index BASIC</a>
+	</li>
+	<li><a name="REMSPR"></a><b>REMSPR(</i>x,y,width,height,@rest#</i>)</b><br>
+	Restaure la partie de l'affichate préalablement recourverte par un sprite. 
+	<ul>
+		<li><b>x</b> Coordonnée x du coin supérieur gauche de région à restaurer.</li>
+		<li><b>y</b> Coordonnée y du coin supérieur gauche de la région à restaurer.</li>
+		<li><b>width</b> Largeur en pixels de la région à restaurer.</li>
+		<li><b>height</b> Hauteur en pixels de la région à restaurer.</li>
+		<li><b>@rest#</b> Pointeur vers le tableau d'octets qui contient l'information à restaurer. Cette information 
+		est habitullement obtenu par la commande <a href="#SPRITE">SPRITE</a>.</li>
+	</ul>
+	<pre><code>example:
+	'affiche un sprite
+	sprite(10,20,16,16,@spr#,@rest#) 'après cette commande rest# va contenir les bits écrans écrasés par le sprite.
+	'supprime le sprite de l'écran.
+	remspr(10,20,16,16,@rest#) ' après cet appel le sprite est disparu de l'écran.
+	</code></pre>	
+	<a href="#indexBasic">index BASIC</a>
+	</li>
+	<li><a name="RESTSCR"></a><b>RESTSCR(<i>adr</i>)</b><br>
+	Restaure le contenu de l'écran à partir de la SPI RAM. <i>adr</i> est l'adresse source du début des données dans la SPI RAM.
+	Le contenu complet de l'écran est restauré. Il peut s'agir d'un bitmap chargé à partir d'un fichier dont le contenu a été mis
+	en SPI RAM par la commande <a href="#SRLOAD">SRLOAD</a>. Autrement le contenu peut-avoir été mis en SPI RAM avec la commande
+	<a href="#SAVESCR">SAVESCR</a>.
+	<pre><code>example:
+	srload "moonscape.scr"
+	restscr(6) ' en supposant que les données écran débute à l'adresse 6 du fichier.
+	</code></pre>
+	<a href="#indexBasic">index BASIC</a>
+	</li>
+	<li><a name="RETURN"></a><b>RETURN</b><br>
+	Voir <a href="#function">FUNC</a><br>
+	<a href="#indexBasic">index BASIC</a>
+	</li>
+	<li><a name="RND"></a><b>RND()</b><br>
+	Cette fonction retourne un entier de 16 bits pseudo aléatoire.
+	<pre><code>example:
+	&gt;while not key() : ? rnd() : wend
+	REM imprime sans arrêt une série de nombre aléatoire.
+	REM il faut enfoncer une touche du clavier pour arrêter l'exécution.</code></pre>
+	<a href="#indexBasic">index BASIC</a>
+	</li>
+	<li><a name="SAVESCR"></a><b>SAVESCR(<i>adr</i>)</b><br>
+	Sauvegarde le contenu complet de l'écran dans la SPI RAM. <i>adr</i> est l'adresse de début de la sauvegarde
+	dans la SPI RAM. Cet écran pourra être rétabli avec la commande <a href="#RESTSCR">RESTSCR</a>.
+	<pre><code>example:
+	SAVESCR(0) 'sauvegarde le contenu de l'écran au début de la mémoire SPI RAM.
+	box(100,120,40,50,5) ' dessine un rectangle plein
+	RESTSCR(0) ' après la restauration le rectangle est disparu.
+	</code></pre>
+	<a href="#indexBasic">index BASIC</a>
+	</li>
+	<li><a name="SCRLUP"></a><b>SCRLUP(expr)</b><br>
+	Fait glisser l'affichage vers le haut d'un nombre de pixels correspondant à la valeur
+	de <i>expr</i>
+	<pre><code>example:
+	&gt; scrlup(8) ' défilement vers le haut de la hauteur d'un caractère.</code></pre>
+	<a href="#indexBasic">index BASIC</a>
+	</li>
+	<li><a name="SCRLDN"></a><b>SCRLDN(expr)</b><br>
+	Fait glisser l'affichage vers le bas d'un nombre de pixels correspondant à la valeur
+	de <i>expr</i>
+	<pre><code>example:
+	&gt; scrldn(8) ' défilement vers le bas de la hauteur d'un caractère.</code></pre>
+	<a href="#indexBasic">index BASIC</a>
+	</li>
+	<li><a name="SCRLRT"></a><b>SCRLRT(expr)</b><br>
+	Fait glisser l'affichage vers la droite d'un nombre de pixels correspondant à la valeur
+	de <i>expr</i>. Cette valeur doit-être un nombre pair, sinon le nombre pair inférieur est choisi.
+	<pre><code>example:
+	&gt; scrlrt(6) ' défilement vers la droite de la largeur d'un caractère.</code></pre>
+	<a href="#indexBasic">index BASIC</a>
+	</li>
+	<li><a name="SCRLLT"></a><b>SCRLLT(expr)</b><br>
+	Fait glisser l'affichage vers la gauche d'un nombre de pixels correspondant à la valeur
+	de <i>expr</i>. Cette valeur doit-être un nombre pair, sinon le nombre pair inférieur est choisi.
+	<pre><code>example:
+	&gt; scrllt(6) ' défilement vers la gauche de la largeur d'un caractère.</code></pre>
+	<a href="#indexBasic">index BASIC</a>
+	</li>
+	<li><a name="SELECT"></a><a name="selectcase"></a><b>SELECT CASE expr</b><br>
+	<b>CASE </b><i>expr_list</i><br>
+	<i>block</i><br>
+	[<B>case </B><i>expr_list</i><br>
+	<i>block</i>]+<br>
+	[<b>CASE ELSE</b><br>
+	<i>block</i>]<br>
+	<b>END SELECT</b><br> 
+	Cette structure de contrôle permet de sélectionnr un bloc d'instruction en fonction de la valeur d'une expression. Contrairement au
+	<i>switch</i> du langage 'C' l'exécution d'un bloc se termine au prochain <b>CASE</b> sans besoin de mettre un <i>break</i>.
+	<pre><code>example:
+	select case jstick()
+	case 1 ' bouton du joystick enfoncé
+	   bye
+	case 2 ' levier à droite
+	  move_right()
+	case 4 ' levier vers la gauche
+	  move_left()
+	case 8 ' levier vers le bas
+	  move_down()
+	case 16 ' levier vers le haut
+	  move_up()
+	end select
+	REM contrôle du mouvement d'un sprite à l'écran à l'aide du joystick     
+	  </code></pre>
+	<a href="#indexBasic">index BASIC</a>
+	</li>
+	<li><a name="SETPIXEL"></a><b>SETPIXEL(x,y,color)</b><br>
+	Colore le pixel à la coordonnée <i>{x,y}</i> avec la couleur <i>color</i>.
+	<pre><code>example:
+	setpixel(10,20,4) ' le pixel à la postion {10,20} prend la valeur 4
+	</code></pre>
+	<a href="#indexBasic">index BASIC</a>
+	</li>  
+	<li><a name="SETTMR"></a><b>SETTMR(<i>expr</i>)</b><br>
+	Initialise la minuterie de pause sans bloquer l'exécution. À utiliser avec la fonction
+	<a href="#timeout">TIMEOUT</a>
+	<pre><code>example:
+    DIM count
+    settmr(100) ' minuterie initialisée à 100 millisecondes.
+    while not timeout()
+      rem combien de WHILE par seconde?
+      count=count+1
+    wend
+    print "boucle WHILE par seconde: ",10*count
+	  </code></pre>
+	<a href="#indexBasic">index BASIC</a>
+	</li>
+	<li><a name="SHL"></a><b>SHL(<i>expr</i>)</b><br>
+	Décale vers la gauche <i>expr</i> de 1 bit (multiplication par 2).
+	<pre><code>example:
+	&gt;? shl(4)
+	8
+	&gt;|</code></pre>
+	<a href="#indexBasic">index BASIC</a>
+	</li>
+	<li><a name="SHR"></a><b>SHR(<i>expr</i>)</b><br>
+	Décale vers la droite <i>expr</i> de 1 bit (division par 2).
+	<pre><code>example:
+	&gt;? shr(-9)
+	-5 
+	&gt; REM pensiez-vous que ça donnait -4 ?
+	&gt;|</code></pre>
+	<a href="#indexBasic">index BASIC</a>
+	</li> 
+	<li><a name="SPRITE"></a><b>SPRITE(x,y,width,height,@var#,@rest#)</b><br>
+	Cette commande affiche un sprite à l'écran. Tout en conservant le contenu original du fond d'écran dans @rest#.
+	<ul>
+		<li><b>{x,y}</b> Coordonnées du coin supérieur gauche du sprite.</li>
+		<li><b>width</b> Largeur du sprite en pixels.</li>
+		<li><b>height</b> Hauteur du sprite en pixels.</li>
+		<li><b>var#</b> Nom de la variable tableau d'octets qui contient le sprite. Cette variable doit-être passée par 
+		référence comme indiqué par le caractère <b>'@'</b>.</li>
+		<li><b>@rest#</b> Nom de la variable tableau d'octets qui va contenir les pixels de fond d'écran écrasés par
+		l'affichage du sprite. Cette information est utilisée par la commande <a href="#REMSPR">REMSPR</a></li>
+	</ul>
+	<pre><code>example:
+	dim rest#(8),cross#(8)=($0f,$f0,$ff,$ff,$ff,$ff,$0f,$f0) 'petite croix de 4x4 pixels
+	' affiche le sprite
+	sprite(56,24,4,4,@cross#,@rest#)
+	' supprime le sprite
+	remspr(56,24,4,4,@rest#)
+	</code></pre>
+	La couleur noire (0) est une couleur transparente pour les sprites. C'est à dire que les pixels d'un sprite qui ont
+	cette couleur ne sont pas appliqués à l'affichage.
+	<pre><code>
+    dim rest#(32)
+	while 1
+	  sprite(x,y,8,8,@spr#,@rest#) ' affiche un sprite de 8x8 pixels
+	  pause(20) ' pause de 20 millisecondes, cette valeur n'est pas critique.
+	  remspr(x,y,8,8,@rest#) 'efface le sprite
+	  ' ici on peut mettre du code pour gérer les collisions
+	  '...
+	  select case jstick() 'lecture du joystick et déplacement dans la direction indiquée.
+	  case 1 ' bouton enfoncé
+	    cls
+	    bye
+	  case 16 'vers le haut
+	    if y&gt;0 then y=y-1 end if
+	  case 8 'vers le bas
+	    if y&lt;170-8 then y=y+1 end if
+	  case 2 'vers la droite
+	    if x&lt;240-8 then x=x+1 end if
+	  case 4 ' vers la gauche
+	    if x&gt;0 then x=x-1 end if
+	  ' on peut ajouter des CASE pour gérer les 4 directions diagonales.
+	  '...  
+	  end select  
+	wend   
+	</code></pre>
+	<a href="#indexBasic">index BASIC</a>
+	</li> 
+	<li><a name="SRCLEAR"></a><b>SRCLEAR(<i>expr</i>)</b><br>
+	Cette commande efface le contenu de la mémoire SPI RAM. <i>expr</i> est le nombre d'octets à effacer. L'effacement se fait 
+	toujours à partir de l'adresse 0.
+	<pre><code>example:
+	srclear(1000) ' efface les 1000 premiers octets de la mémoire SPI RAM.</code></pre>
+	<a href="#indexBasic">index BASIC</a>
+	</li>
+	<li><a name="SRLOAD"></a><b>SRLOAD <i>"file_name"</i></b><br>
+	<b>SRLOAD <i>var$</i></b><br>
+	Il s'agit d'une fonction qui charge en mémoire SPI RAM le contenu d'un fichier. Le chargement débute à l'adresse 0.
+	La taille maximale est de 65535 octets. La fonction retourne le nombre d'octets chargés.
+	<pre><code>example:
+	size=srload "test.spr" ' charge le fichier <i>test.spr</i> et retourne sa grandeur dans <i>size</i>.</code></pre>
+	<a href="#indexBasic">index BASIC</a>
+	</li>
+	<li><a name="SRREAD"></a><b>SRREAD(<i>adr</i>,@var,<i>size</i>)</b><br>
+	Lecture d'un bloc d'octets de la SPI RAM dans une variable.
+	<ul><li><b>adr</b> adresse SPI ou doit débuter la lecture.</li>
+	<li><b>var</b> nom de la variable dans laquelle les valeurs lues seront copiées. Cette variable doit-être passée par
+	référence comme l'indique le caractère <b>'@'</b>.
+	<li><b>size</b> nombre d'octets à lire.</li>
+	<pre><code>example:
+	DIM i, spr#(32)
+	srread(0,@i,2) ' lit un entier et le met dans la variable <i>i</i>.
+	srread(4,@spr#,32) ' lit un bloc de <i>32</i> octets à partir de l'adresse <i>4</i> dans le tableau <i>spr#</i>
+	</code></pre>
+	</ul>
+	<a href="#indexBasic">index BASIC</a>
+    </li>
+	<li><a name="SRSAVE"></a><b>SRSAVE <i>"file_name"</i>, <i>size</i></b><br>
+	<b>SRSAVE <i>var$</i>, <i>size</i></b><br>
+	Sauvegarde dans un fichier le contenu de la mémoire SPI RAM. La sauvegarde se fait à partir de l'adresse 0.<br>
+	<ul>
+	<li><b>file_name|var$</b> Nom du fichier de sauvegarde.</li>
+	<li><b>size</b> Nombre d'octets à sauvegarder.</li></ul>
+	<pre><code>example:
+	srsave "test.dat", 1024 ' sauvegarde <i>1024 octets</i> dans le fichier <i>test.dat</i></code></pre>
+	<a href="#indexBasic">index BASIC</a>
+	</li>
+	<li><a name="SRWRITE"></a><b>SRWRITE(<i>adr,@var,size</i>)</b><br>
+	Copie le contenu d'une variable dans la mémoire SPI RAM.<br>
+	<ul>
+	<li><b>adr</b> adresse destination dans la SPI RAM.</li>
+	<li><b>var</b> nom de la variable qui contient les données à transférer dans la SPI RAM. Cette variable est passée par référence
+	comme indiqué par le caractère <b>'@'</b>.</li>
+	<li><b>size</b> nombre d'octets à copier.</li>
+	</ul>
+	<pre><code>example:
+	DIM i, spr#(32)
+	srwrite(0,@i,2) ' écrit  l'entier <i>i</i> dans la SPI RAM à l'adresse 0.
+	srwrite(4,@spr#,32) ' écris un bloc de <i>32</i> octets à l'adresse <i>4</i> à partir du tableau <i>spr#</i>
+	</code></pre>
+	<a href="#indexBasic">index BASIC</a>
+	</li>
+	<li><a name="SUB"></a><a name="sub"></a><b>SUB name([<i>arg_list</i>])</b><br>
+	[<b>LOCAL</b> <i>var_list</i>]<br>
+	<i>block</i><br>
+	[if <i>log_expr<i> then </i></i><b>EXIT SUB</b> end if<br>
+	<i>block</i>]<br>
+	<b>END SUB</b><br>
+	Cette déclaration sert à définir une sous-routine. La liste des variables locales, s'il y en a, doit-être énumérée au début.
+	<b>EXIT SUB</b> peut-être utilisé pour sortir de la sous-routine si une certaine condition est remplie.
+	<pre><code>example:
+	sub box_madness() ' dessine des boites au hasard
+	  local x,y,w,h,c
+	  while not key() ' arrête lorsqu'une touche est enfoncée.
+	    x=abs(rnd())%240
+	    y=abs(rnd())%170
+	    w=abs(rnd())%240
+	    h=abs(rnd())%170
+	    c=abs(rnd())%16
+	    box(x,y,w,h,c)
+	  wend
+	end sub
+	</code></pre>
+	<a href="#indexBasic">index BASIC</a>
+	</li>
+	<li><a name="THEN"></a><b>THEN</b><br>
+	Voir <a href="#if">IF</a><br>
+	<a href="#indexBasic">index BASIC</a>
+	</li>
+	<li><a name="TICKS"></a><b>TICKS()</b><br>
+	 PV16SOG possède un compteur interne qui est incrémenté à chaque milliseconde. Cette fonction retourne la valeur de ce compteur.
+	 Ce compteur de 16 bits retourne à zéro à intervalle d'environ 65 secondes.
+	 <pre><code>example:
+	 REM utilisation du compteur interne pour mesurer un interval de temps.
+	 t0=ticks()
+	 for i=0 to 10000
+	 next i
+	 ? "temps écoulé pour 10000 itération FOR ", ticks()-t0
+	 </code></pre>
+	<a href="#indexBasic">index BASIC</a>
+	 </li>
+	 <li><a name="TIMEOUT"></a><b>TIMEOUT()</b><br>
+	 Cett fonction vérifie la valeur de la minuterie de pause et retourne vrai si elle est expirée.
+	 <pre><code>example:
+	 settmr(1000)
+	 while not timeout()
+	   ? "pas encore expiree"
+	 wend
+	 </code></pre>
+	<a href="#indexBasic">index BASIC</a>
+	 </li>
+	 <li><a name="TONE"></a><b>TONE(<i>note,msec,wait</i>)</b><br>
+	 Fait entendre une note de la gamme tempérée.
+	 <ul>
+		 <li><b>note</b> note de la gamme dans l'intervalle {0-47}. <b>0</b> correspond à DO2# et <b>47</b> à DO6. L'étendu est de 4 octaves. On peut
+		 utiliser un nombre négatif pour faire une pause.</li>
+		 <li><b>msec</b> durée de la note en millisecondes.</li>
+		 <li><b>wait</b> Si cette valeur vaut <b>0</b> l'exécution du programme se poursuit pendant l'exécution de cette note. Autrement le programme
+		 attend la fin de la note avant de poursuivre.</li>
+	 </ul>
+	 <pre><code>example:
+	 REM ce programme joue les 5 premières notes
+	 REM du thème musical du film rencontre du 3ième type.
+	 dim ce3k#(10)=(13,200,15,200,11,200,1,200,6,200)
+	 for i=1 to ubound(ce3k#) step 2
+	     tone(ce3k#(i)+12,3*ce3k#(i+1),1)
+	 next i
+	 </code></pre>
+	<a href="#indexBasic">index BASIC</a>
+	 </li>
+	 <li><a name="TRACE"></a><b>TRACE(0|1)</b><br>
+	 C'est un outil de débogage des programmes BASIC pour les utilisateurs avancés. 
+	 Pour l'utiliser il faut connaître le fonctionnement de la machine virtuelle et ses
+	 <a href="./stackvm.html#opcoddes">opcodes</a>.<br>
+	 la commande <b>trace(1)</b> active le mode trace et <b>trace(0)</b> le désactive. Le mode trace exécute le programme pas à pas et affiche
+	 après chaque instruction de la machine virtuelle le contenu de la pile des arguments ainsi que le nombre
+	 d'éléments sur la pile des retours. La touche <b>ESC</b> permet de quitter le mode trace, toute autre touche exécute le code machine
+	 suivant et revient à pause.  La mode peut-être activé/désactivé n'importe où dans le programme. L'état de l'écran est sauvegarder dans 
+	 la RAM SPI avant que les informations de traçage soit affichée et l'écran est restauré avant de continuer l'exécution. Pour plus 
+	 d'information consultez le document <a href="./stackvm.html">stackvm.html</a>
+	 <pre><code>example:
+	 REM activation conditionnelle de trace
+	 for i=1 to 100
+	   if (i=50) then trace(1) end if
+	   ? i
+	 next i
+	 
+	 
+	 REM information qui vont apparaître 
+	 REM à l'écran de traçage lors de l'activation
+     
+     28
+     R:2
+     1 : 31726	 
+     
+     ' 28 est le dernier opcode exécuté et correspond à l'intruction <b>LIT</b>
+     ' R:2 signifit qu'il y a 2 éléments sur la pile <b>rstack</b>
+     ' 1 : 31726  signifit qu'il y a 1 élément sur la pile des arguments
+     '           31726 est la valeur de cet argument. Il s'agit d'un pointeur
+     '           sur la variable <i>i</i> qui va être imprimé par l'instrution
+     '           suivante.
+	 </code></pre>
+	<a href="#indexBasic">index BASIC</a>
+	 </li>
+	 <li><a name="UBOUND"></a><b>UBOUND(<i>var</i>)</b><br>
+	 Cette fonction retourne la valeur du dernier indice d'une variable tableau.
+	 <pre><code>example:
+	 &gt;dim vector(100)
+	 &gt;? ubound(vector)
+	 100
+	 &gt;|
+	 </code>
+	 </pre>
+	<a href="#indexBasic">index BASIC</a>
+	 </li>
+	 <li><a name="UNTIL"></a><b>UNTIL</b><br>
+	 Voir <a href="#DO">DO</a><br>
+	<a href="#indexBasic">index BASIC</a>
+	 </li>
+	 <li><a name="USE"></a><b>USE "<i>file</i>"</b><br>
+	 Cette directive sert à compiler un fichier BASIC utilisé par le fichier principal. <i>file</i> est le nom du fichier à inclure. 
+	 Il doit s'agir d'un fichier existant sur la carte SD. Un fichier inclus peut aussi utiliser la directive <b>USE</b> 
+	 jusqu'à un niveau d'imbrication de 4. 4 étant le nombre maximal de fichiers pouvant-être ouvert simultanément.
+	 <pre><code>example:
+	 use "joystick.inc" ' fichier définissant des constantes pour le joystick
+	 use "lem.spr"      ' fichier définissant un sprite appellé LEM.
+	 ' code du programme principal
+	 .
+	 .
+	 .
+	 </code></pre>
+	<a href="#indexBasic">index BASIC</a>
+	 </li>
+	 <li><a name="VIDEO"></a><b>VIDEO(<i>expr</i>)</b><br>
+	 Si <i>expr</i> est évaluée à <b>0</b> la sortie vidéo est désactivée autre elle est activée.  La sortie vidéo accapare le plus grand
+	 nombre de cycles du CPU. La désactivation de la sortie vidéo permet d'accélérer une sous-routine.
+	 <pre><code>example:
+	 sub test(n)
+	 local t0
+	   cls
+	   if n then 'rapide
+	     t0=ticks()
+	     video(0)
+	     box(0,0,240,170,4)
+	     video(1)
+	     ? ticks()-t0, "msec"
+	   else 'lent
+	     t0=ticks()
+	     box(0,0,240,170,4)
+	     ? ticks()-t0, "msec"
+	   end if
+	 end sub
+	 
+	 &gt; test(0)
+	 55 msec
+	 &gt; test(1)
+	 32 msec
+	 </code></pre>
+	<a href="#indexBasic">index BASIC</a>
+	 </li>
+	 <li><a name="WAITKEY"></a><b>WAITKEY()</b><br>
+	 Cette fonction attend que l'utilisateur enfonce une touche au clavier et retourne la valeur de cette touche.
+	 <pre><code>example:
+	 &gt;putc waitkey()
+	 r
+	 &gt;|
+	 REM l'utilisateur a enfoncé la touche 'r'</code></pre>
+	<a href="#indexBasic">index BASIC</a>
+	 </li>
+	 <li><a name="WHILE"></a><b>WHILE <i>log_expr</i></b><br>
+	 [<i>block</i>]<br>
+	 <b>WEND</b><br>
+	 La structure de contrôle <b>WHILE</b> exécute le bloc d'instructions <i>block</i> terminé par le <b>WEND</b> tant que <i>log_expr</i>
+	 retourne vrai.<br>
+	 <pre><code>example:
+	 dim i=0
+	 while i<100
+	   ? i
+	   i=i+1
+	 wend
+	 0
+	 1
+	 2
+	 ...
+	 99
+	 </code></pre>
+ 	 <a href="#indexBasic">index BASIC</a>
+	 </li>
+	<li><a name="XORPIXEL"></a><b>XORPIXEL(<i>x</i>,<i>y</i>,<i>n</i>)</b><br>
+	Applique la fonction bit à bit XOR entre la valeur du pixel aux coordonnées {x,y} et la valeur n.<br>
+	<ul>
+	<li><b>x</b> coordonnée x du pixel.</li>
+	<li><b>y</b> coordonnée y du pixel.</li>
+	<li><b>n</b> valeur utilisée pour l'application de la foncton xor.</li>
+	</ul>
+	<pre><code>example:
+	xorpixel(10,20,4) ' si la valeur de ce pixel était 6 après cette opération elle sera 2.
+	</code></pre>
+	<a href="#indexBasic">index BASIC</a>
+	</li>
+	</ul>
+</p>
+<hr class="l1">
+<h3><a name="examples">Examples de programmes</a></h3>
+<h4><a name="conway"></a>Le jeux de la vie</h4>
+<p>
+	Ce premier example est une implémentation du <a href="https://fr.wikipedia.org/wiki/Jeu_de_la_vie">jeux de la vie</a> 
+	du mathématicien <a href="https://fr.wikipedia.org/wiki/John_Horton_Conway">John H. Conway</a>. En dépit de son nom 
+	il ne s'agit pas d'un jeux mais d'une simulation d'automate cellulaire 	à 2 dimensions. 
+	Au démarrage un curseur	en forme de croix apparaît au centre de l'écran. Il s'agit de créer une configuraton de départ.
+	On déplace le curseur à l'aide des flèches du clavier. La touche <b>C</b>
+	ajoute une cellule à la position du curseur et la touche <b>ESPACE</b> supprime une cellule existante. Pour démarrer 
+	la simulation on utilise la touche <b>ENTER</b>. On regarde évoluer
+	cet univers d'automates cellulaires d'une génération à l'autre. Le nombre de générations est affiché dans le coin inférieur gauche.
+	Même si ce BASIC ne permet que la définition de tableaux à 1 seule dimension ce programme simule un tableau d'octets à 3 dimensions 
+	<b>g#(1368)</b> qui est la grille univers dans lequel évoluent les automates cellulaires.
+</p><p>
+	Vous pouvez vous représenter
+	cette grille comme une feuille de papier quadrillé dont certains carrés seraient noircis. Ces carrés noircis représenteraient
+	les cellules vivantes. Pour chaque carré de la feuille on compte le nombre de cellules vivantes qui l'entoure et on applique 
+	les règles suivantes:
+	<ol>
+	<li>S'il y a moins de 2 cellules vivantes dans le voisinage ce carré sera vide à la prochaine génération. Si le carré est vivant il meurt.</li>
+	<li>S'il y a 2 cellules vivantes dans le voisinage ce carré demeurera dans le même état à la prochaine génération. C'est à dire
+	vide s'il est vide ou plein s'il est plein.</li>
+	<li>S'il y a 3 cellules vivantes dans le voisinage et que le carré est vide il sera plein à la prochaine génération. C'est une naissance.</li>
+	<li>S'il y a plus 3 cellules vivantes dans le voisinage et que le carré est plein il sera vide à la prochaine génération. Mort par surpopulation.</li>
+	</ol>
+</p><p>	
+	Ces règles sont très simples et pourtant elles donnent lieu à une évolution qui peut-être très complexe dépendant de la configuration de départ.	
+</p>	
+	<div>
+	<pre><code>
+	rem John H. Conway's game of life
+	rem simulation automate cellulaire 2D
+	dim rest#(24) ' pour restaurer le fond d'ecran
+	dim <a name="cursor"></a>cursor#(24)=(
+		$00,$70,$00,
+		$00,$70,$00,
+		$00,$70,$00,
+		$77,$77,$70,
+		$00,$70,$00,
+		$00,$70,$00,
+		$00,$70,$00,
+		$00,$00,$00)
+
+	const width=38 ' dimension horizontale de grille
+	const height=18 ' dimension verticale de la grille
+	const cell=127  ' caractère utilisé pour représenter les cellules
+	const empty=32  ' caractère position grille vide
+	const k_up=141    ' valeur touche flèche vers le haut
+	const k_down=142  ' valeur touche flèche vers le bas
+	const k_left=143  ' valeur touche flèche vers la gauche
+	const k_right=144 ' valeur touche flèche vers la droite
+	const odd=684     ' déplacement grille génération impaire
+	dim g#(1368)  'grille univers
+	gen=0  'compteur de génération
+	src=0  ' déplacement grille source
+	des=odd 'déplacement grille destination
+
+    ' sous-routine d'effacement de la grille
+	sub clear_grid()
+	local i
+	  for i=1 to ubound(g#)
+		g#(i)=empty
+	  next i
+	end sub
+
+    ' sous-routine d'affichage de la grille
+	sub display_grid()
+	local x,y
+	 for x=1 to 38
+	  for y=1 to 18
+	   locate(y,x)
+	   putc g#((y-1)*width+x+src)
+	  next y
+	 next x
+	 locate(20,0)
+	 print gen ;
+	end sub 
+
+    ' initialisation de la grille
+    ' avec le modèle de départ.
+	sub set_grid()
+	local k,x,y
+	 x=width/2+1
+	 y=height/2+1
+	 cls
+	 locate(21,0)
+	 ? "&lt;SPACE&gt;,&lt;C&gt;,&lt;ENTER&gt;";
+	 gen=0
+	 src=0
+	 des=odd
+	 k=0 
+	 clear_grid()
+	 while k&lt;&gt;13
+	  locate(0,0)
+	  ? "x:",x," y:",y,"    ";
+	  locate(y,x)
+	  putc g#((y-1)*width+x)
+	  sprite(x*6,y*8,6,8,@cursor#,@rest#)
+	  while not k : k= key() : wend
+	  remspr(x*6,y*8,6,8,@rest#)
+	  select case k
+	  case k_up
+		if y&gt;1 then y=y-1 end if
+	  case k_down
+		if y&lt;height then y=y+1 end if
+	  case k_left
+		if x&gt;1 then x=x-1 end if
+	  case k_right
+		if x&lt;38 then x=x+1 end if
+	  case 32
+		g#(width*(y-1)+x)=empty
+	  case 67,99
+		g#((y-1)*width+x)=cell
+	  end select
+	  if k&lt;&gt;13 then k=0 end if
+	 wend
+	 cls
+	 ? "&lt;ESC&gt; quit, 'r' new grid";
+	end sub
+
+    ' compte le voisinage d'une cellule
+	func countn(x,y)
+	local n,x0,y0,ofs
+	 n=0
+	 for x0=max(x-1,1) to min(38,x+1)
+	  for y0=max(y-1,1) to min(18,y+1)
+	  if x0&lt;&gt;x or y0&lt;&gt;y then
+	   ofs=(y0-1)*width+x0+src
+	   if g#(ofs)=cell then
+		n=n+1
+	   end if
+	  end if
+	  next y0
+	 next x0
+	 return n 
+	end func
+
+    ' calcule les valeurs de la prochaine
+    ' génération.
+	sub next_gen()
+	local n,x,y,ofs
+	  for x=1 to 38
+	   for y=1 to 18
+		n=countn(x,y)
+		ofs=(y-1)*width+x
+		select case n
+		case 2
+		 g#(ofs+des)=g#(ofs+src)
+		case 3
+		 g#(ofs+des)=cell
+		case else ' 0,1,4,5,6,7,8
+		 g#(ofs+des)=empty
+		end select
+	   next y
+	  next x
+	  gen=gen+1
+	  src=odd-src
+	  des=odd-des
+	end sub
+
+    ' boucle principal
+    ' du programme
+	set_grid()
+	r=1
+	while r
+	  display_grid()
+	  next_gen()        
+	  select case key()
+	  case 27
+	   r=0
+	  case \r,\R
+	   set_grid()
+	  end select
+	wend
+	cls
+</code></pre>
+<a href="#top">début</a>
+</div>
+<hr class="l2">
+<h4><a name="spred"></a>spred.bas</h4>
+<p>
+  <b>spred.bas</b>, <i>(sprite editor)</i> est un éditeur de figurine pour les jeux vidéo. On peut définir des sprites directement
+  en BASIC comme montré dans l'example précédent avec le <a href="#cursor">cursor</a> mais ce n'est pas très commode. Cet éditeur
+  simple permet de les créer et de les sauvegarder sous forme de fichier binaire.
+</p>
+<p>
+ Au démarrage le programme demande le nom du fichier sous lequel le sprite doit-être sauvegarder ou le nom d'un fichier existant
+ qui peut-être chargé pour modification. Ensuite les dimensions du sprite sont demandées. <b>width</b> est la largeur en pixels et
+ <b>height</b> la hauteur. La grandeur maximale est de <b>32x32 pixels</b>. Une fois ces informations saisies un rectangle apparaît au centre de l'écran avec un <b>x</b> qui représente
+ le curseur. Ce rectangle est la zone d'édition zoommée 4X. En haut à gauche apparait les coordonnées du curseur et sous les coordonnées apparaît
+ la représentation taille réelle du sprite.<br>
+  Les commandes sont entièrement au clavier.
+</p>
+ <ul>
+ <li><b>&lt;L&gt;</b>oad est utilisé pour charger un sprite existant pour modification. Après le chargement un message
+ apparaît en bas à gauche de l'écran indiquant que le sprite a été chargé ainsi que ses dimensions. Le sprite est affiché dans
+ la grille d'édition. Si le fichier est vide ou n'existe pas le message affiché est <b>Nothing loaded</b>.</li>
+ <li><b>&lt;S&gt;</b>ave sauvegarde le sprite dans le fichier nommé en entrée de programme.</li>
+ <li><b>Les flèches de direction</b> servent à déplacer le curseur à l'intérieur de la zone d'édition.</li>
+ <li><b>&lt;0&gt;-&lt;F&gt;</b> détermine la couleur du pixel. Cette couleur sera utlisée lors de l'enfoncement de la touche <b>ESPACE</b>.
+ Ces touches correspondent aux valeurs hexadécimales de 0 à 15 soit les 16 tons de gris.</li>
+ <li><b>&lt;ESPACE&gt;</b> applique la couleur sélectionnée à la position courante du curseur.</li>
+ <li><b>&lt;ESC&gt;</b> Sortie du programme.</li>
+ </ul>
+ <p>
+ Il s'agit donc d'un programme très simple. On ne peut éditer qu'un seul sprite par session. Cette limitation est du au fait 
+ que ce BASIC considère les chaînes de caractères comme des constantes donc la valeur de <i>name$</i> ne peut-être modifiée
+ une fois initialisée par la commande <b>INPUT</b> en début de programme. Pour éditer un autre sprite il faut sortir du programme
+ et le relancer avec la commande <b>run spred.bas</b>.  Cette limitation peut-être contournée, je vous laisse ce problème à titre
+ d'exercice pratique.
+</p>
+<div>
+<pre><code>
+	REM editeur de sprite
+
+	' nom, largeur, hauteur, couleur pixel
+	dim name$, w, h, c=0
+	' tableau contenant le sprite
+	dim spr#(512) ' contient le sprite à dessiner
+	dim rest#(8) ' données de restauration fond ecran pour curseur
+	' sprite curseur
+	dim c#(8)=($f0,$0f,   
+		$0f,$f0,
+		$0f,$f0,
+		$f0,$0f)
+	' x offset, y offset, x, y
+	dim xo,yo,x,y
+	const psize=4  'dimension pixel zoomé
+	const xres=240  'résolution écran horizontale
+	const yres=170  ' résolution écran verticale
+	cls
+	' saisie des paramètres
+	input "sprite name", name$
+	input "sprite width", w
+	input "sprite height", h
+
+    'dessine le rectangle d'édition
+	sub draw_bounds()
+	 cls
+	 xo=(xres-psize*w)/2
+	 yo=(yres-psize*h)/2
+	 rect(xo-1,yo-1,psize*w+2,psize*h+2,7)
+	 x=w/2
+	 y=h/2
+	end sub
+
+    'affiche les coordonnées {x,y} du curseur
+	sub prtxy()
+	  locate(0,0)
+	  print "x:",x," y:",y ;
+	end sub
+
+    'sauvegarde du sprite 
+    'dans un fichier binaire
+	sub save_sprite()
+	  srwrite(0,@w,2)
+	  srwrite(2,@h,2)
+	  srwrite(4,@spr#,w*h/2)
+	  srsave name$,w*h/2+4
+	  locate(19,0)
+	  ? name$ ,"saved"
+	  ? w,"x",h,"pixels";
+	end sub
+
+    'dessine le sprite
+    'dans le rectangle d'édition
+	sub fill_canevas()
+	local i,x,y,c
+	  for x=0 to w-1
+	   for y=0 to h-1
+		i=(y*w+x)/2+1
+		if btest(x,0) then
+		  c=spr#(i)%16
+		else
+		  c=spr#(i)/16
+		end if
+		box(xo+x*psize,yo+y*psize,psize,
+		psize,c)
+		setpixel(10+x,10+y,c)
+	   next y
+	  next x
+	end sub
+
+    'charge un fichier binaire
+    'sprite
+	sub load_sprite()
+	local size
+	 size=srload name$
+	 if size then
+	   srread(0,@w,2)
+	   srread(2,@h,2)
+	   srread(4,@spr#,size-4)
+	   draw_bounds()
+	   fill_canevas()
+	   locate(19,0)
+	   ? name$, "loaded"
+	   ? "width",w,"height",h ;
+	 else
+	   locate(19,0)
+	   ? "load failed";
+	 end if
+	end sub
+
+    'assigne la couleur du pixel
+    '{x,y} dans le tableau
+	sub let_pixel(x,y,c)
+	local idx
+	  idx=(y*w+x)/2+1
+	  if btest(x,0) then 'impair
+	   spr#(idx)=spr#(idx)/16*16+c
+	  else ' pair
+	   spr#(idx)=spr#(idx)%16+c*16
+	  end if
+	end sub
+
+
+	draw_bounds()
+
+    ' boucle principale du programme
+	while 1
+	 prtxy()
+	 sprite(xo+x*psize,yo+y*psize,psize,
+	 psize,@c#,@rest#)
+	 pause(20)
+	 remspr(xo+x*psize,yo+y*psize,psize,
+	 psize,@rest#)
+	 k=key()
+	 if k&gt;=\a then k=k-32 end if
+	 select case k
+	 ' sélection couleur 0-9
+	 case \0,\1,\2,\3,\4,\5,\6,\7,\8,\9
+	  c=k-\0
+	  ' sélection couleur A-F
+	 case \A,\B,\C,\D,\E,\F
+	  c=k-\A+10
+	 case 32 ' ESPACE  = colore le pixel
+	  box(xo+x*psize,yo+y*psize,psize,
+	  psize,c)
+	  setpixel(10+x,10+y,c)
+	  let_pixel(x,y,c)
+	 case 141 ' déplacement vers le haut
+	  if y>0 then y=y-1 end if
+	 case 142 ' déplacement vers le bas
+	  if y&lt;h-1 then y=y+1 end if
+	 case 143 ' déplacement vers la gauche
+	  if x&gt;0 then x=x-1 end if
+	 case 144 ' déplacement vers la droite
+	  if x&lt;h-1 then x=x+1 end if
+	 case 27 ' ESC = quit
+	  cls
+	  bye
+	 case \S  ' sauvegarde sprite
+	  save_sprite()
+	 case \L  ' charge sprite
+	  load_sprite()
+	 end select
+	wend
+
+</code></pre>
+<a href="#top">début</a>
+</div>
+<hr class="l2">
+<h4><a name="jstick"></a>jstick.bas</h4>
+<p>
+ Ce démo montre comment utiliser le joystick pour déplacer un <i>sprite</i> à l'écran. Il utilise la directive <b>USE</b> pour
+ inclure 2 fichiers. <b>joystick.inc</b>  contient la définitions des constantes pour faciliter l'utilisation du joystick.
+ <b>lem.spr</b> contient le code basic pour un <i>sprite</i> appelé LEM (<b>L</b>unar <b>E</b>xpedition <b>M</b>odule).
+</p>
+<div>
+<pre><code>
+rem fichier: joystick.inc
+rem constantes pour le joystick
+const button=1
+const up=16
+const down=8
+const right=2
+const left=4
+const upleft=20
+const upright=18
+const downleft=12
+const downright=10
+</code></pre></div>
+<hr class="l3">
+<div><pre><code>
+rem fichier: lem.spr
+rem définition d'un sprite appellé LEM
+rem Lunar Expedition Module
+' sprite LEM
+dim lem#(128)=(
+$00,$00,$00,$ff,$ff,$00,$00,$00,
+$00,$00,$0f,$f0,$0f,$f0,$00,$00,
+$00,$0f,$ff,$ff,$ff,$ff,$f0,$00,
+$00,$ff,$ff,$ff,$ff,$ff,$ff,$00,
+$00,$f0,$00,$00,$00,$00,$0f,$00,
+$f0,$f0,$ff,$ff,$ff,$ff,$0f,$0f,
+$0f,$f0,$ff,$00,$00,$ff,$0f,$f0,
+$00,$f0,$ff,$00,$00,$ff,$0f,$00,
+$0f,$f0,$ff,$ff,$ff,$ff,$0f,$f0,
+$f0,$f0,$00,$00,$00,$00,$0f,$0f,
+$00,$ff,$ff,$ff,$ff,$ff,$ff,$00,
+$00,$ff,$ff,$ff,$ff,$ff,$ff,$00,
+$00,$0f,$00,$f0,$f0,$00,$f0,$00,
+$00,$f0,$0f,$00,$0f,$00,$0f,$00,
+$0f,$f0,$00,$00,$00,$00,$0f,$f0,
+$ff,$00,$00,$00,$00,$00,$00,$ff
+)
+</code></pre></div>
+<hr class="l3">
+<div>
+<pre><code>
+REM fichier: jstick.bas
+REM ce démo montre comment
+REM utiliser le joystick pour 
+rem déplacer un sprite à l'écran
+use "lem.spr"
+use "joystick.inc"
+
+cls
+dim rest#(128) ' pour restauration fond écran.
+dim x=112,y=77 'position du sprite
+
+'déplacement vers la gauche
+sub move_left()
+ if x&gt;0 then x=x-1 end if
+end sub
+
+'déplacement vers la droite
+sub move_right()
+ if x&lt;224 then x=x+1 end if
+end sub
+
+'déplacement vers le haut
+sub move_up()
+  if y&gt;0 then y=y-1 end if
+end sub
+
+'déplacement vers le bas
+sub move_down()
+  if y&tl;154 then y=y+1 end if
+end sub
+
+'boucle principale du programme
+while 1
+ sprite(x,y,16,16,@lem#,@rest#)
+ pause(20)
+ remspr(x,y,16,16,@rest#)
+ select case jstick()
+ case UP
+  move_up()
+ case DOWN
+  move_down()
+ case RIGHT
+  move_right()
+ case LEFT
+  move_left()
+ case UPRIGHT
+  move_up()
+  move_right()
+ case UPLEFT
+  move_up()
+  move_left()
+ case DOWNRIGHT
+  move_down()
+  move_right()
+ case DOWNLEFT
+  move_down()
+  move_left()
+ case BUTTON  'termine démo
+  cls
+  bye
+ end select
+wend
+</code></pre>
+
+</div>
+<div>
+<a href="#top" >début</a>
+</div>
+<hr class="l1">
+<p>
+	<ul>
+		<li><a href="#top">début</a></li>
+		<li><a href="./pv16sog.html">ordinateur PV16SOG</a></li>
+		<li><a href="./shell.html">shell du PV16SOG</a></li>
+		<li><a href="./editor.html">Éditeur du PV16SOG</a></li>
+        <li><a href="./BASIC.html">BASIC du PV16SOG</a></li>
+        <li><a href="./stackvm.html">machine virtuelle du PV16SOG</a></li>
+	</ul>
+</p>
+</body>
+</html>

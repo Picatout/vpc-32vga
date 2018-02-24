@@ -39,7 +39,7 @@
 #include "console.h"
 #include "hardware/Pinguino/ff.h"
 #include "vpcBASIC/vm.h"
-#include "vpcBASIC/vpcBASIC.h"
+//#include "vpcBASIC/vpcBASIC.h"
 #include "hardware/sound/sound.h"
 #include "hardware/syscall.h"
 #include "hardware/rtcc/rtcc.h"

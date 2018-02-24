@@ -26,14 +26,13 @@ vt100.h  \
  ascii.h  \
 hardware/Pinguino/ff.h  \
 vpcBASIC/vm.h  \
-vpcBASIC/vpcBASIC.h  \
- hardware/sound/sound.h  \
-hardware/syscall.h  \
- hardware/serial_comm/serial_comm.h  \
 hardware/sound/sound.h  \
- hardware/spiram/spiram.h  \
-hardware/spiram/../store/store_spi.h  \
- hardware/store/store_spi.h  \
-hardware/tvout/vga.h  \
+ hardware/syscall.h  \
+hardware/serial_comm/serial_comm.h  \
+ hardware/sound/sound.h  \
+hardware/spiram/spiram.h  \
+ hardware/spiram/../store/store_spi.h  \
+hardware/store/store_spi.h  \
+ hardware/tvout/vga.h  \
 hardware/rtcc/rtcc.h  \
  hardware/rtcc/../HardwareProfile.h 

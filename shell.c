@@ -49,7 +49,7 @@
 #include "hardware/Pinguino/ff.h"
 #include "hardware/Pinguino/fileio.h"
 #include "shell.h"
-#include "vpcBASIC/vpcBASIC.h"
+//#include "vpcBASIC/vpcBASIC.h"
 #include "hardware/rtcc/rtcc.h"
 //#include "hardware/serial_comm/serial_comm.h"
 #include "console.h"
@@ -72,6 +72,7 @@ void erase_var(env_var_t *var);
 
 const char *ERR_MSG[]={
     "no error\r",
+    "unknown command.\r",
     "not implemented yet.\r",
     "Memory allocation error.\r",
     "Bad usage.\r",
@@ -118,7 +119,7 @@ extern int nbr_cmd;
 
 typedef struct shell_cmd{
     char *name;
-    void (*fn)(int);
+    char* (*fn)(int, char**);
 }shell_cmd_t;
 
 extern const shell_cmd_t commands[];
@@ -205,65 +206,6 @@ void cmd_format(int i){
 void cmd_forth(int i){
 //    test_vm();
 }
-
-static int next_token(void){
-    unsigned char loop,quote,escape;
-    cmd_line.first=cmd_line.next;
-    while (cmd_line.first<cmd_line.len && (cmd_line.buff[cmd_line.first]==' ' ||
-            cmd_line.buff[cmd_line.first]==9)){
-        cmd_line.first++;
-    }
-    cmd_line.next=cmd_line.first;
-    loop=TRUE;
-    quote=FALSE;
-    escape=FALSE;
-    while (loop && (cmd_line.next<cmd_line.len)){
-        switch (cmd_line.buff[cmd_line.next]){
-            case ' ':
-            case 9: // TAB
-                if (!quote){
-                    cmd_line.next--;
-                    loop=FALSE;
-                }
-                break;
-            case '#':
-                if (!quote){
-                    loop=FALSE;
-                    cmd_line.next--;
-                }
-                break;
-            case '\\':
-                if (quote){
-                    if (!escape){
-                       escape=TRUE;
-                    }
-                    else{
-                        escape=FALSE;
-                    }
-                }
-                break;
-            case '"':
-                if (!quote){
-                    quote=1;
-                }
-                else if (!escape){
-                    loop=FALSE;
-                }else{
-                    escape=FALSE;
-                }
-                break;
-            default:
-                if (quote && escape){
-                    escape=FALSE;
-                }
-        }//switch
-        cmd_line.next++;
-    } // while
-    if (cmd_line.next>cmd_line.first)
-        return 1;
-    else
-        return 0;
-}//next_token()
 
 void cmd_cd(int i){ // change le répertoire courant.
     char *path;
@@ -886,13 +828,13 @@ const shell_cmd_t commands[]={
 int nbr_cmd=sizeof(commands)/sizeof(shell_cmd_t);
 
 
-void execute_cmd(int i){
+void execute_cmd(int tok_count, const char  **tok_list){
     int cmd;
         cmd=cmd_search(cmd_tokens[0]);
         if (cmd>=0){
-            commands[cmd].fn(i);
+            commands[cmd].fn(i,tok_list);
         }else{
-            print(con,"unknown command!\r");
+            print_error_msg(ERR_NOT_CMD,cmd_tokens[0],0);
         }
 }// execute_cmd()
 
@@ -945,17 +887,89 @@ char *var_substitution(char *token){
     }
 }
 
+static char *next_token(void){
+    unsigned char loop,quote,escape;
+    char *token;
+    int slen;
+    
+    cmd_line.first=cmd_line.next;
+    while (cmd_line.first<cmd_line.len && (cmd_line.buff[cmd_line.first]==' ' ||
+            cmd_line.buff[cmd_line.first]==9)){
+        cmd_line.first++;
+    }
+    cmd_line.next=cmd_line.first;
+    loop=TRUE;
+    quote=FALSE;
+    escape=FALSE;
+    while (loop && (cmd_line.next<cmd_line.len)){
+        switch (cmd_line.buff[cmd_line.next]){
+            case ' ':
+            case 9: // TAB
+                if (!quote){
+                    cmd_line.next--;
+                    loop=FALSE;
+                }
+                break;
+            case '#':
+                if (!quote){
+                    loop=FALSE;
+                    cmd_line.next--;
+                }
+                break;
+            case '\\':
+                if (quote){
+                    if (!escape){
+                       escape=TRUE;
+                    }
+                    else{
+                        escape=FALSE;
+                    }
+                }
+                break;
+            case '"':
+                if (!quote){
+                    quote=1;
+                }
+                else if (!escape){
+                    //cmd_line.first++;
+                    loop=FALSE;
+                }else{
+                    escape=FALSE;
+                }
+                break;
+            default:
+                if (quote && escape){
+                    escape=FALSE;
+                }
+        }//switch
+        cmd_line.next++;
+    } // while
+    if (cmd_line.next>cmd_line.first){
+        if (cmd_line.buff[cmd_line.first]=='"'){
+            cmd_line.first++;
+            slen=cmd_line.next-cmd_line.first;
+        }else{
+            slen=cmd_line.next-cmd_line.first+1;
+        }
+        token=malloc(sizeof(char)*(slen));
+        memcpy(token,&cmd_line.buff[cmd_line.first],slen-1);
+        token[slen]=(char)0;
+        token=var_substitution(token);
+        
+    }
+    else{
+        return NULL;
+    }
+}//next_token()
+
+
 int tokenize(){ // découpe la ligne d'entrée en mots
-    int i;
+    int i,slen;
     char *token;
     i=0;
     cmd_line.first=0;
     cmd_line.next=0;
     while ((i<MAX_TOKEN) && next_token()){
-        token=malloc(sizeof(char)*(cmd_line.next-cmd_line.first+1));
-        memcpy(token,&cmd_line.buff[cmd_line.first],cmd_line.next-cmd_line.first);
-        *(token+cmd_line.next-cmd_line.first)=(char)0;
-        token=var_substitution(token);
         cmd_tokens[i]=token;
         i++;
     }//while
