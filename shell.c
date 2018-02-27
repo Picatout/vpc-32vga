@@ -39,8 +39,10 @@
  */
 
 #include <stdio.h>
+#include <ctype.h>
 #include <stdlib.h>
 #include <string.h>
+#include <setjmp.h>
 #include <plib.h>
 
 #include "hardware/HardwareProfile.h"
@@ -60,6 +62,9 @@ const char version[]="1.0";
 const char local_console[]="VGA";
 const char remote_console[]="SERIAL";
 
+
+jmp_buf back_to_cmd_line;
+
 //dev_t con=SERIAL_CONSOLE;
 dev_t con=VGA_CONSOLE;
 
@@ -67,12 +72,15 @@ const env_var_t shell_version={NULL,"SHELL_VERSION",(char*)version};
 env_var_t console={(env_var_t*)&shell_version,"CONSOLE",(char*)local_console};
 env_var_t *shell_vars=&console;
 
-env_var_t *search_var(char *name);
+env_var_t *search_var(const char *name);
 void erase_var(env_var_t *var);
+char* exec_script(const char *script);
+
 
 const char *ERR_MSG[]={
     "no error\r",
     "unknown command.\r",
+    "syntax error.\r",
     "not implemented yet.\r",
     "Memory allocation error.\r",
     "Bad usage.\r",
@@ -84,6 +92,7 @@ const char *ERR_MSG[]={
     "disk operation error, code is %d \r",
     "no SD card detected.\r"
 };
+
 
 void print_error_msg(SH_ERROR err_code,const char *detail,FRESULT io_code){
     char *fmt;
@@ -103,28 +112,37 @@ void print_error_msg(SH_ERROR err_code,const char *detail,FRESULT io_code){
 }//print_error_msg()
 
 typedef struct{
-    char buff[MAX_LINE_LEN]; // chaîne saisie par l'utilisateur.
-    unsigned char len;  // longueur de la chaîne.
-    unsigned char first; // position du premier caractère du mot
-    unsigned char next; // position du curseur de l'analyseur.
-} input_buff_t;
+    const char *script; // chaîne à analyser
+    unsigned  len;  // longueur de la chaîne.
+    unsigned  next; // position du curseur de l'analyseur.
+    int err_pos;
+} parse_str_t;
 
-static input_buff_t cmd_line;
-
-#define MAX_TOKEN 5
-
-static char *cmd_tokens[MAX_TOKEN];
 
 extern int nbr_cmd;
 
 typedef struct shell_cmd{
     char *name;
-    char* (*fn)(int, char**);
+    char *(*fn)(int,const char**);
 }shell_cmd_t;
 
 extern const shell_cmd_t commands[];
 
-int cmd_search(char *target){
+//Affichage de la date et heure du dernier shutdown
+//enerigistré dans le RTCC.
+void last_shutdown(){
+    alm_state_t shutdown;
+    char fmt[32];
+    
+    rtcc_power_down_stamp(&shutdown);
+    if (shutdown.day){
+        sprintf(fmt,"Last power down: %s %02d/%02d %02d:%02d\n",weekdays[shutdown.wkday],
+                shutdown.month,shutdown.day,shutdown.hour,shutdown.min);
+        print(con,fmt);
+    }
+}
+
+int cmd_search(const char *target){
     int i;
     for (i=nbr_cmd-1;i>=0;i--){
         if (!strcmp(target,commands[i].name)){
@@ -134,7 +152,7 @@ int cmd_search(char *target){
     return i;
 }//cmd_search()
 
-void cmd_help(){
+char* cmd_help(int tok_count, const char **tok_list){
     int i;
     text_coord_t pos;
     for(i=0;i<nbr_cmd;i++){
@@ -148,19 +166,21 @@ void cmd_help(){
         }
     }
     put_char(con,'\r');
+    return NULL;
 }
 
-void cmd_cls(int i){
+char* cmd_cls(int tok_count, const char **tok_list){
     clear_screen(con);
+    return NULL;
 }
 
 // calibration oscillateur du RTCC
 // +-127 ppm
-void cmd_clktrim(int i){
+char* cmd_clktrim(int tok_count, const char **tok_list){
     int trim;
     char fmt[64];
-    if (i>1){
-        trim=atoi(cmd_tokens[1]);
+    if (tok_count>1){
+        trim=atoi(tok_list[1]);
         trim=rtcc_calibration(trim);
     }else{
         print(con,
@@ -172,12 +192,13 @@ void cmd_clktrim(int i){
     }
     sprintf(fmt,"Actual RTCC oscillator trim value: %d",trim);
     print(con,fmt);
+    return NULL;
 }
 
 
 // imprime le temps depuis
 // le démarrage de l'ordinateur
-void cmd_uptime(){
+char* cmd_uptime(int tok_count, const char **tok_list){
     unsigned sys_ticks;
     unsigned day,hour,min,sec,remainder;
     char fmt[32];
@@ -192,22 +213,25 @@ void cmd_uptime(){
     sec=remainder/1000;
     sprintf(fmt,"%02dd%02dh%02dm%02ds\n",day,hour,min,sec);
     print(con,fmt);
+    return NULL;
 }
 
 
-void cmd_format(int i){
-    if (i==2){
+char* cmd_format(int tok_count, const char **tok_list){
+    if (tok_count==2){
         print_error_msg(ERR_NOT_DONE,NULL,0);
     }else{
         print(con,"USAGE: format volume_name\r");
     }
+    return NULL;
 }
 
-void cmd_forth(int i){
+char* cmd_forth(int tok_count, const char **tok_list){
 //    test_vm();
+    return NULL;
 }
 
-void cmd_cd(int i){ // change le répertoire courant.
+char* cmd_cd(int tok_count, const char **tok_list){ // change le répertoire courant.
     char *path;
     if (!SDCardReady){
         if (!mount(0)){
@@ -218,8 +242,8 @@ void cmd_cd(int i){ // change le répertoire courant.
         }
     }
     FRESULT error=FR_OK;
-   if (i==2){
-       error=f_chdir(cmd_tokens[1]);
+   if (tok_count==2){
+       error=f_chdir(tok_list[1]);
    }
    if (!error){
        path=malloc(255);
@@ -232,9 +256,10 @@ void cmd_cd(int i){ // change le répertoire courant.
           free(path);
        }
    }
-}//cd()
+    return NULL;
+}//cmd_cd()
 
-void cmd_del(int i){ // efface un fichier
+char* cmd_del(int tok_count, const char **tok_list){ // efface un fichier
     FILINFO *fi;
     if (!SDCardReady){
         if (!mount(0)){
@@ -245,16 +270,16 @@ void cmd_del(int i){ // efface un fichier
         }
     }
     FRESULT error=FR_OK;
-    if (i==2){
+    if (tok_count==2){
         fi=malloc(sizeof(FILINFO));
         if (fi){
-            error=f_stat(cmd_tokens[1],fi);
+            error=f_stat(tok_list[1],fi);
             if (!error){
                 if (fi->fattrib & (ATT_DIR|ATT_RO)){
                     print_error_msg(ERR_DENIED,"can't delete directory or read only file.\r",0);
                 }
                 else{
-                    error=f_unlink(cmd_tokens[1]);
+                    error=f_unlink(tok_list[1]);
                 }
             }
             free(fi);
@@ -267,9 +292,10 @@ void cmd_del(int i){ // efface un fichier
    }else{
        print_error_msg(ERR_USAGE, "delete file USAGE: del file_name\r",0);
    }
+    return NULL;
 }//del()
 
-void cmd_ren(int i){ // renomme un fichier
+char* cmd_ren(int tok_count, const char **tok_list){ // renomme un fichier
     if (!SDCardReady){
         if (!mount(0)){
             print_error_msg(ERR_NO_SDCARD,NULL,0);
@@ -278,14 +304,15 @@ void cmd_ren(int i){ // renomme un fichier
             SDCardReady=TRUE;
         }
     }
-    if (i==3){
-        f_rename(cmd_tokens[1],cmd_tokens[2]);
+    if (tok_count==3){
+        f_rename(tok_list[1],tok_list[2]);
     }else{
         print_error_msg(ERR_USAGE,"rename file, USAGE: ren name new_name\r",0);
     }
+    return NULL;
 }//ren
 
-void cmd_copy(int i){ // copie un fichier
+char* cmd_copy(int tok_count, const char **tok_list){ // copie un fichier
     FIL *fsrc, *fnew;
     char *buff;
     int n;
@@ -298,14 +325,14 @@ void cmd_copy(int i){ // copie un fichier
         }
     }
     FRESULT error;
-    if (i==3){
+    if (tok_count==3){
         fsrc=malloc(sizeof(FIL));
         fnew=malloc(sizeof(FIL));
         buff=malloc(512);
         error=FR_OK;
         if (fsrc && fnew && buff){
-            if ((error=f_open(fsrc,cmd_tokens[1],FA_READ)==FR_OK) &&
-                (error=f_open(fnew,cmd_tokens[2],FA_CREATE_NEW|FA_WRITE)==FR_OK)){
+            if ((error=f_open(fsrc,tok_list[1],FA_READ)==FR_OK) &&
+                (error=f_open(fnew,tok_list[2],FA_CREATE_NEW|FA_WRITE)==FR_OK)){
                 while ((error=f_read(fsrc,buff,512,&n))==FR_OK){
                     if (n){
                         if (!((error=f_write(fnew,buff,n,&n))==FR_OK)){
@@ -330,27 +357,30 @@ void cmd_copy(int i){ // copie un fichier
     }else{
         print_error_msg(ERR_USAGE,"copy file USAGE: copy file_name new_file_name\r",0);
     }
+    return NULL;
 }//copy()
 
-void cmd_send(int i){ // envoie un fichier via uart
+char* cmd_send(int tok_count, const char **tok_list){ // envoie un fichier via uart
     // to do
-   if (i==2){
+   if (tok_count==2){
        print_error_msg(ERR_NOT_DONE,NULL,0);
    }else{
        print(con, "send file via serial, USAGE: send file_name\r");
    }
+   return NULL;
 }//cmd_send()
 
-void cmd_receive(int i){ // reçois un fichier via uart
+char* cmd_receive(int tok_count, const char **tok_list){ // reçois un fichier via uart
     // to do
-   if (i==2){
+   if (tok_count==2){
        print_error_msg(ERR_NOT_DONE,NULL,0);
    }else{
        print(con, "receive file from serial, USAGE: receive file_name\r");
    }
-}//receive()
+   return NULL;
+}//cmd_receive()
 
-void cmd_hdump(int i){ // affiche un fichier en hexadécimal
+char* cmd_hdump(int tok_count, const char **tok_list){ // affiche un fichier en hexadécimal
     FIL *fh;
     unsigned char *fmt, *buff, *rbuff, c,key,line[18];
     int n,col=0,scr_line=0;
@@ -365,9 +395,9 @@ void cmd_hdump(int i){ // affiche un fichier en hexadécimal
         }
     }
     FRESULT error=FR_OK;
-    if (i==2){
+    if (tok_count==2){
         fh=malloc(sizeof(FIL));
-        if (fh && ((error=f_open(fh,cmd_tokens[1],FA_READ))==FR_OK)){
+        if (fh && ((error=f_open(fh,tok_list[1],FA_READ))==FR_OK)){
             if (con==VGA_CONSOLE) clear_screen(con);
             buff=malloc(512);
             fmt=malloc(CHAR_PER_LINE);
@@ -425,9 +455,10 @@ void cmd_hdump(int i){ // affiche un fichier en hexadécimal
    }else{
        print_error_msg(ERR_USAGE, "USAGE: more file_name\r",0);
    }
+    return NULL;
 }//f
 
-void cmd_mount(int i){// mount SDcard drive
+char* cmd_mount(int tok_count, const char **tok_list){// mount SDcard drive
     if (!SDCardReady){
         if (!mount(0)){
             print_error_msg(ERR_NO_SDCARD,NULL,0);
@@ -436,15 +467,17 @@ void cmd_mount(int i){// mount SDcard drive
             SDCardReady=TRUE;
         }
     }
+    return NULL;
 }
 
-void cmd_umount(int i){
+char* cmd_umount(int tok_count, const char **tok_list){
     unmountSD();
     SDCardReady=FALSE;
+    return NULL;
 }
 
 // affiche à l'écran le contenu d'un fichier texte
-void cmd_more(int i){
+char* cmd_more(int tok_count, const char **tok_list){
     FIL *fh;
     char *fmt, *buff, *rbuff, c, prev,key;
     int n,lcnt,colcnt=0;
@@ -458,10 +491,10 @@ void cmd_more(int i){
         }
     }
     FRESULT error=FR_OK;
-    if (i==2){
+    if (tok_count==2){
         clear_screen(con);
         fh=malloc(sizeof(FIL));
-        if (fh && ((error=f_open(fh,cmd_tokens[1],FA_READ))==FR_OK)){
+        if (fh && ((error=f_open(fh,tok_list[1],FA_READ))==FR_OK)){
             buff=malloc(512);
             fmt=malloc(CHAR_PER_LINE);
             if (fmt && buff){
@@ -505,17 +538,19 @@ void cmd_more(int i){
    }else{
        print_error_msg(ERR_USAGE, "USAGE: more file_name\r",0);
    }
+    return NULL;
 }//more
 
-void cmd_edit(int i){ // lance l'éditeur de texte
-    if (i>1){
-        editor(cmd_tokens[1]);
+char* cmd_edit(int tok_count, const char **tok_list){ // lance l'éditeur de texte
+    if (tok_count>1){
+        editor(tok_list[1]);
     }else{
         editor(NULL);
     }
+    return NULL;
 }//f
 
-void cmd_mkdir(int i){
+char* cmd_mkdir(int tok_count, const char **tok_list){
     FRESULT error=FR_OK;
     char *fmt;
     if (!SDCardReady){
@@ -526,10 +561,10 @@ void cmd_mkdir(int i){
             SDCardReady=TRUE;
         }
     }
-    if (i==2){
+    if (tok_count==2){
         fmt=malloc(CHAR_PER_LINE+1);
-        if (fmt && (error=f_mkdir(cmd_tokens[1])==FR_OK)){
-            sprintf(fmt,"directory %s created\r",cmd_tokens[1]);
+        if (fmt && (error=f_mkdir(tok_list[1])==FR_OK)){
+            sprintf(fmt,"directory %s created\r",tok_list[1]);
             print(con,fmt);
         }else{
             if (!fmt){
@@ -541,9 +576,10 @@ void cmd_mkdir(int i){
     }else{
         print_error_msg(ERR_USAGE,"mkdir create a directory, USAGE: mkdir dir_name\r",0);
     }
+    return NULL;
 }// mkdir()
 
-void cmd_dir(int i){
+char* cmd_dir(int tok_count, const char **tok_list){
     FRESULT error;
     FIL *fh;
     char fmt[55];
@@ -555,12 +591,12 @@ void cmd_dir(int i){
             SDCardReady=TRUE;
         }
     }
-    if (i>1){
-        error=listDir(cmd_tokens[1]);
+    if (tok_count>1){
+        error=listDir(tok_list[1]);
         if (error==FR_NO_PATH){// not a directory, try file
             fh=malloc(sizeof(FIL));
-            if (fh && ((error=f_open(fh,cmd_tokens[1],FA_READ))==FR_OK)){
-                sprintf(fmt,"File: %s, size %d bytes\r",cmd_tokens[1],fh->fsize);
+            if (fh && ((error=f_open(fh,tok_list[1],FA_READ))==FR_OK)){
+                sprintf(fmt,"File: %s, size %d bytes\r",tok_list[1],fh->fsize);
                 print(con,fmt);
                 f_close(fh);
                 free(fh);
@@ -570,21 +606,25 @@ void cmd_dir(int i){
         error=listDir(".");
     }
     if (error) print_error_msg(ERR_FIO,"",error);
+    return NULL;
 }//list_directory()
 
-void cmd_puts(int i){
+char* cmd_puts(int tok_count, const char **tok_list){
     print(con, "puts, to be done.\r");
+    return NULL;
 }//puts()
 
-void cmd_expr(int i){
+char* cmd_expr(int tok_count, const char **tok_list){
     print(con, "expr, to be done.\r");
+    return NULL;
 }//expr()
 
 //display heap status
-void cmd_free(int i){
-    char fmt[55];
-    sprintf(fmt,"free RAM %d/%d BYTES\r",free_heap(),heap_size);
-    print(con,fmt);
+char* cmd_free(int tok_count, const char **tok_list){
+    char *free_ram;
+    free_ram=calloc(sizeof(char),80);
+    sprintf(free_ram,"free RAM %d/%d BYTES\r",free_heap(),heap_size);
+    return free_ram;
 }
 
 void parse_time(char *time_str,stime_t *time){
@@ -629,33 +669,36 @@ void parse_date(char *date_str,sdate_t *date){
 
 // affiche ou saisie de la date
 // format saisie: [yy]yy/mm/dd
-void cmd_date(int i){
-    char fmt[32];
+char* cmd_date(int tok_count, const char **tok_list){
+    char *fmt;
     sdate_t date;
     
-    if (i>1){
-        parse_date(cmd_tokens[1],&date);
+    fmt=calloc(sizeof(char),80);
+    if (tok_count>1){
+        parse_date((char*)tok_list[1],&date);
         rtcc_set_date(date);
-        if (rtcc_error) print(con,"rtcc_set_date() error\r");
+        if (rtcc_error) sprintf(fmt,"rtcc_set_date() error.");
     }else{
         rtcc_get_date_str(fmt);
-        print(con,fmt);
     }
+    return fmt;
 }
 
 // affiche ou saisie de  l'heure
 // format saisie:  hh:mm:ss
-void cmd_time(int i){
-    char fmt[16];
+char* cmd_time(int tok_count, const char **tok_list){
+    char *fmt;
     stime_t t;
-    if (i>1){
-        parse_time(cmd_tokens[1],&t);
+    
+    fmt=calloc(sizeof(char),80);
+    if (tok_count>1){
+        parse_time((char*)tok_list[1],&t);
         rtcc_set_time(t);
-        if (rtcc_error) print(con,"error set_time\r");
+        if (rtcc_error) sprintf(fmt,"error set_time");
     }else {
         rtcc_get_time_str(fmt);
-        print(con,fmt);
     }
+    return fmt;
 }
 
 void report_alarms_state(){
@@ -681,17 +724,17 @@ void report_alarms_state(){
     
 }
 
-void cmd_alarm(int i){
+char* cmd_alarm(int tok_count, const char **tok_list){
     sdate_t date;
     stime_t time;
     char msg[32];
     
-    switch (i){
+    switch (tok_count){
         case 5:
-            if (!strcmp(cmd_tokens[1],"-s")){
-                parse_date(cmd_tokens[2],&date);
-                parse_time(cmd_tokens[3],&time);
-                strcpy(msg,cmd_tokens[4]); print(SERIO,msg);
+            if (!strcmp(tok_list[1],"-s")){
+                parse_date((char*)tok_list[2],&date);
+                parse_time((char*)tok_list[3],&time);
+                strcpy(msg,tok_list[4]); print(SERIO,msg);
                 msg[31]=0;
                 if (!rtcc_set_alarm(date,time,(uint8_t*)msg)){
                     print(con, "Failed to set alarm, none free.\n");
@@ -699,36 +742,38 @@ void cmd_alarm(int i){
                 break;
             }
         case 2:
-            if (!strcmp(cmd_tokens[1],"-d")){
+            if (!strcmp(tok_list[1],"-d")){
                 report_alarms_state();
                 break;
             }
         case 3:
-            if (!strcmp(cmd_tokens[1],"-c")){
-                rtcc_cancel_alarm(atoi(cmd_tokens[2]));
+            if (!strcmp(tok_list[1],"-c")){
+                rtcc_cancel_alarm(atoi(tok_list[2]));
                 break;
             }
         default:
             print(con,"USAGE: alarm []|[-c 0|1]|[-d ]|[-s date time \"message\"]\n");
     }//switch
+    return NULL;
 }
 
-void cmd_echo(int i){
+char* cmd_echo(int tok_count, const char **tok_list){
     int j;
     
-    for (j=1;j<i;j++){
-        print(con,cmd_tokens[j]);
+    for (j=1;j<tok_count;j++){
+        print(con,tok_list[j]);
         spaces(con,1);
     }
+    return NULL;
 }
 
-void cmd_reboot(int i){
+char* cmd_reboot(int tok_count, const char **tok_list){
     asm("lui $t0, 0xbfc0"); // _on_reset
     asm("j  $t0\n nop");
 }
 
 
-env_var_t *search_var(char *name){
+env_var_t *search_var(const char *name){
     env_var_t *list;
     list=shell_vars;
     while (list){
@@ -760,30 +805,30 @@ void list_vars(){
     }
 }
 
-void cmd_set(int i){
+char* cmd_set(int tok_count, const char **tok_list){
     env_var_t *var;
     char *name, *value;
-    if (i>=2){
-        var=search_var(cmd_tokens[1]);
+    if (tok_count>=2){
+        var=search_var(tok_list[1]);
         if (var){
-            if (i==2){
+            if (tok_count==2){
                 erase_var(var);
             }else{
-                value=malloc(strlen(cmd_tokens[2])+1);
-                strcpy(value,cmd_tokens[2]);
+                value=malloc(strlen(tok_list[2])+1);
+                strcpy(value,tok_list[2]);
                 free(var->value);
                 var->value=value;
             }
-        }else if (i==3){
+        }else if (tok_count==3){
             var=malloc(sizeof(env_var_t));
-            name=malloc(strlen(cmd_tokens[1]+1));
-            value=malloc(strlen(cmd_tokens[2])+1);
+            name=malloc(strlen(tok_list[1]+1));
+            value=malloc(strlen(tok_list[2])+1);
             if (!(var && name && value)){
                 print_error_msg(ERR_ALLOC,"insufficiant memory",0);
                 return;
             }
-            strcpy(name,cmd_tokens[1]);
-            strcpy(value,cmd_tokens[2]);
+            strcpy(name,tok_list[1]);
+            strcpy(value,tok_list[2]);
             var->link=shell_vars;
             var->name=name;
             var->value=value;
@@ -792,6 +837,7 @@ void cmd_set(int i){
     }else{
         list_vars();
     }
+    return NULL;
 }
 
 const shell_cmd_t commands[]={
@@ -828,181 +874,364 @@ const shell_cmd_t commands[]={
 int nbr_cmd=sizeof(commands)/sizeof(shell_cmd_t);
 
 
-void execute_cmd(int tok_count, const char  **tok_list){
+char* execute_cmd(int tok_count, const char  **tok_list){
     int cmd;
-        cmd=cmd_search(cmd_tokens[0]);
+        cmd=cmd_search(tok_list[0]);
         if (cmd>=0){
-            commands[cmd].fn(i,tok_list);
+            return commands[cmd].fn(tok_count,tok_list);
         }else{
-            print_error_msg(ERR_NOT_CMD,cmd_tokens[0],0);
+            print_error_msg(ERR_NOT_CMD,tok_list[0],0);
+            return NULL;
         }
 }// execute_cmd()
 
 const char *prompt="\r$";
 
 
-void free_tokens(){
-    int i;
-    for (i=MAX_TOKEN-1;i>=0;i--){
-        if (cmd_tokens[i]){
-            free(cmd_tokens[i]);
-            cmd_tokens[i]=NULL;
-        }
+void free_tokens(int tok_count , char **tok_list){
+    while (tok_count>0){
+        --tok_count;
+        free(tok_list[tok_count]);
     }
+    free(tok_list);
 }//free_tokens()
 
-char *var_substitution(char *token){
-#define W_INCR (80)
-    
-    int wlen;
-    char *dollar, *word, *var_name;
-    env_var_t *var=NULL;
-
-    dollar=strchr(token,'$');
-    if (dollar){
-        wlen=W_INCR;
-        word=calloc(wlen,sizeof(char));
-        *dollar=0;
-        strcpy(word,token);
-        do {
-            var_name=++dollar;
-            dollar=strchr(var_name,'$');
-            if (dollar){
-                *dollar=0;
-            }    
-            var=search_var(var_name);
-            if (var){
-                if (wlen<=(strlen(word)+strlen(var->value))){
-                    wlen+=W_INCR;
-                    word=realloc(word,wlen);
-                }
-                strcat(word,var->value);
-            }//if
-        } while (dollar);
-        free(token);
-        word=realloc(word,strlen(word)+1);
-        return word;
+char expect_char(parse_str_t *parse){
+    if (parse->next>=parse->len){
+        parse->err_pos=parse->len;
+        return 0;
     }else{
-        return token;
+        return parse->script[parse->next++];
     }
 }
 
-static char *next_token(void){
-    unsigned char loop,quote,escape;
-    char *token;
-    int slen;
+
+//char *var_substitution(char *token){
+//#define W_INCR (80)
+//    
+//    int wlen;
+//    char *dollar, *word, *var_name;
+//    env_var_t *var=NULL;
+//
+//    dollar=strchr(token,'$');
+//    if (dollar){
+//        wlen=W_INCR;
+//        word=calloc(wlen,sizeof(char));
+//        *dollar=0;
+//        strcpy(word,token);
+//        do {
+//            var_name=++dollar;
+//            dollar=strchr(var_name,'$');
+//            if (dollar){
+//                *dollar=0;
+//            }    
+//            var=search_var(var_name);
+//            if (var){
+//                if (wlen<=(strlen(word)+strlen(var->value))){
+//                    wlen+=W_INCR;
+//                    word=realloc(word,wlen);
+//                }
+//                strcat(word,var->value);
+//            }//if
+//        } while (dollar);
+//        free(token);
+//        word=realloc(word,strlen(word)+1);
+//        return word;
+//    }else{
+//        return token;
+//    }
+//}
+
+// skip() avance l'index parse->next jusqu'au premier caractère
+// non compris dans l'ensemble skip.
+void skip(parse_str_t *parse, const char *skip){
+    while (parse->next<parse->len && strchr(skip, parse->script[parse->next++]));
+    parse->next--;
+}
+
+// scan() retourne la position du premier caractère faisant
+// partie de l'ensemble target.
+int scan(parse_str_t *parse, const char *target){
+    int pos;
+    pos=parse->next;
+    while (pos<parse->len && !strchr(target,parse->script[pos++]));
+    return pos;
+}
+// parse_var() retourne la valeur d'une variable.
+// le parser a rencontré le caractère '$' qui introduit
+// le nom d'une variable.
+// Les noms de variables commencent par une lette ou '_'
+// suivie d'un nombre quelconque de lettres,chiffres et '_'
+char *parse_var(parse_str_t *parse){
+    int first,len;
+    char c, *var_name;
+    env_var_t *var;
     
-    cmd_line.first=cmd_line.next;
-    while (cmd_line.first<cmd_line.len && (cmd_line.buff[cmd_line.first]==' ' ||
-            cmd_line.buff[cmd_line.first]==9)){
-        cmd_line.first++;
+    if (parse->next>=parse->len){
+        parse->err_pos=parse->next;
+        return NULL;
     }
-    cmd_line.next=cmd_line.first;
+    first=parse->next;
+    c=parse->script[parse->next++];
+    if (!(isalpha(c)||(c=='_'))) {
+        parse->err_pos=--parse->next;
+        return NULL;
+    }
+    while ((parse->err_pos==-1) && (parse->next<parse->len) && 
+            (isalnum((c=parse->script[parse->next]))|| (c=='_')))parse->next++;
+    len=parse->next-first; print_int(SERIO,len,0);
+    var_name=malloc(len+1);
+    memcpy(var_name,&parse->script[first],len);
+    var_name[len]=0; println(SERIO,var_name);
+    var=search_var(var_name);
+    free(var_name);
+    if (var){
+        return var->value;
+    }else{
+        return NULL;
+    }
+}
+
+// extrait un mot délimité par des accolades
+void parse_brace(){
+    int level=1;
+    BOOL escape=FALSE;
+    
+    while (level){
+        if (escape){
+            
+        }else{
+            
+        }
+    }
+}
+
+static const char bkslashed_char[]="abfnrtv";
+static const char bkslashed_subst[]={0x7,0x8,0xc,0xa,0xd,0x9,0xb};
+
+char parse_backslash(parse_str_t *parse){
+    char n=0, c, *s;
+    int i;
+    c= expect_char(parse);
+    switch (c){
+        case 0:
+            return 0;
+            break;
+        case 'x':
+            for (i=0;i<2;i++){
+                c=expect_char(parse);
+                if (isxdigit(c)){
+                    n*=16;
+                    n+=(c-'0')>9?c-'0'+7:c-'0';
+                }else{
+                    if (c){
+                        parse->err_pos=--parse->next;
+                    }
+                    return 0;
+                }
+            }
+            return n;
+        case '0':
+            for (i=0;i<3;i++){
+                c=expect_char(parse);
+                if (isdigit(c)&& (c<'8')){
+                    n*=8;
+                    n+=(c-'0');
+                }else{
+                    if (c){
+                        parse->err_pos=--parse->next;
+                    }
+                    return 0;
+                }
+            }
+            break;
+        default:
+            s=strchr(bkslashed_char,c);
+            if (s){
+                return bkslashed_subst[s-bkslashed_char];
+            }else{
+                return c;
+            }
+    }//switch
+}
+
+char *parse_quote(parse_str_t *parse){
+    char c,*quote;
+    int slen=0;
+    BOOL loop=TRUE;
+    
+    quote=calloc(sizeof(char),80);
+    while (loop && (parse->err_pos==-1) && (parse->next<parse->len)){
+        c=expect_char(parse);
+        switch(c){
+            case 0:
+                parse->err_pos=parse->next;
+                loop=FALSE;
+                break;
+            case '\\':
+                c=parse_backslash(parse);
+                if (c){
+                    quote[slen++]=c;
+                    quote[slen]=0;
+                    break;
+                }
+            case '"':
+                loop=FALSE;
+                break;
+            default:
+                quote[slen++]=c;
+                quote[slen]=0;
+        }//switch
+    }//while
+    if (parse->err_pos>-1){
+        free(quote);
+    }else{
+        quote=realloc(quote,slen+1);
+    }
+    return quote;
+}
+
+char *next_token(parse_str_t *parse){
+#define TOK_BUF_INCR (64)
+#define _expand_token() if (buf_len<=(slen+strlen(xparsed))){\
+                        buf_len=slen+strlen(xparsed)+TOK_BUF_INCR;\
+                        token=(char*)realloc(token,buf_len);\
+                    }
+   
+    unsigned char loop;
+    char *token, *xparsed, c;
+    int buf_len,slen;
+    BOOL subst=TRUE;
+    
+    slen=0;
+    buf_len=TOK_BUF_INCR;
+    token=malloc(buf_len);
+    token[0]=0;
+    skip(parse," \t");
     loop=TRUE;
-    quote=FALSE;
-    escape=FALSE;
-    while (loop && (cmd_line.next<cmd_line.len)){
-        switch (cmd_line.buff[cmd_line.next]){
+    while (loop && (parse->err_pos==-1) && (parse->next<parse->len)){
+        switch ((c=parse->script[parse->next++])){
             case ' ':
             case 9: // TAB
-                if (!quote){
-                    cmd_line.next--;
-                    loop=FALSE;
+                loop=FALSE;
+                break;
+//            case '{':
+//                if (!escape){
+//                    parse->next++;
+//                    subst=FALSE;
+//                    parse_brace();
+//                }else{
+//                    escape=FALSE;
+//                }
+//                break;
+            case '$':
+                if ((xparsed=parse_var(parse))){
+                    _expand_token();
+                    strcat(token,xparsed);
+                    xparsed=NULL;
+                    slen=strlen(token); println(SERIO,token);
                 }
                 break;
             case '#':
-                if (!quote){
-                    loop=FALSE;
-                    cmd_line.next--;
-                }
-                break;
-            case '\\':
-                if (quote){
-                    if (!escape){
-                       escape=TRUE;
-                    }
-                    else{
-                        escape=FALSE;
-                    }
-                }
+                loop=FALSE;
+                parse->next=parse->len;
                 break;
             case '"':
-                if (!quote){
-                    quote=1;
-                }
-                else if (!escape){
-                    //cmd_line.first++;
-                    loop=FALSE;
+                if (slen){
+                    free(token);
+                    parse->err_pos=--parse->next;
                 }else{
-                    escape=FALSE;
-                }
+                   
+                    if ((xparsed=parse_quote(parse))){
+                        _expand_token();
+                        strcat(token,xparsed);
+                        slen=strlen(token);
+                        free(xparsed);
+                    }
+                } 
+                loop=FALSE;
                 break;
             default:
-                if (quote && escape){
-                    escape=FALSE;
+                if (slen>=buf_len){
+                    buf_len+=TOK_BUF_INCR;
+                    token=(char*)realloc(token,buf_len);
                 }
+                token[slen++]=c;
+                token[slen]=0;
         }//switch
-        cmd_line.next++;
     } // while
-    if (cmd_line.next>cmd_line.first){
-        if (cmd_line.buff[cmd_line.first]=='"'){
-            cmd_line.first++;
-            slen=cmd_line.next-cmd_line.first;
-        }else{
-            slen=cmd_line.next-cmd_line.first+1;
-        }
-        token=malloc(sizeof(char)*(slen));
-        memcpy(token,&cmd_line.buff[cmd_line.first],slen-1);
-        token[slen]=(char)0;
-        token=var_substitution(token);
-        
-    }
-    else{
-        return NULL;
-    }
+    token=realloc(token,sizeof(char)*(slen+1));
+    token[slen]=0;
+    println(SERIO,token);
+    return token;
 }//next_token()
 
-
-int tokenize(){ // découpe la ligne d'entrée en mots
-    int i,slen;
-    char *token;
-    i=0;
-    cmd_line.first=0;
-    cmd_line.next=0;
-    while ((i<MAX_TOKEN) && next_token()){
-        cmd_tokens[i]=token;
-        i++;
+ // découpe la ligne d'entrée en mots
+char** tokenize(int *i,const char *script){
+#define TOK_COUNT_INCR (5)
+    
+    int j, slen,array_size=TOK_COUNT_INCR;
+    char **tokens, *token;
+    parse_str_t parse;
+    
+    parse.script=script;
+    parse.next=0;
+    parse.len=strlen(script);
+    parse.err_pos=-1;
+    j=0;
+    tokens=malloc(sizeof(char*)*array_size);
+    while ((parse.next<parse.len) && (parse.err_pos==-1) && (token=next_token(&parse))){
+        tokens[j++]=token;
+        if (j>=array_size){
+            array_size+=TOK_COUNT_INCR;
+            tokens=(char **)realloc(tokens,sizeof(char*)*array_size);
+        }
     }//while
-    return i;
+    if (parse.err_pos>-1){
+        println(con,"syntax error.");
+        println(con,script);
+        if (parse.err_pos){
+            spaces(con,parse.err_pos);
+        }
+        put_char(con,'^');
+        free_tokens(j,tokens);
+        j=0;
+        return NULL;
+    }
+    tokens=(char**)realloc(tokens,sizeof(char*)*j);
+    *i=j;
+    return tokens;
 }//tokenize()
 
-void last_shutdown(){
-    alm_state_t shutdown;
-    char fmt[32];
-    
-    rtcc_power_down_stamp(&shutdown);
-    if (shutdown.day){
-        sprintf(fmt,"Last power down: %s %02d/%02d %02d:%02d\n",weekdays[shutdown.wkday],
-                shutdown.month,shutdown.day,shutdown.hour,shutdown.min);
-        print(con,fmt);
-    }
+char* exec_script(const char *script){
+    int tok_count;
+    char *result, **tokens;
+
+    tokens=tokenize(&tok_count,script);
+    if (tok_count && tokens) {
+        result=execute_cmd(tok_count,(const char**)tokens);
+        free_tokens(tok_count,tokens);
+        return result;
+    } // if
+    return NULL;
 }
 
 void shell(void){
-    int i;
-    char fmt[32];
-    sprintf(fmt,"\rVPC-32 shell version %s \r",version);
-    print(con,fmt);
-    free_tokens();
+    char *str, cmd_line[CHAR_PER_LINE];
+    int len;
+    str=malloc(32);
+    sprintf(str,"\rVPC-32 shell version %s \r",version);
+    print(con,str);
+    free(str);
     while (1){
         print(con,prompt);
-        cmd_line.len=read_line(con,cmd_line.buff,CHAR_PER_LINE);
-        if (cmd_line.len){
-            i=tokenize();
-            if (i) {
-                execute_cmd(i);
-                free_tokens();
-            } // if
+        len=read_line(con,cmd_line,CHAR_PER_LINE);
+        if (len){
+            str=exec_script((const char*)cmd_line);
+            if (str){
+                print(con,str);
+                free(str);
+            }//if
         }// if
     }//while(1)
     asm("lui $t0, 0xbfc0"); // _on_reset

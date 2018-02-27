@@ -1,3 +1,18 @@
+2018-02-26
+----------
+1. Travail sur shell. bogue sur variable nom longueur 1.
+
+2018-02-25
+----------
+1. Travail sur new_shell.
+
+2018-02-24
+-----------
+1. Création de la branche new_shell.
+2. Refonte majeure de shell.c Toute commande est une foncion qui retourne une
+   chaîne de caractère. Le shell imprime la chaîne retournée par la commande et
+   libère la mémoire réservée pour cette châine.
+
 2018-02-23
 ----------
 1. Travail sur shell.c
