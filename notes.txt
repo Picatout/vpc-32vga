@@ -1,3 +1,8 @@
+2018-02-27
+----------
+1. Travail sur shell. Corrigé bogue et ajouté commande 'con'.
+2. Modification à ser_read_line().
+
 2018-02-26
 ----------
 1. Travail sur shell. bogue sur variable nom longueur 1.

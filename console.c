@@ -112,6 +112,7 @@ void put_char(dev_t dev, char c){
 }
 
 void print(dev_t dev, const char *str){
+    if (!str) return;
     if (dev==VGA_CONSOLE){
         vga_print(str);
     }else{
@@ -197,7 +198,9 @@ void print_hex(dev_t dev, unsigned hex, int width){
 }
 
 void println(dev_t dev,const char *str){
-    if (dev==VGA_CONSOLE){
+    if (!str){
+        crlf(dev);
+    }else if (dev==VGA_CONSOLE){
         vga_println(str);
     }else{
         vt_println(str);

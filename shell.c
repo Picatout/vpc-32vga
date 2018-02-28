@@ -58,19 +58,22 @@
 
 #define MAX_LINE_LEN 80
 
-const char version[]="1.0";
-const char local_console[]="VGA";
-const char remote_console[]="SERIAL";
+const char _version[]="1.0";
+const char *console_name[]={"VGA","SERIAL"};
+const char _true[]="T";
+const char _false[]="F";
+const char _nil[]="";
 
-
-jmp_buf back_to_cmd_line;
+//jmp_buf back_to_cmd_line;
 
 //dev_t con=SERIAL_CONSOLE;
 dev_t con=VGA_CONSOLE;
 
-const env_var_t shell_version={NULL,"SHELL_VERSION",(char*)version};
-env_var_t console={(env_var_t*)&shell_version,"CONSOLE",(char*)local_console};
-env_var_t *shell_vars=&console;
+const env_var_t shell_version={NULL,"SHELL_VERSION",(char*)_version};
+const env_var_t true={(env_var_t*)&shell_version,"TRUE",(char*)_true};
+const env_var_t false={(env_var_t*)&true,"FALSE",(char*)_false};
+const env_var_t nil={(env_var_t*)&false,"NIL",(char*)_nil};
+env_var_t *shell_vars=(env_var_t*)&nil;
 
 env_var_t *search_var(const char *name);
 void erase_var(env_var_t *var);
@@ -734,7 +737,7 @@ char* cmd_alarm(int tok_count, const char **tok_list){
             if (!strcmp(tok_list[1],"-s")){
                 parse_date((char*)tok_list[2],&date);
                 parse_time((char*)tok_list[3],&time);
-                strcpy(msg,tok_list[4]); print(SERIO,msg);
+                strcpy(msg,tok_list[4]);
                 msg[31]=0;
                 if (!rtcc_set_alarm(date,time,(uint8_t*)msg)){
                     print(con, "Failed to set alarm, none free.\n");
@@ -784,10 +787,26 @@ env_var_t *search_var(const char *name){
 }
 
 void erase_var(env_var_t *var){
-    shell_vars=var->link;
-    free(var->name);
-    free(var->value);
-    free(var);
+    env_var_t *prev, *list;
+   
+    if (!(var && _is_ram_addr(var))) return;
+    prev=NULL;
+    list=shell_vars;
+    while (list && (list!=var)){
+        prev=list;
+        list=list->link;
+    }
+    if (!prev){
+        shell_vars=var->link;
+        free(var->name);
+        free(var->value);
+        free(var);
+    }else if (list) {
+        prev->link=var->link;
+        free(var->name);
+        free(var->value);
+        free(var);
+    }
 }
 
 void list_vars(){
@@ -811,17 +830,19 @@ char* cmd_set(int tok_count, const char **tok_list){
     if (tok_count>=2){
         var=search_var(tok_list[1]);
         if (var){
-            if (tok_count==2){
-                erase_var(var);
-            }else{
-                value=malloc(strlen(tok_list[2])+1);
-                strcpy(value,tok_list[2]);
-                free(var->value);
-                var->value=value;
-            }
-        }else if (tok_count==3){
+            if (!_is_ram_addr(var)){
+                print_error_msg(ERR_DENIED,"Read only variable.",0);
+            }else if (tok_count==2){
+                    erase_var(var);
+                }else{
+                    value=malloc(strlen(tok_list[2])+1);
+                    strcpy(value,tok_list[2]);
+                    free(var->value);
+                    var->value=value;
+                }
+        }else if (tok_count==3){//nouvelle variable
             var=malloc(sizeof(env_var_t));
-            name=malloc(strlen(tok_list[1]+1));
+            name=malloc(strlen(tok_list[1])+1);
             value=malloc(strlen(tok_list[2])+1);
             if (!(var && name && value)){
                 print_error_msg(ERR_ALLOC,"insufficiant memory",0);
@@ -840,11 +861,46 @@ char* cmd_set(int tok_count, const char **tok_list){
     return NULL;
 }
 
+char *cmd_con(int tok_count, const char** tokens){
+#define DISPLAY_NAME (-2)
+    char *result;
+    int console_id=-1;
+    
+    result=malloc(80);
+    if (tok_count==2){
+        if (!strcmp("local",tokens[1])){
+            console_id=VGA_CONSOLE;
+        }else if (!strcmp("serial",tokens[1])){
+            console_id=SERIAL_CONSOLE;
+        }else if (!strcmp("-n",tokens[1])){
+            console_id=DISPLAY_NAME;
+        }
+    }
+    switch (console_id){
+        case VGA_CONSOLE:
+        case SERIAL_CONSOLE:
+            if (con!=console_id){
+                sprintf(result,"switched to %s console.",console_name[console_id]);
+                println(con,result);
+                con=console_id;
+                sprintf(result,"new console %s",console_name[con]);
+            }
+            break;
+        case DISPLAY_NAME:
+            sprintf(result,"%s",console_name[con]);
+            break;
+        default:
+            sprintf(result,"Select console\rUSAGE: con -n|local|serial.");
+    }//switch
+    return result;
+}
+
 const shell_cmd_t commands[]={
     {"alarm",cmd_alarm},
     {"cd",cmd_cd},
     {"clktrim",cmd_clktrim},
     {"cls",cmd_cls},
+    {"con",cmd_con},
     {"copy",cmd_copy},
     {"date",cmd_date},
     {"del",cmd_del},
@@ -905,43 +961,6 @@ char expect_char(parse_str_t *parse){
     }
 }
 
-
-//char *var_substitution(char *token){
-//#define W_INCR (80)
-//    
-//    int wlen;
-//    char *dollar, *word, *var_name;
-//    env_var_t *var=NULL;
-//
-//    dollar=strchr(token,'$');
-//    if (dollar){
-//        wlen=W_INCR;
-//        word=calloc(wlen,sizeof(char));
-//        *dollar=0;
-//        strcpy(word,token);
-//        do {
-//            var_name=++dollar;
-//            dollar=strchr(var_name,'$');
-//            if (dollar){
-//                *dollar=0;
-//            }    
-//            var=search_var(var_name);
-//            if (var){
-//                if (wlen<=(strlen(word)+strlen(var->value))){
-//                    wlen+=W_INCR;
-//                    word=realloc(word,wlen);
-//                }
-//                strcat(word,var->value);
-//            }//if
-//        } while (dollar);
-//        free(token);
-//        word=realloc(word,strlen(word)+1);
-//        return word;
-//    }else{
-//        return token;
-//    }
-//}
-
 // skip() avance l'index parse->next jusqu'au premier caractère
 // non compris dans l'ensemble skip.
 void skip(parse_str_t *parse, const char *skip){
@@ -979,10 +998,10 @@ char *parse_var(parse_str_t *parse){
     }
     while ((parse->err_pos==-1) && (parse->next<parse->len) && 
             (isalnum((c=parse->script[parse->next]))|| (c=='_')))parse->next++;
-    len=parse->next-first; print_int(SERIO,len,0);
+    len=parse->next-first;
     var_name=malloc(len+1);
     memcpy(var_name,&parse->script[first],len);
-    var_name[len]=0; println(SERIO,var_name);
+    var_name[len]=0;
     var=search_var(var_name);
     free(var_name);
     if (var){
@@ -1129,7 +1148,7 @@ char *next_token(parse_str_t *parse){
                     _expand_token();
                     strcat(token,xparsed);
                     xparsed=NULL;
-                    slen=strlen(token); println(SERIO,token);
+                    slen=strlen(token);
                 }
                 break;
             case '#':
@@ -1162,7 +1181,6 @@ char *next_token(parse_str_t *parse){
     } // while
     token=realloc(token,sizeof(char)*(slen+1));
     token[slen]=0;
-    println(SERIO,token);
     return token;
 }//next_token()
 
@@ -1220,7 +1238,7 @@ void shell(void){
     char *str, cmd_line[CHAR_PER_LINE];
     int len;
     str=malloc(32);
-    sprintf(str,"\rVPC-32 shell version %s \r",version);
+    sprintf(str,"\rVPC-32 shell version %s \r",_version);
     print(con,str);
     free(str);
     while (1){

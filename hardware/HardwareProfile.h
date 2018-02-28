@@ -69,6 +69,7 @@
 #define FLASH_END			 	0x9D000000+BMXPFMSZ-1
 #define RAM_BEG				 	0xA0000000
 #define RAM_END				 	0xA0000000+BMXDRMSZ-1
+#define _is_ram_addr(addr) (((unsigned)addr>=RAM_BEG) && ((unsigned)addr<=RAM_END))
 
 #define CS_RAM
 

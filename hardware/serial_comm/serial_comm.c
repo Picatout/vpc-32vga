@@ -70,7 +70,7 @@ void ser_put_char(char c){
       UARTSendDataByte(SERIO, c);
 };
 
-// Attend un caractère du port sériel avec délais d'expiration.
+// Attend un caractère du port sériel
 char ser_wait_char(){
     int t;
     char ch;
@@ -100,32 +100,29 @@ void ser_print(const char* str){
 int ser_read_line(char *buffer, int buff_len){
     int count=0;
     char c;
-    if (!unget==-1){
-        c=unget;
-        unget=-1;
-        *buffer++=c;
-        if (c==CR) return;
-    }
-    while (count < (buff_len-1)){
-        if (UARTReceivedDataIsAvailable(SERIO)){
-            c = UARTGetDataByte(SERIO);
-            if (c==CR){ser_put_char('\r'); break;}
-            if (c==BS){
+    BOOL loop=TRUE;
+    
+    *buffer=(char)0;
+    while (loop && (count < (buff_len-1))){
+        switch((c=ser_wait_char())){
+            case CR:
+                ser_put_char('\r'); 
+                loop=FALSE;
+                break;
+            case BS:
                 if (count){
                     buffer--;
                     count--;
                     ser_print("\b \b");
                 }
-            }else{
+                break;
+            default:
                 *buffer++=c;
                 count++;
                 ser_put_char(c);
-            }
-            
-        }
-    }
-    if (count) *buffer = (char)0;
-    ser_put_char('\r');
+        }//swtich
+    }//while
+    *buffer = (char)0;
     return count;
 }
 
