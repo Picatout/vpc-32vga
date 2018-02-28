@@ -186,15 +186,8 @@ void main(void) {
     init_msg(BOTH,sound_init(),"Sound");
     tune((unsigned int*)&e3k[0]);
     init_msg(BOTH,kbd_init(),"keyboard");
-//    text_coord_t cpos;
-//    vga_print("SD initialization: ");
-//    if (!mount(0)){
-//        vga_print("Failed\r");
-//        SDCardReady=FALSE;
-//    }else{
-//        vga_print("OK\r");
-//        SDCardReady=TRUE;
-//    }
+    text_coord_t cpos;
+    init_msg(BOTH,!mount(0),"SD card");
     init_msg(BOTH,sram_init(),"SPI RAM");
     //test_vm();
 #if defined _DEBUG_    
@@ -208,13 +201,12 @@ void main(void) {
     delay_ms(1000);
     UartPrint("sound test.\r");
 #endif    
-    init_msg(BOTH,0,"hardware");
 //    set_cursor(CR_BLOCK); // sauvegare video_buffer dans SRAM
 //    clear_screen();
 //    unsigned char c;
 //    while (1){
-//        c=wait_key(LOCAL_CON);
-//        put_char(LOCAL_CON,c);
+//        c=wait_key(VGA_CONSOLE);
+//        put_char(VGA_CONSOLE,c);
 //    }
 #if defined _DEBUG_
     graphics_test();

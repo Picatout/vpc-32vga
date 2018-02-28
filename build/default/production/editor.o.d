@@ -28,5 +28,4 @@ hardware/Pinguino/ff.h  \
 hardware/Pinguino/ffconf.h  \
  hardware/sound/sound.h  \
 graphics.h  \
-reader.h  \
-vpcBASIC/vm.h 
+reader.h 

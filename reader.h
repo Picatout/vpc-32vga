@@ -57,7 +57,7 @@ typedef struct _reader{
     char buffer[READER_BUFFER_SIZE];
     int count; //nombre d'octets dans le buffer
     int inp;  //position dans le buffer
-    bool eof; // fin de fichier atteint.
+    BOOL eof; // fin de fichier atteint.
     void *handle; //handle device
 }reader_t;
 

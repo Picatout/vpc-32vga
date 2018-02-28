@@ -1,8 +1,8 @@
 /*
-* Copyright 2013,2014,2017 Jacques Deschênes
-* This file is part of VPC-32v.
+* Copyright 2013,2014,2017,2018 Jacques Deschênes
+* This file is part of VPC-32VGA.
 *
-*     VPC-32v is free software: you can redistribute it and/or modify
+*     VPC-32VGA is free software: you can redistribute it and/or modify
 *     it under the terms of the GNU General Public License as published by
 *     the Free Software Foundation, either version 3 of the License, or
 *     (at your option) any later version.
@@ -13,7 +13,7 @@
 *     GNU General Public License for more details.
 *
 *     You should have received a copy of the GNU General Public License
-*     along with VPC-32v.  If not, see <http://www.gnu.org/licenses/>.
+*     along with VPC-32VGA.  If not, see <http://www.gnu.org/licenses/>.
 */
 
 /*
