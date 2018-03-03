@@ -22,6 +22,7 @@
 
 #include "vt100.h"
 
+static BOOL auto_scroll=TRUE;
 
 static void send_esc_seq(){
     ser_put_char(ESC);
@@ -132,4 +133,8 @@ void vt_scroll_down(){
 void vt_println(const char *str){
     vt_print(str);
     vt_crlf();
+}
+
+void ser_set_auto_scroll(BOOL scroll){
+    
 }

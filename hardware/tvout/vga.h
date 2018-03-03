@@ -75,7 +75,7 @@ void vga_crlf(); // déplace le curseur à la ligne suivante
 void vga_invert_video( unsigned char invert); // inverse vidéo des caractèrs noir/blanc
 BOOL vga_is_invert_video(); // renvoie le mode vidéo.
 void vga_println( const char *str);
-
+void vga_set_auto_scroll(BOOL scroll);
 // Hardware initialization
  int vga_init(void);
 

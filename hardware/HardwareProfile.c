@@ -130,28 +130,48 @@ volatile unsigned int* get_timer(unsigned int msec){
     }
     return NULL;
 }
-// compute free bytes available on heap.
-// successive allocation trial until sucess
-// binary division algorithm
-unsigned free_heap(){
-    unsigned top=RAM_SIZE,size,bottom=0;
+
+// essaie d'obtenir le plus morceau de mémoire RAM disponible.
+// retourne la grandeur de ce morceau.
+unsigned biggest_chunk(){
+    unsigned size, last_failed=RAM_SIZE, last_succeed=0;
     void *ptr=NULL;
 
-    size=RAM_SIZE/2;
-    while ((top-bottom)>16){
+    size=RAM_SIZE;
+    while ((last_failed-last_succeed)>8){
         ptr=malloc(size);
         if (!ptr){
-            top=size;
-            size-=(top-bottom)>>1;
+            last_failed=size;
+            size-=(last_failed-last_succeed)>1;
         }else{
             free(ptr);
-            bottom=size;
-            size+=(top-bottom)>>1;
+            last_succeed=size;
+            size+=(last_failed-last_succeed)>1;
         }
     }
-    if (ptr) free(ptr);
-    return size;
+    return last_succeed;
 }
+
+
+// retourne le total de la mémoire RAM disponible.
+// en additionnant la taille des morceaux allouables.
+// Si le heap est très fragmenté et contient plus de 32
+// morceaux allouables la valeur retournée sera incorrecte.
+unsigned free_heap(){
+    unsigned count=0,size, total=0;
+    void* list[32];
+    
+    do{
+        size=biggest_chunk();
+        total+=size;
+        if (size) list[count++]=malloc(size);
+    }while (size && (count<32));
+    while (count){
+        free(list[--count]);
+    }
+    return total;
+}
+
 
 //MCU core timer interrupt
 // period 1msec

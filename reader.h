@@ -72,6 +72,7 @@ extern int complevel;
 extern void reader_init(reader_t *reader, reader_src_t device, void *handle);
 extern char reader_getc(reader_t *reader);
 extern inline void reader_ungetc(reader_t *reader);
+extern uint32_t reader_seek(reader_t *reader,uint32_t pos);
 //extern int reader_gets(reader_t *reader, char *buffer, int len);
 
 #endif // READER_H_

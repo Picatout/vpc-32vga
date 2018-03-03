@@ -66,7 +66,7 @@ volatile static int *dma_source; // pointer for DMA source.
 #define CUR_VIS  2  // curseur visible
 #define INV_VID  4  // inverse vidéo
 
-
+static BOOL auto_scroll=TRUE;
 static unsigned short cx=0, cy=0;  // coordonnée courante du curseur texte en pixels.
 static unsigned char tab_width=TAB_WIDTH;
 static cursor_t cur_shape=CR_UNDER;
@@ -117,6 +117,10 @@ int vga_init(void){
     return 0;
 }//init_video()
 
+void vga_set_auto_scroll(BOOL scroll){
+    auto_scroll=scroll;
+}
+
 void vga_clear_screen(){
     if (flags&INV_VID){
         memset(video_bmp,255,HRES/8*VRES);
@@ -152,10 +156,12 @@ void vga_cursor_right(){
     cx += CHAR_WIDTH;
     if (cx>=(CHAR_PER_LINE*CHAR_WIDTH)){
         cx = 0;
-        cy += CHAR_HEIGHT;
         if (cy>=((LINE_PER_SCREEN-1)*CHAR_HEIGHT)){
-            vga_scroll_up();
-            cy -= CHAR_HEIGHT;
+            if (auto_scroll){
+                vga_scroll_up();
+            }
+        }else{
+            cy += CHAR_HEIGHT;
         }
     }
 } // vga_cursor_right()
@@ -167,7 +173,7 @@ void vga_cursor_left(){
         cx = (CHAR_PER_LINE-1);
         if (cy>=CHAR_HEIGHT){
             cy -= CHAR_HEIGHT;
-        }else{
+        }else if (auto_scroll){
             vga_scroll_down();
         }
     }
@@ -176,7 +182,7 @@ void vga_cursor_left(){
 void vga_cursor_up(){
     if (cy>=CHAR_HEIGHT){
         cy -= CHAR_HEIGHT;
-    }else{
+    }else if (auto_scroll){
         vga_scroll_down();
     }
 }// vga_cursor_up()
@@ -192,7 +198,9 @@ void vga_cursor_down(){
 void vga_crlf(){
     cx=0;
     if (cy==((LINE_PER_SCREEN-1)*CHAR_HEIGHT)){
-        vga_scroll_up();
+        if (auto_scroll){
+            vga_scroll_up();
+        }
     }else{
         cy += CHAR_HEIGHT;
     }
@@ -212,7 +220,9 @@ void vga_put_char(char c){
             if (cx>=(CHAR_PER_LINE*CHAR_WIDTH)){
                 cx = 0;
                 if (cy==((LINE_PER_SCREEN-1)*CHAR_HEIGHT)){
-                    vga_scroll_up();
+                    if (auto_scroll){
+                        vga_scroll_up();
+                    }
                 }else{
                     cy += CHAR_HEIGHT;
                 }

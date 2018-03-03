@@ -41,6 +41,15 @@ void uppercase(char *str){// in situ uppercase
     }
 }
 
+void set_auto_scroll(dev_t dev, BOOL scroll){
+    if (dev==VGA_CONSOLE){
+        vga_set_auto_scroll(scroll);
+    }else{
+        ser_set_auto_scroll(scroll);
+    }
+}
+
+
  // efface l'écran et positionne le curseur à {0,0}
 void clear_screen(dev_t dev){
     if (dev==VGA_CONSOLE){

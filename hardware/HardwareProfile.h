@@ -40,7 +40,6 @@
 
 #define RAM_SIZE (65536)
 
-
 // RS-232 port 
 #define TX BIT_10 // UART2 TX on PB10
 #define RX BIT_11 // UART2 RX on PB11
@@ -221,8 +220,11 @@ enum EXCEPTION_CODES{
 
 // initialisation matérielle au démarrage.
 void cold_start_init();
-// mémoire RAM libre.
+// total mémoire RAM libre.
 unsigned free_heap();
+// retourne la grandeur du plus gros morceau
+// de mémoire RAM allouable
+unsigned biggest_chunk();
 // obtention d'une minuterie.
 volatile unsigned int* get_timer(unsigned int msec);
 // compteur système incrémenté à la milliseconde.

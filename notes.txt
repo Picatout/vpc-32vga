@@ -1,6 +1,14 @@
+2018-03-02
+----------
+1. Retraivaillé l'éditeur de texte. 
+2. Corrigée bogue dans HardwareProfile:free_heap();
+3. Ajout de la fonction HardwareProfile:biggest_chunk() qui retourne le plus gros
+   morceau de mémoire RAM allouable par malloc().
+
 2018-02-28
 ----------
-1. Travail sur edit.c
+1. Création branche new_editor pour travail dans editor.c
+
 
 2018-02-27
 ----------

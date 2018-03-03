@@ -119,6 +119,27 @@ inline void reader_ungetc(reader_t *reader){
     reader->inp--;
 }
 
+// positionne le pointeur de lecture dans le fichier
+uint32_t reader_seek(reader_t *reader,uint32_t pos){
+    switch(reader->device){
+        case eDEV_KBD:
+            return 0;
+        case eDEV_SPIRAM:
+            sram_pos(reader->handle)=pos;
+            read_sram(reader);
+            break;
+        case eDEV_FLASH:
+            return 0;
+            break;
+        case eDEV_SDCARD:
+            return 0;
+            break;
+        default:
+            return 0;
+                    
+    }
+}
+
 // retourne la longueur de la chaîne ou -1 pour fin de fichier
 // chaîne terminée par CR, LF, CRLF, \0
 //int reader_gets(reader_t *reader, char *buffer, int len){

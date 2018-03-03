@@ -95,8 +95,8 @@
       <itemPath>console.c</itemPath>
       <itemPath>vt100.c</itemPath>
       <itemPath>shell.c</itemPath>
-      <itemPath>editor.c</itemPath>
       <itemPath>reader.c</itemPath>
+      <itemPath>editor.c</itemPath>
     </logicalFolder>
     <logicalFolder name="ExternalFiles"
                    displayName="Important Files"
@@ -314,6 +314,7 @@
         <property key="UART1" value="true"/>
         <property key="UART2" value="true"/>
         <property key="USB" value="true"/>
+        <property key="firmware.download.all" value="false"/>
         <property key="hwtoolclock.frcindebug" value="false"/>
         <property key="memories.aux" value="false"/>
         <property key="memories.bootflash" value="true"/>

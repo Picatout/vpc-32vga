@@ -29,7 +29,9 @@
 #ifdef	__cplusplus
 extern "C" {
 #endif
-
+#include <stdint.h>
+#include <GenericTypeDefs.h>
+    
 #include "hardware/HardwareProfile.h"
 #include "hardware/serial_comm/serial_comm.h"    
 #include "ascii.h"
@@ -56,6 +58,7 @@ extern "C" {
     void vt_scroll_up();
     void vt_scroll_down();
     void vt_println(const char *str);
+    void ser_set_auto_scroll(BOOL scroll);
     
 #ifdef	__cplusplus
 }
