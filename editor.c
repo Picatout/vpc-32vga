@@ -38,7 +38,7 @@
 #define LINE_MAX_LEN (CHAR_PER_LINE-1)
 #define LAST_LINE (EDITOR_LINES-1)
 #define SCREEN_SIZE (LAST_LINE*CHAR_PER_LINE)
-#define ED_BUFF_SIZE (SRAM_SIZE-2)
+#define ED_BUFF_SIZE (SRAM_SIZE)
 #define MAX_SIZE (ED_BUFF_SIZE)
 #define STATUS_LINE (LINE_PER_SCREEN-1)
 
@@ -50,6 +50,8 @@
 
 #define _screen_get(l,c) *(screen+l*CHAR_PER_LINE+c)
 #define _screen_put(l,c,chr) *(screen+l*CHAR_PER_LINE+c)=chr
+#define _screen_line(l) (screen+l*CHAR_PER_LINE)
+#define _screen_addr(l,c) (screen+l*CHAR_PER_LINE+c)
 
 //contient 1'écran texte
 //typedef char text_line_t[CHAR_PER_LINE];
@@ -63,11 +65,13 @@ typedef struct editor_state{
     uint32_t tail; // position fin gap
     int8_t scr_line; // ligne du curseur
     int8_t scr_col; //colonne du curseur
-    uint32_t file_line;
+    uint32_t file_line; // ligne courante dans le fichier.
+    uint32_t lines_count; // nombre de lignes dans le fichier.
     struct {
       uint8_t insert:1;
       uint8_t modified:1;
       uint8_t new:1;
+      uint8_t update:1;
     }flags;
 } ed_state_t;
 
@@ -129,14 +133,23 @@ static int line_len(char *line){
 }
 
 
+static void invert_display(BOOL enable){
+    if (enable){
+        clear_screen(con);
+        invert_video(con,TRUE);
+    }else{
+        invert_video(con,FALSE);
+        state->flags.update=1;
+    }
+}
 
 static void print_line(uint8_t ln){
     char *line;
     int count=0;
-    line=screen+ln*CHAR_PER_LINE;
+    line=_screen_line(ln);
     set_curpos(con,0,ln);
     clear_eol(con);
-    while (!((count==CHAR_PER_LINE) || (*line==A_CR))){
+    while (!((count==CHAR_PER_LINE) || (*line==A_LF))){
         put_char(con,*line++);
         count++;
     }
@@ -161,47 +174,41 @@ static void ed_error(const char *msg, int code){//static uint8_t *llen;
 //avant de continuer
 static BOOL ask_confirm(){
     char key;
+    
     BOOL answer=state->flags.modified;
     if (answer){
         tone(1000,100);
-        invert_video(con,TRUE);
-        set_curpos(con,0,0);
-        clear_eol(con);
+        invert_display(TRUE);
         print(con,"file unsaved! continue (y/n)?");
         key= wait_key(con);
         answer=(key=='y')||(key=='Y');
-        invert_video(con,FALSE);
-        set_curpos(con,0,0);
-        clear_eol(con);
-        print_line(0);
-        set_curpos(con,state->scr_col,state->scr_line);
+        invert_display(FALSE);
     }else{
         answer=TRUE;
     }
     return answer;
-}
+}// ask_confirm()
 
-static void new_file(){
-    if (ask_confirm()){
-        clear_screen(con);
-        invert_video(con,TRUE);
-        sram_clear_block(0,ED_BUFF_SIZE);
-        memset(state,0,sizeof(ed_state_t));
-        memset(screen,0,SCREEN_SIZE);
-        state->flags.insert=MODE_INSERT;
-        state->flags.new=1;
-        state->flags.modified=FALSE;
-        state->tail=MAX_SIZE;
-        clear_screen(con);
-        fname[0]=0;
-        search_info->target[0]=0;
-        search_info->ignore_case=FALSE;
-        search_info->loop=FALSE;
-        search_info->found=FALSE;
-        invert_video(con,FALSE);
-        update_display();
+static void clear_all_states(){
+    fname[0]=0;
+    sram_clear_block(0,ED_BUFF_SIZE);
+    memset(state,0,sizeof(ed_state_t));
+    memset(screen,A_LF,SCREEN_SIZE);
+    state->flags.insert=MODE_INSERT;
+    state->flags.new=1;
+    state->flags.update=1;
+    state->flags.modified=FALSE;
+    state->tail=MAX_SIZE;
+}//clear_all_states()
+
+static void new_file(const char *name){
+    if ((!name && !state->flags.modified) || ask_confirm()){
+        clear_all_states();
+        if (file_exist(name)){
+            load_file(name);
+        }
     }
-}//f()
+}//new_file()
 
 static BOOL quit;
 
@@ -218,11 +225,10 @@ static void leave_editor(){
  
 static void list_files(){
     clear_screen(con);
-    invert_video(con,TRUE);
+    invert_display(TRUE);
     listDir(".");
     prompt_continue();
-    invert_video(con,FALSE);
-    update_display();
+    invert_display(FALSE);
 }//f
 
 //initialement le curseur est au début de la ligne
@@ -263,7 +269,7 @@ static void search_next(){
         return;
     }
     search_info->found=FALSE;
-    strcpy(line,screen+(state->scr_line*CHAR_PER_LINE));
+    strcpy(line,_screen_line(state->scr_line));
     if (search_info->ignore_case) uppercase(line);
     pos=search_line(line,search_info->target,state->scr_col+1);
     if (pos>state->scr_col){
@@ -272,7 +278,7 @@ static void search_next(){
         mark_target();
         return;
     }
-    len=strlen(screen+state->scr_line*CHAR_PER_LINE);
+    len=strlen(_screen_line(state->scr_line));
     saddr=state->tail+(len-state->scr_col)+1;
     while (saddr<ED_BUFF_SIZE){
         lcount++;
@@ -310,7 +316,7 @@ static void search_next(){
         if (pos>LAST_LINE){
             state->scr_first=state->gap_first-search_info->col;
             state->scr_line=0;
-            update_display();
+            state->flags.update=1;
         }else{
             state->scr_line=pos;
             set_curpos(con,state->scr_col,state->scr_line);
@@ -403,7 +409,7 @@ static BOOL parse_search_line(){
 
 static void search(){
     int len;
-    invert_video(con,TRUE);
+    invert_display(TRUE);
     clear_screen(con);
     print(con,"USAGE: target [-I] [-L]\n");
     search_info->found=FALSE;
@@ -415,8 +421,7 @@ static void search(){
         search_info->target[len-1]=0;
         len--;
     }
-    invert_video(con,FALSE);
-    update_display();
+    invert_display(FALSE);
     if (len && parse_search_line()){
         search_next();
     }
@@ -424,11 +429,12 @@ static void search(){
 
 static BOOL get_file_name(char *name){
     int len;
-    
-    crlf(con);
+
+    invert_display(TRUE);
     print(con,"file name? ");
     len=read_line(con,name,NAME_MAX_LEN);
     uppercase(name);
+    invert_display(FALSE);
     return len;
 }//f()
 
@@ -436,11 +442,11 @@ static void load_file(const char *name){
     uint32_t saddr,fsize;
     FRESULT result;
     FIL fh;
-    int count, line_no=0;
+    int count,llen, lines=0;
     char prev_c=0, c=0, buffer[CHAR_PER_LINE];
     reader_t r;
     
-    new_file();
+    clear_all_states();
     strcpy(fname,name);
     result=f_open(&fh,fname,FA_READ);
     if (result){
@@ -462,21 +468,18 @@ static void load_file(const char *name){
         c=reader_getc(&r);
         switch(c){
             case -1:
-                c=A_CR;
+                break;
             case A_CR:
+                c=A_LF;
                 break;
             case A_LF:
-               if (prev_c!=A_CR){
-                    c=A_CR;
-                }
-                c=A_CR;
-                break;
+               break;
             default:
                 if (c>=32 && c<(32+FONT_SIZE)) buffer[count++]=c; else buffer[count++]=' ';
         }//switch(c)
-        if ((c==A_CR) || (count==(CHAR_PER_LINE-1))){
-            buffer[count++]=A_CR;
-            line_no++;
+        if ((c==A_LF) || (count==(CHAR_PER_LINE-1))){
+            buffer[count++]=A_LF;
+            lines++;
             sram_write_block(saddr,(uint8_t*)buffer,count);
             saddr+=count;
             count=0;
@@ -484,26 +487,34 @@ static void load_file(const char *name){
         prev_c=c;
     }//while
     if (count){
+        buffer[count++]=A_LF;
         sram_write_block(saddr,(uint8_t*)buffer,count);
         saddr+=count;
-        line_no++;
+        lines++;
     }
+    llen=line_len((char*)buffer);
     f_close(&fh);
-    invert_video(con,FALSE);
+    state->lines_count=lines;
+    state->file_line=lines-1;
     state->fsize=saddr;
-    state->gap_first=saddr;
-    state->scr_first=saddr;
-    file_home();
+    state->gap_first=saddr-1;
+    state->scr_first=saddr-llen-1;
+    state->tail=MAX_SIZE-1;
+    state->scr_col=llen;
+    sram_write_byte(state->tail,A_LF);
+    sram_write_byte(state->gap_first,0);
+    //file_home();
 }//f()
 
 BOOL file_exist(const char *name){
     FIL fh;
     FRESULT result;
     
+    if (!name) return FALSE;
     result=f_open(&fh,name,FA_READ);
     if (!result) f_close(&fh);
     return !result;
-}
+}// file_exist()
 
 static void open_file(){
     FIL fh;
@@ -511,21 +522,17 @@ static void open_file(){
     char name[32];
 
     if (ask_confirm()){
-        clear_screen(con);    
-        invert_video(con,TRUE);
+        invert_display(TRUE);
         print(con,"open file\n");
         if (get_file_name(name) && file_exist(name)){
                 load_file(name);
-                return;
         }else{
                 ed_error("failed to open file.",result);
         }
         
-        invert_video(con,FALSE);
-        clear_screen(con);
-        update_display();
+        invert_display(FALSE);
     }
-}//f()
+}//open_file()
 
 
 static void save_file(){
@@ -536,55 +543,54 @@ static void save_file(){
     FRESULT result;
     FIL fh;
 
+    if (!strlen(fname)){
+        save_file_as();
+    }else{
     if ((result=f_open(&fh,fname,FA_WRITE+FA_CREATE_ALWAYS))){
         sprintf(buffer,"Failed to create '%s' file\r",fname);
         ed_error(buffer,result);
         return;
     }
-    clear_screen(con);
-    invert_video(con,TRUE);
-    print(con,"saving file...\n");
-    while ((result==FR_OK) && (saddr < state->gap_first)){
-        size=min(BUFFER_SIZE,state->gap_first-saddr);
-        sram_read_block(saddr,buffer,size);
-        saddr+=size;
-        result=f_write(&fh,buffer,size,&size);
+        invert_display(TRUE);
+        print(con,"saving file...\n");
+        while ((result==FR_OK) && (saddr < state->gap_first)){
+            size=min(BUFFER_SIZE,state->gap_first-saddr);
+            sram_read_block(saddr,buffer,size);
+            saddr+=size;
+            result=f_write(&fh,buffer,size,&size);
+        }
+        saddr=state->tail;
+        while((result==FR_OK) && saddr < ED_BUFF_SIZE){
+            size=min(BUFFER_SIZE,ED_BUFF_SIZE-saddr);
+            sram_read_block(saddr,buffer,size);
+            saddr+=size;
+            result=f_write(&fh,buffer,size,&size);
+        }
+        f_close(&fh);
+        if (result){
+            ed_error("diksI/O error...\n",result);
+            return;
+        }
+        state->flags.modified=FALSE;
+        state->flags.new=0;
+        crlf(con);
+        print(con,fname);
+        print(con," saved, size: ");
+        print_int(con,state->fsize,0);
+        prompt_continue();
+        invert_display(FALSE);
     }
-    saddr=state->tail;
-    while((result==FR_OK) && saddr < ED_BUFF_SIZE){
-        size=min(BUFFER_SIZE,ED_BUFF_SIZE-saddr);
-        sram_read_block(saddr,buffer,size);
-        saddr+=size;
-        result=f_write(&fh,buffer,size,&size);
-    }
-    f_close(&fh);
-    if (result){
-        ed_error("diksI/O error...\n",result);
-        return;
-    }
-    state->flags.modified=FALSE;
-    state->flags.new=0;
-    crlf(con);
-    print(con,fname);
-    print(con," saved, size: ");
-    print_int(con,state->fsize,0);
-    prompt_continue();
-    invert_video(con,FALSE);
-    update_display();
 }//f()
 
 static void save_file_as(){
     char name[32];
-    invert_video(con,TRUE);
-    clear_screen(con);
+
     if (get_file_name(name)){
         if (strlen(name)){
             strcpy(fname,name);
             save_file();
         }
     }
-    invert_video(con,FALSE);
-    update_display();
 }//f()
 
 
@@ -611,49 +617,38 @@ const char* hkeys[]={
 static void hot_keys(){
     int i=0;
 
-    invert_video(con,TRUE);
+    invert_display(TRUE);
     clear_screen(con);
     while (strlen(hkeys[i])){    
         print(con,hkeys[i++]);
     }
     crlf(con);
     prompt_continue();
-    invert_video(con,FALSE);
-    update_display();
+    invert_display(FALSE);
 }
 
-static void editor_init(){
-    screen=calloc(sizeof(char),SCREEN_SIZE);
-    memset(screen,A_CR,SCREEN_SIZE);
+static void editor_init(const char *file_name){
+    screen=malloc(SCREEN_SIZE);
     search_info=malloc(sizeof(search_t));
     state=malloc(sizeof(ed_state_t));
-    state->flags.modified=FALSE;
-    state->flags.insert=TRUE;
-    state->flags.new=TRUE;
-    fname=calloc(sizeof(char),NAME_MAX_LEN);
+    fname=malloc(NAME_MAX_LEN);
     invert_video(con,FALSE);
     vga_set_cursor(CR_UNDER);
-    clear_screen(con);
-    fname[0]=0;
-    new_file();
+    new_file(file_name);
 }//f()
 
 
-void editor(const char* name){
+void editor(const char* file_name){
     unsigned short key;
     FATFS fh;
     FRESULT result;
     
-    editor_init();
-    if (name){
-        if (file_exist(name)){
-            load_file(name);
-        }else{
-            strcpy(fname,name);
-        }
-    }
+    editor_init(file_name);
     quit=FALSE;
     while(!quit){
+        if (state->flags.update){
+            update_display();
+        }
         update_status_line();
         key=wait_key(con);
         //print_int(SERIAL_CONSOLE,key,0);
@@ -735,7 +730,7 @@ void editor(const char* name){
                 goto_line();
                 break;
             case VK_CN: // <CTRL>-N  nouveau fichier
-                new_file();
+                new_file(NULL);
                 break;
             case VK_CO: // <CTRL>-O  ouvrir un fichier
                 open_file();
@@ -744,11 +739,7 @@ void editor(const char* name){
                 leave_editor();
                 break;
             case VK_CS: // <CTRL>-S  sauvegarde
-                invert_video(con,TRUE);
-                clear_screen(con);
-                if (strlen(fname)) save_file(); else save_file_as();
-                invert_video(con,FALSE);
-                update_display();
+                save_file();
                 break;
             default:
                 if ((key>=32)&(key<FONT_SIZE+32)){
@@ -764,7 +755,7 @@ void editor(const char* name){
     }//while
     invert_video(con,FALSE);
     clear_screen(con);
-}//f()
+}//editor()
 
 
 // retourne l'adresse SRAM du début de la ligne où est le curseur texte.
@@ -772,19 +763,14 @@ uint32_t get_line_back(){
     int j,llen,size;
     uint32_t from;
     char buf[CHAR_PER_LINE];
-    BOOL loop=TRUE;
     
     if (!(from=state->gap_first)) return from;
     size=min(from,CHAR_PER_LINE);
     sram_read_block(from-size,buf,size);
     j=size-1;
     llen=0;
-    while((j>-1) && loop && (llen<LINE_MAX_LEN)){
-        if (buf[j--]==A_CR){
-            loop=FALSE;
-        }else{
-            llen++;
-        }
+    while((j>-1) && (buf[j--]!=A_LF) && (llen<LINE_MAX_LEN)){
+        llen++;
     }//while
     return from-llen;
 }//f()
@@ -799,23 +785,24 @@ uint32_t get_line_back(){
 uint8_t get_line_forward(uint8_t *line, uint32_t from){
     int j,size;
     
-    if (from <= state->gap_first){
-        size=min(CHAR_PER_LINE-1, state->gap_first-from);
+    if (from < state->gap_first){
+        size=min(CHAR_PER_LINE,state->gap_first-from);
         sram_read_block(from,line,size);
-        if (size<(CHAR_PER_LINE-1) && state->tail<MAX_SIZE){
-            from=state->tail;
-            j=min(CHAR_PER_LINE-size-1,MAX_SIZE-from);
-            sram_read_block(from,&line[size],j);
-            size+=j;
+        if (size<CHAR_PER_LINE){
+            j=min(CHAR_PER_LINE-size,MAX_SIZE-state->tail);
+            sram_read_block(state->tail,line+size,j);
         }
+        size+=j;
     }else{
-        size=min(CHAR_PER_LINE-1,MAX_SIZE-from);
+        if (from < state->tail) from=state->tail;
+        size=min(CHAR_PER_LINE,MAX_SIZE-from);
         sram_read_block(from,line,size);
     }
-    line[size]=A_CR;
-    size=line_len((char*)line);
+    if (strchr((char*)line,A_LF)){
+        size=line_len((char*)line);
+    }
     j=size;
-    while (j<CHAR_PER_LINE) line[j++]=A_CR;
+    while (j<CHAR_PER_LINE) line[j++]=A_LF;
     return size;
 }//f()
 
@@ -826,7 +813,7 @@ static void update_display(){
     char c, buf[CHAR_PER_LINE];
     
     clear_screen(con);
-    memset(screen,0,SCREEN_SIZE);
+    memset(screen,A_LF,SCREEN_SIZE);
     from=state->scr_first;
     sram_read_block(from,buf,CHAR_PER_LINE);
     while (scr_line<EDITOR_LINES && from < MAX_SIZE){
@@ -842,19 +829,20 @@ static void update_display(){
         from++;
         _screen_put(scr_line,col,c);
         col++;
-        if ((c==A_CR) || (col==CHAR_PER_LINE)){
+        if ((c==A_LF) || (col==CHAR_PER_LINE)){
             scr_line++;
             col=0;
         }
     }
     set_curpos(con,state->scr_col,state->scr_line);
+    state->flags.update=0;
 }//f();
 
 void update_status_line(){
     char status[80];
-    text_coord_t curpos;
+//    text_coord_t curpos;
     
-    curpos=get_curpos(con);
+//    curpos=get_curpos(con);
     set_curpos(con,0,STATUS_LINE);
     invert_video(con,TRUE);
     clear_eol(con);
@@ -865,7 +853,7 @@ void update_status_line(){
             state->fsize,state->file_line,state->scr_col);
     print(con,status);
     invert_video(con,FALSE);
-    set_curpos(con,curpos.x,curpos.y);
+    set_curpos(con,state->scr_col,state->scr_line);
 }
 
 
@@ -886,8 +874,8 @@ static void line_down(){
     col=state->scr_col;
     line_end();
     char_right();
-    col=min(col,line_len(screen+state->scr_line*CHAR_PER_LINE));
-    while (state->scr_col<col){
+    col=min(col,line_len(_screen_line(state->scr_line)));
+    while ((state->gap_first<state->fsize) && (state->scr_col<col)){
         char_right();
     }
 }//f()
@@ -907,13 +895,13 @@ static void char_left(){
             if (state->scr_line){
                 state->scr_line--;
                 state->file_line--;
-                state->scr_col=line_len(screen+CHAR_PER_LINE*state->scr_line);
+                state->scr_col=line_len(_screen_line(state->scr_line));
                 set_curpos(con,state->scr_col,state->scr_line);
             }else{
                 state->scr_first=get_line_back();
                 state->scr_col=max(0,state->gap_first-state->scr_first);
                 state->file_line--;
-                update_display();
+                state->flags.update=1;
             }
         }
     }
@@ -927,7 +915,7 @@ static void char_right(){
         c=sram_read_byte(state->tail);
         sram_write_byte(state->gap_first++,c);
         sram_write_byte(state->tail++,0);
-        if (state->scr_col<line_len(screen+state->scr_line*CHAR_PER_LINE)){
+        if (state->scr_col<line_len(_screen_line(state->scr_line))){
             state->scr_col++;
             set_curpos(con,state->scr_col,state->scr_line);
         }else{
@@ -940,7 +928,7 @@ static void char_right(){
                 state->scr_first+=line_len(screen)+1;
                 state->scr_col=0;
                 state->file_line++;
-                update_display();
+                state->flags.update=1;
             }
         }
     }//if
@@ -961,13 +949,13 @@ static void delete_at(){
     if (state->tail==MAX_SIZE) return;
     sram_write_byte(state->tail++,0);
     state->fsize--;
-    if (state->scr_col<line_len(screen+state->scr_line*CHAR_PER_LINE)){
-        memmove(screen+state->scr_line*CHAR_PER_LINE+state->scr_col,
-                screen+state->scr_line*CHAR_PER_LINE+state->scr_col+1,CHAR_PER_LINE-state->scr_col-1);
+    if (state->scr_col<line_len(_screen_line(state->scr_line))){
+        memmove(_screen_addr(state->scr_line,state->scr_col),
+                _screen_addr(state->scr_line,state->scr_col)+1,CHAR_PER_LINE-state->scr_col-1);
         print_line(state->scr_line);
         set_curpos(con,state->scr_col,state->scr_line);
     }else{
-        update_display();
+        state->flags.update=1;
     }
 }//f()
 
@@ -979,16 +967,16 @@ static void delete_to_end(){
     uint8_t llen,c;
     
     if (state->fsize==0) return;
-    llen=strlen((char*)screen+state->scr_line*CHAR_PER_LINE);
+    llen=line_len(_screen_line(state->scr_line));
     if (state->scr_col){
-        memset(screen+state->scr_line*CHAR_PER_LINE+state->scr_col,0,CHAR_PER_LINE-state->scr_col);
+        memset(_screen_addr(state->scr_line,state->scr_col),0,CHAR_PER_LINE-state->scr_col);
         c=llen-state->scr_col;
         sram_clear_block(state->tail,c);
         state->fsize-=c;
         state->tail+=c;
         print_line(state->scr_line);
     }else{
-        memset(screen+state->scr_line*CHAR_PER_LINE,0,CHAR_PER_LINE);
+        memset(_screen_line(state->scr_line),0,CHAR_PER_LINE);
         sram_clear_block(state->tail,llen);
         state->tail+=llen;
         state->fsize-=llen;
@@ -1000,7 +988,7 @@ static void delete_to_end(){
                 state->fsize--;
             }
         }
-        update_display();
+        state->flags.update=1;
     }
     state->flags.modified=TRUE;
 }//f()
@@ -1012,8 +1000,8 @@ static void delete_to_start(){
         memset(buffer,0,CHAR_PER_LINE);
         state->gap_first-=state->scr_col;
         sram_write_block(state->gap_first,buffer,state->scr_col);
-        memmove(screen+state->scr_line*CHAR_PER_LINE,
-                screen+state->scr_line*CHAR_PER_LINE+state->scr_col,CHAR_PER_LINE-state->scr_col);
+        memmove(_screen_line(state->scr_line),
+                _screen_addr(state->scr_line,state->scr_col),CHAR_PER_LINE-state->scr_col);
         state->fsize-=state->scr_col;
         state->scr_col=0;
         print_line(state->scr_line);
@@ -1026,18 +1014,18 @@ static void insert_char(char c){
         refused();
         return;
     }
-    if (line_len(screen+state->scr_line*CHAR_PER_LINE)<LINE_MAX_LEN){
+    if (line_len(_screen_line(state->scr_line))<LINE_MAX_LEN){
         sram_write_byte(state->gap_first++,c);
         state->fsize++;
-        memmove(screen+state->scr_line*CHAR_PER_LINE+state->scr_col+1,
-                screen+state->scr_line*CHAR_PER_LINE+state->scr_col,CHAR_PER_LINE-state->scr_col-1);
+        memmove(_screen_addr(state->scr_line,state->scr_col)+1,
+                _screen_addr(state->scr_line,state->scr_col),CHAR_PER_LINE-state->scr_col-1);
         _screen_put(state->scr_line,state->scr_col,c);
         print_line(state->scr_line);
         state->scr_col++;
         set_curpos(con,state->scr_col,state->scr_line);
         state->flags.modified=TRUE;
     }else{
-        sram_write_byte(state->gap_first++,A_CR);
+        sram_write_byte(state->gap_first++,A_LF);
         sram_write_byte(state->gap_first++,c);
         state->fsize+=2;
         state->scr_col=1;
@@ -1047,13 +1035,13 @@ static void insert_char(char c){
             state->scr_line=LAST_LINE;
         }
         state->flags.modified=TRUE;
-        update_display();
+        state->flags.update=1;
     }
 }//f()
 
 static void replace_char(char c){
     int llen;
-    llen=line_len(screen+state->scr_line*CHAR_PER_LINE);
+    llen=line_len(_screen_line(state->scr_line));
     if (state->scr_col<llen){
         sram_write_byte(state->gap_first++,c);
         state->tail++;
@@ -1071,7 +1059,7 @@ static void line_home(){
     if (state->scr_col){
         state->tail-=state->scr_col;
         sram_write_block(state->tail,
-                (uint8_t*)screen+state->scr_line*CHAR_PER_LINE,state->scr_col);
+                (uint8_t*)_screen_line(state->scr_line),state->scr_col);
         state->gap_first-=state->scr_col;
         sram_clear_block(state->gap_first,state->scr_col);
         state->scr_col=0;
@@ -1082,10 +1070,10 @@ static void line_home(){
 static void line_end(){
     uint8_t llen,forward;
     
-    llen=line_len((char*)screen+state->scr_line*CHAR_PER_LINE);
+    llen=line_len(_screen_line(state->scr_line));
     forward=llen-state->scr_col;
     if (forward){
-        sram_write_block(state->gap_first,(uint8_t*)screen+state->scr_line*CHAR_PER_LINE+state->scr_col,forward);
+        sram_write_block(state->gap_first,(uint8_t*)_screen_addr(state->scr_line,state->scr_col),forward);
         state->gap_first+=forward;
         sram_clear_block(state->tail,forward);
         state->tail+=forward;
@@ -1104,63 +1092,26 @@ static void line_end(){
     }else{
         sram_write_byte(state->tail++,0);
     }
-    sram_write_byte(state->gap_first++,A_CR);
+    sram_write_byte(state->gap_first++,A_LF);
     state->scr_col=0;
     state->scr_line++;
     if (state->scr_line==LINE_PER_SCREEN){
         state->scr_first+=line_len(screen)+1;
         state->scr_line--;
     }
-    update_display();
+    state->flags.update=1;
 }//f()
 
 static void file_home(){
-    uint8_t size, maxlen, line[CHAR_PER_LINE];
-    if (state->fsize==MAX_SIZE){
-        state->scr_first=0;
-        state->gap_first=0;
-        state->tail=0;
-    }else{
-        maxlen=min(CHAR_PER_LINE,state->tail - state->gap_first);
-        while (state->gap_first){
-            size=min(maxlen,state->gap_first);
-            state->gap_first-=size;
-            sram_read_block(state->gap_first,line,size);
-            sram_clear_block(state->gap_first,size);
-            state->tail-=size;
-            sram_write_block(state->tail,line,size);
-        }
-        state->scr_first=0;
+    while (state->file_line){
+        line_up();
     }
-    state->scr_col=0;
-    state->scr_line=0;
-    update_display();
 }//f()
 
 static void file_end(){
-    int size;
-    uint8_t maxlen, line[CHAR_PER_LINE];
-    
-    if (state->gap_first==state->fsize) return;
-    if (state->fsize==MAX_SIZE){
-        state->scr_first=MAX_SIZE-1;
-        state->gap_first=MAX_SIZE-1;
-        state->tail=MAX_SIZE;
-    }else{
-        maxlen=min(CHAR_PER_LINE,state->tail - state->gap_first);
-        while (state->gap_first < state->fsize){
-            size=min(maxlen,MAX_SIZE-state->tail);
-            sram_read_block(state->tail,line,size);
-            sram_clear_block(state->tail,size);
-            sram_write_block(state->gap_first,line,size);
-            state->tail+=size;
-            state->gap_first+=size;
-        }
-        state->scr_first=state->gap_first;
-        state->scr_col=0;
-        state->scr_line=0;
+    while (state->file_line < state->lines_count){
+        line_down();
     }
-    update_display();
 }//f()
 
 static void page_up(){
@@ -1168,12 +1119,10 @@ static void page_up(){
 
     while (state->scr_line) line_up();
     i=LINE_PER_SCREEN;
-//    dis_video=TRUE;
     while (state->scr_first && i){
         line_up();
         i--;
     }
-//    dis_video=FALSE;
 }
 
 static void page_down(){
@@ -1184,7 +1133,7 @@ static void page_down(){
         state->scr_first=state->gap_first;
         state->scr_line=0;
     }
-    update_display();
+    state->flags.update=1;
 }
 
 
@@ -1192,7 +1141,7 @@ static void word_right(){
     uint8_t c, scr_col;
     uint8_t line[CHAR_PER_LINE];
     
-    if (state->scr_col==strlen((char*)screen+state->scr_line*CHAR_PER_LINE)) return;
+    if (state->scr_col==line_len(_screen_line(state->scr_line))) return;
     scr_col=state->scr_col;
     c=_screen_get(state->scr_line,scr_col++);
     if (!isalnum(c)){
@@ -1253,25 +1202,24 @@ static void jump_to_line(uint16_t line_no){
     uint8_t line[CHAR_PER_LINE];
     
     file_home();
-    if (!line_no) return;
-    line_no--;
-    if (line_no<LINE_PER_SCREEN){
+    if (line_no<EDITOR_LINES){
         while(state->scr_line<line_no) line_down();
-        return;
+    }else{
+        count=0;
+        while ((state->tail<MAX_SIZE) && (count<line_no)){
+            llen=get_line_forward(line,state->tail)+1;//println(SERIO,line);
+            sram_write_block(state->gap_first,line,llen);
+            state->gap_first+=llen;
+            sram_clear_block(state->tail,llen);
+            state->tail+=llen;
+            count++;
+            state->file_line++;
+        }
+        state->scr_first=state->gap_first;
+        state->scr_col=0;
+        state->scr_line=0;
+        state->flags.update=1;
     }
-//    _disable_video();
-    count=0;
-    while ((state->tail<MAX_SIZE) && (count<line_no)){
-        llen=get_line_forward(line,state->tail);
-        sram_write_block(state->gap_first,line,llen+1);
-        state->gap_first+=llen+1;
-        sram_clear_block(state->tail,llen+1);
-        state->tail+=llen+1;
-        count++;
-    }
-    state->scr_first=state->gap_first;
-    set_curpos(con,0,0);
-    update_display();
 }//f
 
 static void goto_line(){
@@ -1279,18 +1227,13 @@ static void goto_line(){
     char line[16];
     uint16_t line_no=0;
     
-    invert_video(con,TRUE);
-    set_curpos(con,0,0);
-    clear_eol(con);
+    invert_display(TRUE);
     print(con,"goto line: ");
     llen=read_line(con,line,16);
-    invert_video(con,FALSE);
+    invert_display(FALSE);
     if (llen){
         line_no=atoi((const char*)line);
         jump_to_line(line_no);
-    }else{
-        print_line(0);
     }
-    
 }
 
