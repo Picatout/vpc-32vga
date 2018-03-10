@@ -58,7 +58,8 @@ extern "C" {
     void vt_scroll_up();
     void vt_scroll_down();
     void vt_println(const char *str);
-    void ser_set_auto_scroll(BOOL scroll);
+    void vt_set_tab_width(int width);
+    int  vt_get_tab_width();
     
 #ifdef	__cplusplus
 }

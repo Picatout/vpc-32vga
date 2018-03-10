@@ -135,6 +135,10 @@ void vt_println(const char *str){
     vt_crlf();
 }
 
-void ser_set_auto_scroll(BOOL scroll){
+void vt_set_tab_width(int width){
     
+}
+
+int vt_get_tab_width(){
+    return 0;
 }

@@ -176,19 +176,19 @@ void main(void) {
     cold_start_init();
     init_msg(SERIAL,ser_init(115200,DEFAULT_LINE_CTRL),"Serial port");
     vga_init();
-    init_msg(BOTH,vga_init(),"video");
+    init_msg(SERIAL,vga_init(),"video");
     vga_clear_screen();
-    init_msg(BOTH,rtcc_init(),"RTCC");
+    init_msg(SERIAL,rtcc_init(),"RTCC");
     heap_size=free_heap();
 #if defined _DEBUG_
     test_pattern();
 #endif
-    init_msg(BOTH,sound_init(),"Sound");
+    init_msg(SERIAL,sound_init(),"Sound");
     tune((unsigned int*)&e3k[0]);
-    init_msg(BOTH,kbd_init(),"keyboard");
+    init_msg(SERIAL,kbd_init(),"keyboard");
     text_coord_t cpos;
-    init_msg(BOTH,!mount(0),"SD card");
-    init_msg(BOTH,sram_init(),"SPI RAM");
+    init_msg(SERIAL,!mount(0),"SD card");
+    init_msg(SERIAL,sram_init(),"SPI RAM");
     //test_vm();
 #if defined _DEBUG_    
     // sram test

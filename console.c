@@ -33,6 +33,7 @@
 #include "vt100.h"
 
 
+static int tab_width=4;
 
 void uppercase(char *str){// in situ uppercase
     while (*str){
@@ -40,15 +41,6 @@ void uppercase(char *str){// in situ uppercase
         str++;
     }
 }
-
-void set_auto_scroll(dev_t dev, BOOL scroll){
-    if (dev==VGA_CONSOLE){
-        vga_set_auto_scroll(scroll);
-    }else{
-        ser_set_auto_scroll(scroll);
-    }
-}
-
 
  // efface l'écran et positionne le curseur à {0,0}
 void clear_screen(dev_t dev){
@@ -230,7 +222,22 @@ void scroll_up(dev_t dev){
     }else{
         vt_scroll_up();
     }
-    
 }
 
 
+void set_tab_witdh(dev_t dev, int width){
+    if (dev==VGA_CONSOLE){
+        vga_set_tab_width(width);
+    }else{
+        vt_set_tab_width(width);
+    }
+}
+
+int get_tab_width(dev_t dev){
+    if (dev==VGA_CONSOLE){
+        return vga_get_tab_width();
+    }else{
+        return vt_get_tab_width();
+    }
+    
+}

@@ -1,3 +1,21 @@
+2018-03-09
+----------
+1. Travail sur editor.c
+2. Ajout de console:scroll_up()
+3. A faire: travail sur delete_at();
+
+2018-03-08
+----------
+1. Travail sur editor.c
+
+
+2018-03-07
+----------
+1. Travail sur editor.c
+2. ajout de console:set_tab_width(),vt100:vt_set_tab_width() et vga:vga_set_tab_widh()
+3. Suppression de console:set_auto_scroll(),vt100:vt_set_auto_scroll()
+4. Corrigé erreur dans vga_put_char() pour le traitement du caractère '\t'.
+
 2018-03-06
 ----------
 1. Travail sur editor.c

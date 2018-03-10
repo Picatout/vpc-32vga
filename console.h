@@ -68,7 +68,8 @@ void print_hex(dev_t dev, unsigned hex, int width);
 void println(dev_t dev,const char *str);
 void scroll_down(dev_t dev);
 void scroll_up(dev_t dev);
-void set_auto_scroll(dev_t dev, BOOL scroll);
+void set_tab_witdh(dev_t dev, int width);
+int get_tab_width(dev_t dev);
 
 #ifdef	__cplusplus
 }

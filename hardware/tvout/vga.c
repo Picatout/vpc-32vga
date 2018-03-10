@@ -32,7 +32,6 @@
 #include "vga.h"
 #include "../serial_comm/serial_comm.h"
 
-
 /*
  * The generator use an output compare to generate a regular train of pulses
  * for HSync signal. The vertical VSync signal in generated in software inside
@@ -66,7 +65,6 @@ volatile static int *dma_source; // pointer for DMA source.
 #define CUR_VIS  2  // curseur visible
 #define INV_VID  4  // inverse vidéo
 
-static BOOL auto_scroll=TRUE;
 static unsigned short cx=0, cy=0;  // coordonnée courante du curseur texte en pixels.
 static unsigned char tab_width=TAB_WIDTH;
 static cursor_t cur_shape=CR_UNDER;
@@ -117,10 +115,6 @@ int vga_init(void){
     return 0;
 }//init_video()
 
-void vga_set_auto_scroll(BOOL scroll){
-    auto_scroll=scroll;
-}
-
 void vga_clear_screen(){
     if (flags&INV_VID){
         memset(video_bmp,255,HRES/8*VRES);
@@ -157,9 +151,7 @@ void vga_cursor_right(){
     if (cx>=(CHAR_PER_LINE*CHAR_WIDTH)){
         cx = 0;
         if (cy>=((LINE_PER_SCREEN-1)*CHAR_HEIGHT)){
-            if (auto_scroll){
-                vga_scroll_up();
-            }
+            vga_scroll_up();
         }else{
             cy += CHAR_HEIGHT;
         }
@@ -173,7 +165,7 @@ void vga_cursor_left(){
         cx = (CHAR_PER_LINE-1);
         if (cy>=CHAR_HEIGHT){
             cy -= CHAR_HEIGHT;
-        }else if (auto_scroll){
+        }else{
             vga_scroll_down();
         }
     }
@@ -182,7 +174,7 @@ void vga_cursor_left(){
 void vga_cursor_up(){
     if (cy>=CHAR_HEIGHT){
         cy -= CHAR_HEIGHT;
-    }else if (auto_scroll){
+    }else{
         vga_scroll_down();
     }
 }// vga_cursor_up()
@@ -198,9 +190,7 @@ void vga_cursor_down(){
 void vga_crlf(){
     cx=0;
     if (cy==((LINE_PER_SCREEN-1)*CHAR_HEIGHT)){
-        if (auto_scroll){
-            vga_scroll_up();
-        }
+        vga_scroll_up();
     }else{
         cy += CHAR_HEIGHT;
     }
@@ -216,13 +206,12 @@ void vga_put_char(char c){
             vga_crlf();
             break;
         case TAB:
-            cx += (cx%tab_width);
+            i=cx%(CHAR_WIDTH*tab_width);
+            cx += i?i:tab_width*CHAR_WIDTH;
             if (cx>=(CHAR_PER_LINE*CHAR_WIDTH)){
                 cx = 0;
                 if (cy==((LINE_PER_SCREEN-1)*CHAR_HEIGHT)){
-                    if (auto_scroll){
-                        vga_scroll_up();
-                    }
+                    vga_scroll_up();
                 }else{
                     cy += CHAR_HEIGHT;
                 }
@@ -285,6 +274,10 @@ void vga_println( const char *str){
 void vga_set_tab_width(unsigned char width){
     tab_width=width;
 }// vga_set_tab_width()
+
+int vga_get_tab_width(){
+    return tab_width;
+}
 
 void vga_clear_eol(void){
     int x,y;
@@ -497,3 +490,4 @@ void __ISR(_TIMER_2_VECTOR,IPL7AUTO) tmr2_isr(void){
     }//switch (ln_cnt)
     mT2ClearIntFlag();
 }//tmr2_isr()
+

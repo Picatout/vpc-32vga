@@ -65,6 +65,7 @@ void vga_cursor_left(); // recule le curseur d'une position, va à la fin de la l
 void vga_cursor_down(); // descend le curseur à la ligne suivante, scroll_up() si nécessaire
 void vga_cursor_up(); // monte le curseur à la ligne précédente, scroll_down() si nécessaire
 void vga_set_tab_width(unsigned char width); // défini la largeur des colonnes de tabulation.
+int  vga_get_tab_width(); // retourne la largeur de colonne.
 void vga_invert_char(); // inverse les pixel du caractère à la position du curseur.
 void vga_toggle_cursor(); // inverse l'état du curseur texte.
 void vga_show_cursor(BOOL); // affiche ou masque le curseur texte
@@ -75,7 +76,6 @@ void vga_crlf(); // déplace le curseur à la ligne suivante
 void vga_invert_video( unsigned char invert); // inverse vidéo des caractèrs noir/blanc
 BOOL vga_is_invert_video(); // renvoie le mode vidéo.
 void vga_println( const char *str);
-void vga_set_auto_scroll(BOOL scroll);
 // Hardware initialization
  int vga_init(void);
 
