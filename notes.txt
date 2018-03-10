@@ -1,3 +1,8 @@
+2018-03-10
+----------
+1. Travail sur editor.c
+2. Ajout de spiram:sram_move()
+
 2018-03-09
 ----------
 1. Travail sur editor.c

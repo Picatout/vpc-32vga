@@ -935,7 +935,7 @@ static int get_line(char *line, uint32_t *from){
     }
     if (size<CHAR_PER_LINE){
         llen=size;
-        size=min(CHAR_PER_LINE-size,MAX_SIZE-state->tail);
+        size=min(CHAR_PER_LINE-size,MAX_SIZE-saddr);
         sram_read_block(saddr,(uint8_t*)(line+llen),size);
         size+=llen;
     }
@@ -1023,11 +1023,20 @@ static void line_down(){
     }
 }//f()
 
+static int screen_scroll_down(){
+    char buf[CHAR_PER_LINE];
+    int llen;
+    
+    llen=sram_line_home(buf,false);
+    state->scr_first=state->gap_first-llen;
+    fill_screen();
+    state->flags.update=true;
+    return llen;
+}
+
 //déplace le curseur vers la gauche d'un caractère
 static bool char_left(){
-    char buf[CHAR_PER_LINE];
-    int size,llen;
-    uint32_t from;
+    int llen;
     
     if (sram_char_left()){
         if (state->scr_col){
@@ -1035,23 +1044,25 @@ static bool char_left(){
         }else{
             state->file_line--;
             if (!state->scr_line){
-                llen=sram_line_home(buf,false);
-                state->scr_first=state->gap_first-llen;
-                state->scr_col=llen;
-                memmove(screen+CHAR_PER_LINE,screen,(EDITOR_LINES-1)*CHAR_PER_LINE);
-                strcpy(screen,buf);
-                state->flags.update=true;
+                llen=screen_scroll_down();
             }else{
                 state->scr_line--;
                 llen=strlen(_screen_line(state->scr_line));
-                state->scr_col=llen;
             }
+            state->scr_col=llen;
+            set_curpos(con,state->scr_col,state->scr_line);
         }
-        set_curpos(con,state->scr_col,state->scr_line);
         return true;
+    }else{
+        return false;
     }
-    return false;
 }//f()
+
+static void screen_scroll_up(){
+    state->scr_first+=strlen(screen)+1;
+    fill_screen();
+    state->flags.update=true;
+}
 
 //déplace le curseur vers la droite d'un caractère
 static bool char_right(){
@@ -1065,12 +1076,7 @@ static bool char_right(){
             state->file_line++;
             state->scr_col=0;
             if (state->scr_line==LAST_LINE){
-                state->scr_first+=strlen(screen)+1;
-                memmove(screen,screen+CHAR_PER_LINE,SCREEN_SIZE-CHAR_PER_LINE);
-                from=state->tail;
-                get_line(buf,&from);
-                strcpy(_screen_line(LAST_LINE),buf);
-                state->flags.update=true;
+                screen_scroll_up();
             }else{
                 state->scr_line++;
             }
@@ -1084,31 +1090,38 @@ static bool char_right(){
 static void delete_left(){
     if (char_left()){
         delete_at();
+    }else{
+        _refused();
     }
 } //f()
 
+// supprime le caractère à la position du curseur
 static void delete_at(){
-    char c, buf[CHAR_PER_LINE];
-    int col, llen;
-    uint32_t from;
+    int col,count,llen,llen_next;
     
     if (state->tail<MAX_SIZE){
         col=state->scr_col;
         llen=strlen(_screen_line(state->scr_line));
-        state->tail++;
-        state->fsize--;
         if (col<llen){
-            memmove(_screen_line(state->scr_line)+state->scr_col,
-                    _screen_line(state->scr_line)+state->scr_col+1,
-                    CHAR_PER_LINE-state->scr_col-1);
+            state->tail++;
+            state->fsize--;
+            memmove(_screen_line(state->scr_line)+col,
+                    _screen_line(state->scr_line)+col+1,
+                    CHAR_PER_LINE-col-1);
+            set_curpos(con,0,state->scr_line);
             clear_eol(con);
-            print(con,_screen_line(state->scr_line)+state->scr_col+1);
+            print(con,_screen_line(state->scr_line));
             set_curpos(con,state->scr_col,state->scr_line);
         }else{
-           state->lines_count--; 
-           llen+=sram_line_end(buf,false);
-           if (llen>LINE_MAX_LEN){
-               
+           llen_next=strlen(_screen_line(state->scr_line+1));
+           if ((llen+llen_next)<=LINE_MAX_LEN){
+               state->tail++;
+               state->fsize--;
+               state->lines_count--;
+           }else{
+               count=LINE_MAX_LEN-llen;
+               sram_move(state->tail,state->tail+1,count);
+               sram_write_byte(state->tail+count,A_LF);
            }
            fill_screen();
            state->flags.update=true;
@@ -1118,31 +1131,54 @@ static void delete_at(){
         return;
     }
     
-}//f()
+}//delete_at()
+
 
 //efface tous les caractères à partir du curseur
 //jusqu'à la fin de ligne.
 //si le curseur est au début de ligne
 //la ligne est supprimée au complet LF inclus.
 static void delete_to_end(){
-    uint8_t col,llen;
-    
-    col=state->scr_col;
+    int count,col,llen;
+
     llen=strlen(_screen_line(state->scr_line));
-    while(llen>col){
-        delete_at();
-        llen--;
-    }
-    if (!col){
-        delete_at();
+    if (state->scr_col){
+        count=llen-state->scr_col;
+        if (count){
+            state->tail+=count;
+            state->fsize-=count;
+            _screen_put(state->scr_line,state->scr_col,0);
+            clear_eol(con);
+        }
+    }else{
+        state->tail+=llen;
+        state->fsize-=llen;
+        state->scr_col=0;
+        if (sram_get_char()==A_LF){
+            state->tail++;
+            state->fsize--;
+            state->lines_count--;
+        }
+        fill_screen();
+        state->flags.update=true;
     }
  }//f()
 
 //efface tous les caratères à gauche du curseur
 //jusqu'au début de la ligne.
 static void delete_to_start(){
-    while (state->scr_col){
-        delete_left();
+    int col;
+    
+    col=state->scr_col;
+    if (col){
+        state->gap_first-=col;
+        state->fsize-=col;
+        memmove(_screen_line(state->scr_line),_screen_line(state->scr_line)+col,CHAR_PER_LINE-col);
+        state->scr_col=0;
+        set_curpos(con,0,state->scr_line);
+        clear_eol(con);
+        print(con,_screen_line(state->scr_line));
+        set_curpos(con,0,state->scr_line);
     }
 }//f()
 

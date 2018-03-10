@@ -200,4 +200,48 @@ int sram_read_string(unsigned addr, char *buffer,unsigned size){
     return --i;
 }
 
+static void move_up(unsigned dest,unsigned src, unsigned size){
+#define BUF_SIZE (64)
+    
+    uint8_t buf[BUF_SIZE];
+    unsigned count;
+    while (size){
+        count=min(BUF_SIZE,size);
+        sram_read_block(src,buf,count);
+        sram_write_block(dest,buf,count);
+        size-=count;
+        src+=count;
+        dest+=count;
+    }
+}
 
+static void move_down(unsigned dest,unsigned src, unsigned size){
+#define BUF_SIZE (64)
+    uint8_t buf[BUF_SIZE];
+    unsigned count;
+    
+    dest+=size;
+    src+=size;
+    while (size){
+        count=min(BUF_SIZE,size);
+        sram_read_block(src-count,buf,count);
+        sram_write_block(dest-count,buf,count);
+        size-=count;
+        src-=count;
+        dest-=count;
+    }
+}
+
+// sram_move()
+//  move a block from src to dest.
+// input:
+//  dest    address destination
+//  src     address source   
+//  size    count of bytes to move
+void sram_move(unsigned dest, unsigned src, unsigned size){
+    if (dest<src){
+        move_up(dest,src,size);
+    }else if (dest>src){
+        move_down(dest,src,size);
+    }
+}

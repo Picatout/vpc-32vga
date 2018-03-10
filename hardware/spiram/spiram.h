@@ -75,6 +75,8 @@ extern "C" {
     void sram_write_string(unsigned addr, const char *str);
     // read a string from SPI RAM
     int sram_read_string(unsigned addr,char *buffer,unsigned size);
+    // move a block of size bytes from src to dest
+    void sram_move(unsigned dest, unsigned src, unsigned size);
     
 #ifdef	__cplusplus
 }
