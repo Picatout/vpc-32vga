@@ -59,7 +59,7 @@
 #define MAX_SIZE (ED_BUFF_SIZE)
 #define STATUS_LINE (LINE_PER_SCREEN-1)
 
-#define _refused()  tone(500,100)
+#define _beep()  tone(500,100)
 
 #define MODE_INSERT 1
 #define MODE_OVERWR 0
@@ -137,7 +137,7 @@ static void page_down();
 static void word_right();
 static void word_left();
 static void goto_line();
-static int get_line(char *line, uint32_t *from);
+static int get_line(char *line, unsigned *from);
 static uint32_t get_line_back();
 static void jump_to_line(uint16_t line_no);
 static void insert_tabulation();
@@ -153,14 +153,6 @@ static void invert_display(bool enable){
     }
 }
 
-static void print_line(uint8_t ln){
-    char *line;
-    int count=0;
-    line=_screen_line(ln);
-    set_curpos(con,0,ln);
-    clear_eol(con);
-    print(con,line);
-}
 
 static void prompt_continue(){
     print(con,"\nany key...");//static uint8_t *llen;
@@ -184,7 +176,7 @@ static bool ask_confirm(){
     
     bool answer=state->flags.modified;
     if (answer){
-        tone(1000,100);
+        _beep();
         invert_display(true);
         print(con,"file unsaved! continue (y/n)?");
         key= wait_key(con);
@@ -213,6 +205,8 @@ static void new_file(const char *name){
         clear_all_states();
         if (file_exist(name)){
             load_file(name);
+        }else if(name){
+            strcpy(fname,name);
         }
     }
 }//new_file()
@@ -236,26 +230,35 @@ static void list_files(){
     listDir(".");
     prompt_continue();
     invert_display(false);
+    clear_screen(con);
+    state->flags.update=true;
 }//f
 
+//affiche la chaîne trouvée en inverse vidéo.
 //initialement le curseur est au début de la ligne
 static void mark_target(){
     int i,len;
-
+    jump_to_line(search_info->file_line);
+    while (state->scr_col<search_info->col){char_right();}
+    if (state->flags.update){update_display();}
     len=strlen(search_info->target);
-    set_curpos(con,state->scr_col,state->scr_line);
     invert_video(con,true);
     for (i=0;i<len;i++) put_char(con,_screen_get(state->scr_line,state->scr_col+i));
     invert_video(con,false);
     set_curpos(con,state->scr_col,state->scr_line);
-}//f
+}//mark_target()
 
+// recherche une la chaîne 'target' dans la chaîne 'line'
+// retourne la position à partir du début de 'line' ou -1 si non trouvée.
 static int search_line(char *line, char *target, int from){
-    int i,j=0;
-    for (i=from;line[i];i++){
+    int i,j=0,tlen,llen;
+    
+    tlen=strlen(target);
+    llen=strlen(line);
+    for (i=from;i<llen;i++){
         if (search_info->target[j]==line[i]){
             j++;
-            if (j==strlen(search_info->target)){
+            if (j==tlen){
                 i++;
                 break;
             }
@@ -263,96 +266,70 @@ static int search_line(char *line, char *target, int from){
              j=0; 
         }
     }
-    return j==strlen(search_info->target)?i-j:-1;
-}//f
+    return j==tlen?i-j:-1;
+}//search_line()
 
+// chaîne trop courte pour contenir la chaîne cible.
+#define _string_too_short(addr) ((MAX_SIZE-(addr))<strlen(search_info->target))
+
+static bool search_completed(uint32_t limit){
+    search_info->col=0;
+    search_info->file_line++;
+    if (search_info->file_line>state->lines_count){
+        search_info->file_line=0;
+    }
+    return (!(search_info->loop || search_info->file_line) ||
+            (search_info->loop && (search_info->file_line==limit)));
+}
+
+
+// recherche l'occurance suivante de 'search_info->target' dans le texte.
 static void search_next(){
     char line[CHAR_PER_LINE];
-    int len,lcount=0,pos;
-    uint32_t saddr;
+    int pos;
+    uint32_t limit;
+    unsigned saddr;
     
-    if (!search_info->target[0] || (!search_info->loop && (state->gap_first>=(state->fsize-1)))){
-        _refused();
+    if (!search_info->target[0] || (!search_info->loop && 
+            _string_too_short(state->tail+1))){
+        _beep();
         return;
+    }
+    if (search_info->found && (search_info->file_line==state->file_line) && 
+            (search_info->col==state->scr_col)){
+        search_info->col++;
+        saddr=state->gap_first-state->scr_col+1;
+    }else{
+        search_info->file_line=state->file_line;
+        search_info->col=state->scr_col;
+        saddr=state->gap_first-state->scr_col;
     }
     search_info->found=false;
-    strcpy(line,_screen_line(state->scr_line));
+    get_line(line,&saddr);
     if (search_info->ignore_case) uppercase(line);
-    pos=search_line(line,search_info->target,state->scr_col+1);
-    if (pos>state->scr_col){
+    pos=search_line(line,search_info->target,search_info->col);
+    if (pos!=-1){
         search_info->col=pos;
-        state->scr_col=pos;
+        search_info->found=true;
         mark_target();
         return;
     }
-    len=strlen(_screen_line(state->scr_line));
-    saddr=state->tail+(len-state->scr_col)+1;
-    while (saddr<ED_BUFF_SIZE){
-        lcount++;
-        len=get_line((uint8_t*)line,&saddr);
-        if (search_info->ignore_case) uppercase(line);
+    limit=search_info->file_line;
+    while (!(search_info->found || search_completed(limit))){
+        get_line(line,&saddr);
         pos=search_line(line,search_info->target,0);
-        if (pos>-1){
+        if (pos!=-1){
             search_info->found=true;
-            search_info->col=(uint8_t)pos;
-            break;
+            search_info->col=pos;
         }
-    }//while
-    if (search_info->found){
-        pos=state->scr_line+lcount;
-        line_down();
-        saddr=state->tail;
-        state->scr_col=search_info->col;
-        while (lcount){
-            len=get_line((uint8_t*)line,&saddr);
-            lcount--;
-            if (lcount){
-                sram_write_block(state->gap_first,(uint8_t*)line,len+1);
-                state->gap_first+=len+1;
-                sram_clear_block(state->tail,len+1);
-                state->tail+=len+1;
-                saddr=state->tail;
-            }else{
-                sram_write_block(state->gap_first,(uint8_t*)line,search_info->col);
-                state->gap_first+=search_info->col;
-                sram_clear_block(state->tail,search_info->col);
-                state->tail+=search_info->col;
-            }
-        }//while
-        if (pos>LAST_LINE){
-            state->scr_first=state->gap_first-search_info->col;
-            state->scr_line=0;
-            state->flags.update=1;
-        }else{
-            state->scr_line=pos;
-            set_curpos(con,state->scr_col,state->scr_line);
-        }
-        mark_target();
-    }else if (search_info->loop){
-        saddr=0;
-        lcount=1;
-        while (saddr<state->gap_first){
-            len=get_line((uint8_t*)line,&saddr);
-            if (search_info->ignore_case) uppercase(line);
-            pos=search_line(line,search_info->target,0);
-            if (pos>-1){
-                search_info->found=true;
-                search_info->col=(uint8_t)pos;
-                break;
-            }
-            lcount++;
-        }//while
-        if (search_info->found){
-            jump_to_line(lcount);
-            while (state->scr_col<search_info->col) char_right();
-            mark_target();
-        }else{
-            _refused();
-        }
-    }else{
-        _refused();
     }
-}//f
+    if (search_info->found){
+        mark_target();
+    }else{
+        _beep();
+    }
+}//search_next()
+
 
 static bool parse_search_line(){
     int pos=0;
@@ -378,32 +355,32 @@ static bool parse_search_line(){
             case 'l':
             case 'L':
                 if (prev!='-'){
-                    _refused();
+                    _beep();
                     return false;
                 }
                 search_info->loop=true;
                 options|=1; 
                 if (str[pos+1] && str[pos+1]!=' '){
-                    _refused();
+                    _beep();
                     return false;
                 }
                 break;
             case 'i':
             case 'I':
                 if (prev!='-'){
-                    _refused();
+                    _beep();
                     return false;
                 }
                 search_info->ignore_case=true;
                 options|=2;
                 uppercase(str);
                 if (str[pos+1] && str[pos+1]!=' '){
-                    _refused();
+                    _beep();
                     return false;
                 }
                 break;
             default:
-                _refused();
+                _beep();
                 return false;
         }//switch
         prev=str[pos];
@@ -414,8 +391,8 @@ static bool parse_search_line(){
 
 static void search(){
     int len;
+
     invert_display(true);
-    clear_screen(con);
     print(con,"USAGE: target [-I] [-L]\n");
     search_info->found=false;
     search_info->loop=false;
@@ -714,11 +691,12 @@ void editor(const char* file_name){
             case VK_F1: // display hotkeys
                 hot_keys();
                 break;
-            case VK_F3:
+            case VK_F3: // search string
                 search();
                 break;
-            case VK_F4:
+            case VK_F4: // search next occurance
                 search_next();
+                break;
             case VK_CA: // <CTRL>-A  sauvegarde sous...
                 save_file_as();
                 break;
@@ -744,7 +722,7 @@ void editor(const char* file_name){
                 if ((key>=32)&(key<FONT_SIZE+32)){
                     insert_char(key);
                 }else{
-                    _refused();
+                    _beep();
                 }
             }//switch
     }//while
@@ -918,9 +896,9 @@ bool in_slot(uint32_t saddr){
 // initialement 'from' devrait pointé le premier caractère d'une ligne.
 // conditions:
 //   line est un tampon d'au moins CHAR_PER_LINE caractères.
-static int get_line(char *line, uint32_t *from){
+static int get_line(char *line, unsigned *from){
     int size, llen;
-    uint32_t saddr;
+    unsigned saddr;
     char c;
     
     size=0;
@@ -954,7 +932,7 @@ static int get_line(char *line, uint32_t *from){
 
 static void fill_screen(){
     char buf[CHAR_PER_LINE];
-    uint32_t from;
+    unsigned from;
     int i;
     
     memset(screen,0,SCREEN_SIZE);
@@ -964,6 +942,7 @@ static void fill_screen(){
         get_line(buf,&from);
         strcpy(_screen_line(i++),buf);
     }
+    state->flags.update=true;
 }
 
 
@@ -1030,7 +1009,6 @@ static int screen_scroll_down(){
     llen=sram_line_home(buf,false);
     state->scr_first=state->gap_first-llen;
     fill_screen();
-    state->flags.update=true;
     return llen;
 }
 
@@ -1061,7 +1039,6 @@ static bool char_left(){
 static void screen_scroll_up(){
     state->scr_first+=strlen(screen)+1;
     fill_screen();
-    state->flags.update=true;
 }
 
 //déplace le curseur vers la droite d'un caractère
@@ -1091,7 +1068,7 @@ static void delete_left(){
     if (char_left()){
         delete_at();
     }else{
-        _refused();
+        _beep();
     }
 } //f()
 
@@ -1124,10 +1101,9 @@ static void delete_at(){
                sram_write_byte(state->tail+count,A_LF);
            }
            fill_screen();
-           state->flags.update=true;
         }
     }else{
-        _refused();
+        _beep();
         return;
     }
     
@@ -1160,7 +1136,6 @@ static void delete_to_end(){
             state->lines_count--;
         }
         fill_screen();
-        state->flags.update=true;
     }
  }//f()
 
@@ -1195,7 +1170,7 @@ static void insert_char(char c){
         state->scr_col++;
         set_curpos(con,state->scr_col,state->scr_line);
     }else{
-        _refused();
+        _beep();
         return;
     }
 }//f()
@@ -1243,9 +1218,8 @@ static void line_end(){
              state->scr_first+=strlen(screen)+1;
          }
          fill_screen();
-         state->flags.update=true;
      }else{
-         _refused();
+         _beep();
      }
 }//f()
 
@@ -1353,21 +1327,20 @@ static void word_left(){
 }//word_left()
 
 static void jump_to_line(uint16_t line_no){
-    line_no--;
+    line_home();
     if (line_no>state->lines_count){
         file_end();
     }else if (line_no<state->file_line){
                 while (line_no<state->file_line){line_up();}
         }else{
                 while (state->file_line<line_no){line_down();}
-        }//if
-    line_home();
+    }//if
     if (state->scr_line){
         state->scr_first=state->gap_first;
         state->scr_line=0;
         fill_screen();
     }
-}//f
+}//jump_to_line()
 
 static void goto_line(){
     uint8_t llen;
@@ -1380,7 +1353,7 @@ static void goto_line(){
     invert_display(false);
     if (llen){
         line_no=atoi((const char*)line);
-        jump_to_line(line_no);
+        jump_to_line(--line_no);
     }
 }
 

@@ -151,9 +151,9 @@ void init_msg(int output, int code, const char *msg){
     char fmt[CHAR_PER_LINE];
 
     if (!code){
-        sprintf(fmt,"%s initialization completed.\r",msg);
+        sprintf(fmt,"%s initialization completed.\n",msg);
     }else{
-        sprintf(fmt,"%s failed to initialize, error code %d\r",msg,code);
+        sprintf(fmt,"%s failed to initialize, error code %d\n",msg,code);
     }
     switch (output){
         case VGA:

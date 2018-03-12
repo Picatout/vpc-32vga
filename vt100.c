@@ -119,7 +119,7 @@ void vt_invert_video(BOOL yes){
 }
 
 void vt_crlf(){
-    ser_put_char('\r');
+    ser_put_char('\n');
 }
 
 void vt_scroll_up(){
