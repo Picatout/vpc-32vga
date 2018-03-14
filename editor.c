@@ -962,13 +962,10 @@ const char no_name[]="unnamed";
 void update_status_line(){
     char status[80];
     char *file_name;
-//    text_coord_t curpos;
     
-//    curpos=get_curpos(con);
     set_curpos(con,0,STATUS_LINE);
     invert_video(con,true);
     clear_eol(con);
-//    file_name=fname[0]?fname:no_name;
     sprintf(status,"%s,\tsize: %d",fname[0]?fname:no_name,state->fsize);
     print(con,status);
     set_curpos(con,40,STATUS_LINE);

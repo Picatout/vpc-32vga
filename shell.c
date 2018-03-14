@@ -81,19 +81,19 @@ char* exec_script(const char *script);
 
 
 const char *ERR_MSG[]={
-    "no error\r",
-    "unknown command.\r",
-    "syntax error.\r",
-    "not implemented yet.\r",
-    "Memory allocation error.\r",
-    "Bad usage.\r",
-    "File open error.\r",
-    "Copy error.\r",
-    "Mkdir error.\r",
-    "file does not exist.\r",
-    "operation denied.\r",
-    "disk operation error, code is %d \r",
-    "no SD card detected.\r"
+    "no error\n",
+    "unknown command.\n",
+    "syntax error.\n",
+    "not implemented yet.\n",
+    "Memory allocation error.\n",
+    "Bad usage.\n",
+    "File open error.\n",
+    "Copy error.\n",
+    "Mkdir error.\n",
+    "file does not exist.\n",
+    "operation denied.\n",
+    "disk operation error, code is %d \n",
+    "no SD card detected.\n"
 };
 
 
@@ -161,14 +161,14 @@ char* cmd_help(int tok_count, const char **tok_list){
     for(i=0;i<nbr_cmd;i++){
         pos=get_curpos(con);
         if (pos.x>(CHAR_PER_LINE-strlen(commands[i].name)-2)){
-            put_char(con,'\r');
+            put_char(con,'\n');
         }
         print(con,commands[i].name);
         if (i<(nbr_cmd-1)){
             print(con," ");
         }
     }
-    put_char(con,'\r');
+    put_char(con,'\n');
     return NULL;
 }
 
@@ -224,7 +224,7 @@ char* cmd_format(int tok_count, const char **tok_list){
     if (tok_count==2){
         print_error_msg(ERR_NOT_DONE,NULL,0);
     }else{
-        print(con,"USAGE: format volume_name\r");
+        print(con,"USAGE: format volume_name\n");
     }
     return NULL;
 }
@@ -254,7 +254,7 @@ char* cmd_cd(int tok_count, const char **tok_list){ // change le répertoire cour
           error=f_getcwd(path,255);
           if(!error){
               print(con,path);
-              put_char(con,'\r');
+              put_char(con,'\n');
           }
           free(path);
        }
@@ -279,7 +279,7 @@ char* cmd_del(int tok_count, const char **tok_list){ // efface un fichier
             error=f_stat(tok_list[1],fi);
             if (!error){
                 if (fi->fattrib & (ATT_DIR|ATT_RO)){
-                    print_error_msg(ERR_DENIED,"can't delete directory or read only file.\r",0);
+                    print_error_msg(ERR_DENIED,"can't delete directory or read only file.\n",0);
                 }
                 else{
                     error=f_unlink(tok_list[1]);
@@ -290,10 +290,10 @@ char* cmd_del(int tok_count, const char **tok_list){ // efface un fichier
                 print_error_msg(ERR_FIO,"",error);
             }
         }else{
-               print_error_msg(ERR_ALLOC,"delete failed.\r",0);
+               print_error_msg(ERR_ALLOC,"delete failed.\n",0);
         }
    }else{
-       print_error_msg(ERR_USAGE, "delete file USAGE: del file_name\r",0);
+       print_error_msg(ERR_USAGE, "delete file USAGE: del file_name\n",0);
    }
     return NULL;
 }//del()
@@ -310,7 +310,7 @@ char* cmd_ren(int tok_count, const char **tok_list){ // renomme un fichier
     if (tok_count==3){
         f_rename(tok_list[1],tok_list[2]);
     }else{
-        print_error_msg(ERR_USAGE,"rename file, USAGE: ren name new_name\r",0);
+        print_error_msg(ERR_USAGE,"rename file, USAGE: ren name new_name\n",0);
     }
     return NULL;
 }//ren
@@ -352,13 +352,13 @@ char* cmd_copy(int tok_count, const char **tok_list){ // copie un fichier
                 free(fnew);
             }
             if (error){
-                print_error_msg(ERR_FIO,"copy failed.\r",error);
+                print_error_msg(ERR_FIO,"copy failed.\n",error);
             }
         }else{
             print(con,ERR_MSG[ERR_ALLOC]);
         }
     }else{
-        print_error_msg(ERR_USAGE,"copy file USAGE: copy file_name new_file_name\r",0);
+        print_error_msg(ERR_USAGE,"copy file USAGE: copy file_name new_file_name\n",0);
     }
     return NULL;
 }//copy()
@@ -368,7 +368,7 @@ char* cmd_send(int tok_count, const char **tok_list){ // envoie un fichier via u
    if (tok_count==2){
        print_error_msg(ERR_NOT_DONE,NULL,0);
    }else{
-       print(con, "send file via serial, USAGE: send file_name\r");
+       print(con, "send file via serial, USAGE: send file_name\n");
    }
    return NULL;
 }//cmd_send()
@@ -378,7 +378,7 @@ char* cmd_receive(int tok_count, const char **tok_list){ // reçois un fichier vi
    if (tok_count==2){
        print_error_msg(ERR_NOT_DONE,NULL,0);
    }else{
-       print(con, "receive file from serial, USAGE: receive file_name\r");
+       print(con, "receive file from serial, USAGE: receive file_name\n");
    }
    return NULL;
 }//cmd_receive()
@@ -450,13 +450,13 @@ char* cmd_hdump(int tok_count, const char **tok_list){ // affiche un fichier en 
                 free(buff);
                 free(fmt);
             }else{
-                print_error_msg(ERR_ALLOC,"Can't display file.\r",0);
+                print_error_msg(ERR_ALLOC,"Can't display file.\n",0);
             }
         }else{
-            print_error_msg(ERR_FIO,"File open failed.\r",error);
+            print_error_msg(ERR_FIO,"File open failed.\n",error);
         }
    }else{
-       print_error_msg(ERR_USAGE, "USAGE: more file_name\r",0);
+       print_error_msg(ERR_USAGE, "USAGE: more file_name\n",0);
    }
     return NULL;
 }//f
@@ -533,13 +533,13 @@ char* cmd_more(int tok_count, const char **tok_list){
                 free(buff);
                 free(fmt);
             }else{
-                print_error_msg(ERR_ALLOC,"Can't display file.\r",0);
+                print_error_msg(ERR_ALLOC,"Can't display file.\n",0);
             }
         }else{
-            print_error_msg(ERR_FIO,"File open failed.\r",error);
+            print_error_msg(ERR_FIO,"File open failed.\n",error);
         }
    }else{
-       print_error_msg(ERR_USAGE, "USAGE: more file_name\r",0);
+       print_error_msg(ERR_USAGE, "USAGE: more file_name\n",0);
    }
     return NULL;
 }//more
@@ -567,7 +567,7 @@ char* cmd_mkdir(int tok_count, const char **tok_list){
     if (tok_count==2){
         fmt=malloc(CHAR_PER_LINE+1);
         if (fmt && (error=f_mkdir(tok_list[1])==FR_OK)){
-            sprintf(fmt,"directory %s created\r",tok_list[1]);
+            sprintf(fmt,"directory %s created\n",tok_list[1]);
             print(con,fmt);
         }else{
             if (!fmt){
@@ -577,7 +577,7 @@ char* cmd_mkdir(int tok_count, const char **tok_list){
             }
         }
     }else{
-        print_error_msg(ERR_USAGE,"mkdir create a directory, USAGE: mkdir dir_name\r",0);
+        print_error_msg(ERR_USAGE,"mkdir create a directory, USAGE: mkdir dir_name\n",0);
     }
     return NULL;
 }// mkdir()
@@ -599,7 +599,7 @@ char* cmd_dir(int tok_count, const char **tok_list){
         if (error==FR_NO_PATH){// not a directory, try file
             fh=malloc(sizeof(FIL));
             if (fh && ((error=f_open(fh,tok_list[1],FA_READ))==FR_OK)){
-                sprintf(fmt,"File: %s, size %d bytes\r",tok_list[1],fh->fsize);
+                sprintf(fmt,"File: %s, size %d bytes\n",tok_list[1],fh->fsize);
                 print(con,fmt);
                 f_close(fh);
                 free(fh);
@@ -613,12 +613,12 @@ char* cmd_dir(int tok_count, const char **tok_list){
 }//list_directory()
 
 char* cmd_puts(int tok_count, const char **tok_list){
-    print(con, "puts, to be done.\r");
+    print(con, "puts, to be done.\n");
     return NULL;
 }//puts()
 
 char* cmd_expr(int tok_count, const char **tok_list){
-    print(con, "expr, to be done.\r");
+    print(con, "expr, to be done.\n");
     return NULL;
 }//expr()
 
@@ -626,7 +626,7 @@ char* cmd_expr(int tok_count, const char **tok_list){
 char* cmd_free(int tok_count, const char **tok_list){
     char *free_ram;
     free_ram=calloc(sizeof(char),80);
-    sprintf(free_ram,"free RAM %d/%d BYTES\r",free_heap(),heap_size);
+    sprintf(free_ram,"free RAM %d/%d BYTES\n",free_heap(),heap_size);
     return free_ram;
 }
 
@@ -871,7 +871,12 @@ char *cmd_con(int tok_count, const char** tokens){
         if (!strcmp("local",tokens[1])){
             console_id=VGA_CONSOLE;
         }else if (!strcmp("serial",tokens[1])){
-            console_id=SERIAL_CONSOLE;
+            if (vt_init()){
+                console_id=SERIAL_CONSOLE;
+            }else{
+                sprintf(result,"switching console failed, VT terminal not ready\n");
+                return result;
+            }
         }else if (!strcmp("-n",tokens[1])){
             console_id=DISPLAY_NAME;
         }
@@ -890,7 +895,7 @@ char *cmd_con(int tok_count, const char** tokens){
             sprintf(result,"%s",console_name[con]);
             break;
         default:
-            sprintf(result,"Select console\rUSAGE: con -n|local|serial.");
+            sprintf(result,"Select console\nUSAGE: con -n|local|serial.");
     }//switch
     return result;
 }
@@ -941,7 +946,7 @@ char* execute_cmd(int tok_count, const char  **tok_list){
         }
 }// execute_cmd()
 
-const char *prompt="\r$";
+const char *prompt="\n$";
 
 
 void free_tokens(int tok_count , char **tok_list){
@@ -1238,7 +1243,7 @@ void shell(void){
     char *str, cmd_line[CHAR_PER_LINE];
     int len;
     str=malloc(32);
-    sprintf(str,"\rVPC-32 shell version %s \r",_version);
+    sprintf(str,"\nVPC-32 shell version %s \n",_version);
     print(con,str);
     free(str);
     while (1){

@@ -67,12 +67,12 @@ char mount(unsigned char pin) {
 	if (!getCD()) {
 		FError = FE_NOT_PRESENT;
 #ifdef SD_DEBUG
-		DebugPrint( " getCD Failed!\r");
+		DebugPrint( " getCD Failed!\n");
 #endif
 		return FALSE;
 	}
 #ifdef SD_DEBUG
-	DebugPrint("card in slot\r");
+	DebugPrint("card in slot\n");
 #endif
 
 	// 2. initialize the card
@@ -82,12 +82,12 @@ char mount(unsigned char pin) {
 	initMedia();
     if (disk_initialize(0)==STA_NOINIT){
 #ifdef SD_DEBUG
-            DebugPrint("disk_initialize() failed!\r");
+            DebugPrint("disk_initialize() failed!\n");
 #endif
             return 0;
         };
 #ifdef SD_DEBUG
-        DebugPrint("disk_initialize() OK\r");
+        DebugPrint("disk_initialize() OK\n");
 #endif
 	// We're skipping the old step 3 because there's no need for malloc
 	// This takes 6k off the code size if malloc is not used elsewhere.
@@ -103,13 +103,13 @@ char mount(unsigned char pin) {
 	if (r != FR_OK) {
 		FError = r;
 #ifdef SD_DEBUG
-		DebugPrint("Failed!\r");
+		DebugPrint("Failed!\n");
 #endif
 		//free(Fat);
 		return FALSE;
 	}
 #ifdef SD_DEBUG
-	DebugPrint( "OK\r");
+	DebugPrint( "OK\n");
 #endif
 
 #ifdef SD_DEBUG
@@ -120,14 +120,14 @@ char mount(unsigned char pin) {
 	if (r != FR_OK) {
 		FError = r;
 #ifdef SD_DEBUG
-		DebugPrint( "Failed!\r");
+		DebugPrint( "Failed!\n");
                  //put_rc(r);
 #endif
 		unmount();
 		return FALSE;
 	}
 #ifdef SD_DEBUG
-	DebugPrint( "OK\r");
+	DebugPrint( "OK\n");
 #endif
 
 	return TRUE;
@@ -189,7 +189,7 @@ unsigned listDir(const char *path) {
             if (!fmt) {
                 res=-1;
             }else{
-                sprintf(fmt,"\rreading dirctory: ('%s')\r", path);
+                sprintf(fmt,"\nreading dirctory: ('%s')\n", path);
                 print(con,fmt);
             }
         }else{
@@ -224,7 +224,7 @@ unsigned listDir(const char *path) {
                 print(con, fmt);
                 sprintf(fmt," %9u ", Finfo.fsize);
                 print(con, fmt);
-		sprintf(fmt, " %-12s %s\r", Finfo.fname,
+		sprintf(fmt, " %-12s %s\n", Finfo.fname,
 #if _USE_LFN
 				Lfname);
 #else
@@ -233,14 +233,14 @@ unsigned listDir(const char *path) {
                 print(con,fmt);
 	}
         if (!res){
-            sprintf(fmt, "\rfile count %d\rdirectory count %d\rtotal size %d\r",s1,s2,p1);
+            sprintf(fmt, "\nfile count %d\ndirectory count %d\ntotal size %d\n",s1,s2,p1);
             print(con, fmt);
         }else{
             if (fmt){
-                    sprintf(fmt,"file i/o error code: %d\r", res);
+                    sprintf(fmt,"file i/o error code: %d\n", res);
                     print(con, fmt);
             }else{
-                print(con,"Memory allocation error.\r");
+                print(con,"Memory allocation error.\n");
             }
         }
         free(fmt);

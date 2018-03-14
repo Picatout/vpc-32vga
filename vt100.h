@@ -45,19 +45,22 @@ extern "C" {
 #define FF 12
 #define LBRACKET 91
     
-    
+    int vt_init();
+    unsigned char vt_get_char();
+    unsigned char vt_wait_char();
     void vt_clear_screen();
     void vt_clear_eol();
     void vt_clear_line();
     text_coord_t vt_get_curpos();
     void vt_set_curpos(int x, int y);
+    void vt_put_char(char c);
     void vt_print(const char *str);
+    void vt_println(const char *str);
     void vt_spaces(unsigned char count);
     void vt_invert_video(BOOL yes);
     void vt_crlf();
     void vt_scroll_up();
     void vt_scroll_down();
-    void vt_println(const char *str);
     void vt_set_tab_width(int width);
     int  vt_get_tab_width();
     

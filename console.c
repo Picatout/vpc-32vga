@@ -66,7 +66,7 @@ unsigned char get_key(dev_t dev){
     if (dev==VGA_CONSOLE){
         return kbd_get_key();
     }else{
-        return ser_get_char();
+        return vt_get_char();
     }
 }
  // attend réception d'un caractère
@@ -74,7 +74,7 @@ unsigned char wait_key(dev_t dev){
     if (dev==VGA_CONSOLE){
         return kbd_wait_key();
     }else{
-        return ser_wait_char();
+        return vt_wait_char();
     }
 }
 
@@ -108,7 +108,7 @@ void put_char(dev_t dev, char c){
     if (dev==VGA_CONSOLE){
         vga_put_char(c);
     }else{
-        ser_put_char(c);
+        vt_put_char(c);
     }
 }
 

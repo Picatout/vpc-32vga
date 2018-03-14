@@ -243,6 +243,9 @@ void main(void) {
     crlf(con);
     last_shutdown();
     display_date_time();
+//    while (1){
+//        print_int(con,vt_wait_char(),4);
+//    }
     shell();
 } // main()
 
