@@ -49,6 +49,7 @@ static void send_esc_seq(){
 
 static BOOL wait_esc(){
     char c;
+    
     c=ser_wait_char();
     if (c==ESC){
         c=ser_wait_char();
@@ -95,19 +96,18 @@ void vt_clear_line(){
 // envoie une séquence ESC [ 6 n
 // attend la réponse
 text_coord_t vt_get_curpos(){
-    char c;
+//    char c;
     text_coord_t coord;
-    coord.x=0;
-    coord.y=0;
-    send_esc_seq();
-    ser_print("6n");
-    if (wait_esc()){
-        vt_col=get_param(';');
-        vt_line=get_param('R');
-        coord.y=vt_col-1;
-        coord.x=vt_line-1;
-    }
-    return coord;
+//    coord.x=0;
+//    coord.y=0;
+//    send_esc_seq();
+//    ser_print("6n");
+//    if (wait_esc()){
+//        vt_col=get_param(';');
+//        vt_line=get_param('R');
+//        coord.x=vt_col-1;
+//        coord.y=vt_line-1;
+//    }
 }
 
 void vt_set_curpos(int x, int y){
@@ -130,6 +130,7 @@ static const ansi_to_vk_t ansi_table[]={
     {VK_LEFT,"[D"},
     {VK_HOME,"[1~"},
     {VK_END,"OF"},
+    {VK_DELETE,"[3~"},
     {VK_PGUP,"[5~"},
     {VK_PGDN,"[6~"},
     {VK_INSERT,"[2~"},
@@ -149,6 +150,7 @@ static const ansi_to_vk_t ansi_table[]={
     {VK_CLEFT,"[1;5D"},
     {VK_CHOME,"[1;5H"},
     {VK_CEND,"[1;5F"},
+    {VK_CDEL,"[3;5~"},
     {VK_CPGUP,"[5;5~"},
     {VK_CPGDN,"[6;5~"},
     {VK_CDEL,"[3;5~"},
@@ -156,6 +158,7 @@ static const ansi_to_vk_t ansi_table[]={
     {VK_SDOWN,"[1;2B"},
     {VK_SLEFT,"[1;2D"},
     {VK_SRIGHT,"[1;2C"},
+    {VK_SDEL,"[3;2~"},
     {0,""}
 };
 
@@ -272,10 +275,11 @@ int vt_get_tab_width(){
 static bool terminal_ready(){
     bool result=false;
     unsigned char buf[CS_SIZE];
+    ser_flush_queue();
     send_esc_seq();
     ser_print("5n");
     if (wait_esc()){
-        receive_control_sequence(buf,CS_SIZE);
+        get_control_sequence(buf,CS_SIZE);
         if (!strcmp(buf,"0n")){result=true;}
     }
     return result;
@@ -289,6 +293,7 @@ static bool terminal_ready(){
 int vt_init(){
     int code=0;
     if (terminal_ready){
+        ser_flush_queue();
         vt_print(cols_80);
         vt_print(auto_wrap);
         vt_clear_screen();

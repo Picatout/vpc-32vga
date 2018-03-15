@@ -35,7 +35,8 @@
 #define BS 8   // back space
 #define SPC 32  // space
 #define TAB 9   // horizontal TAB
-
+#define XON (17)  
+#define XOFF (19)
 #define DEFAULT_LINE_CTRL   UART_DATA_SIZE_8_BITS|UART_PARITY_NONE|UART_STOP_BITS_1
 
 
@@ -54,6 +55,8 @@ void ser_print(const char* str);
 int ser_read_line(char * buffer, int buff_len);
 // ajuste la vitesse du port sériel
 void ser_set_baud(int baudrate);
+// vide la file de réception.
+void ser_flush_queue();
 
 #endif	/* UART_H */
 

@@ -33,14 +33,14 @@
 
 // using circular queues for received scan codes and translated codes.
 #define KBD_QUEUE_SIZE (32)
-static  uint8_t kbd_queue[KBD_QUEUE_SIZE]; // keyboard translated codes queue
+static  unsigned char kbd_queue[KBD_QUEUE_SIZE]; // keyboard translated codes queue
 volatile static unsigned char kbd_head=0, kbd_tail=0; // kbd_queue head and tail pointer
 
 // initialize UART1 keyboard receive character.
 int kbd_init(){
     U1BRG=PBCLK/16/9600-1;
     U1RXR=KBD_RP_FN;
-    U1STA=(1<<12);
+    U1STA=(1<<12); //RXEN
     IPC8bits.U1IP=3;
     IPC8bits.U1IS=0;
     IFS1bits.U1EIF=0;
@@ -65,7 +65,7 @@ unsigned char kbd_get_key(){
 } // GetKey()
 
 unsigned char kbd_wait_key(){ // attend qu'une touche soit enfoncée et retourne sa valeur.
-    unsigned short key;
+    unsigned char key;
     
     vga_show_cursor(TRUE);
     while (!(key=kbd_get_key())){
@@ -99,12 +99,18 @@ unsigned char kbd_read_line(unsigned char *ibuff,unsigned char max_char){
 } // readline()
 
 
+#define ERROR_BITS (7<<1)
 
-// keyboard character receptionm
-void __ISR(_UART_1_VECTOR,IPL6SOFT) kbd_rx_isr(void){
-    kbd_queue[kbd_tail++]=U1RXREG;
-    kbd_tail&=KBD_QUEUE_SIZE-1;
-    IFS1bits.U1RXIF=0;
+// keyboard character reception
+void __ISR(_UART_1_VECTOR,IPL3SOFT) kbd_rx_isr(void){
+    if (U1STA&ERROR_BITS){
+        U1MODEbits.ON=0;
+        U1MODEbits.ON=1;
+        IFS1bits.U1EIF=0;
+    }else{
+        kbd_queue[kbd_tail++]=U1RXREG;
+        kbd_tail&=KBD_QUEUE_SIZE-1;
+        IFS1bits.U1RXIF=0;
+    }
 } // kbd_rx_isr()
-
 

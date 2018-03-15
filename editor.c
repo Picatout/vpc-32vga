@@ -612,7 +612,7 @@ static void editor_init(const char *file_name){
 
 
 void editor(const char* file_name){
-    unsigned short key;
+    unsigned char key;
     FATFS fh;
     FRESULT result;
     
@@ -676,14 +676,14 @@ void editor(const char* file_name){
             case VK_DELETE:
                 delete_at();
                 break;
-            case VK_CDEL:
-                delete_to_end();
-                break;
             case VK_BACK:
                 delete_left();
                 break;
-            case VK_CBACK: 
+            case VK_SDEL: //<SHIFT>+<DELETE>
                 delete_to_start();
+                break;
+            case VK_CDEL: // <CTRL>+<DELETE>
+                delete_to_end();
                 break;
             case VK_ENTER:
                 line_break();

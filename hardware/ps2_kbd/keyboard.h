@@ -120,7 +120,12 @@ extern "C" {
     VK_CPGUP =	183,
     VK_CPGDN =	184,
     VK_CDEL =   185,
-    VK_CBACK =  186
+    VK_CBACK =  186,
+    VK_LWINDOW= 187,
+    VK_RWINDOW= 188,
+    VK_MENU	=   189,
+    VK_SLEEP =	190,
+    VK_SDEL  =  191,
     };
 
 // keyboard API

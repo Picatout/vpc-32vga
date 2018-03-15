@@ -23,11 +23,16 @@
  * rev: 2017-07-321
  */
 
+#include <stdbool.h>
 #include <plib.h>
 #include "serial_comm.h"
 #include "../HardwareProfile.h"
 
-static char unget;
+#define QUEUE_SIZE (32)
+
+volatile static int head,tail,count;
+volatile static char rx_queue[QUEUE_SIZE];
+volatile static bool rx_off;
 
 // ajuste la vitesse de transmission du port sériel.
 void ser_set_baud(int baudrate){
@@ -37,12 +42,25 @@ void ser_set_baud(int baudrate){
 
 // serial port config
 int ser_init(int baudrate, UART_LINE_CONTROL_MODE LineCtrl){
-   UARTConfigure(SERIO, UART_ENABLE_PINS_TX_RX_ONLY); // no hardware control.
-   UARTSetLineControl(SERIO, LineCtrl);
+//   UARTConfigure(SERIO, UART_ENABLE_PINS_TX_RX_ONLY); // no hardware control.
+//   UARTSetLineControl(SERIO, LineCtrl);
    UARTSetDataRate(SERIO, mGetPeripheralClock(), baudrate);
    // enable peripheral
-   UARTEnable(SERIO, UART_ENABLE_FLAGS(UART_PERIPHERAL | UART_RX | UART_TX));
-   unget=-1;
+//   UARTEnable(SERIO, UART_ENABLE_FLAGS(UART_PERIPHERAL | UART_RX | UART_TX));
+   U2RXR=3; // RX on PB11
+   RPB10R=2; // TX on PB10
+   U2STA=(1<<10)|(1<<12); //RXEN|TXEN
+   head=0;
+   tail=0;
+   count=0;
+   // activation interruption sur réception ou erreur réception.
+   IPC9bits.U2IP=3;
+   IPC9bits.U2IS=0;
+   IFS1bits.U2EIF=0;
+   IFS1bits.U2RXIF=0;
+   IEC1bits.U2EIE=1;
+   IEC1bits.U2RXIE=1;
+   U2MODEbits.ON=1;
    UARTSendDataByte(SERIO,FF);
    return 0;
 };
@@ -50,41 +68,34 @@ int ser_init(int baudrate, UART_LINE_CONTROL_MODE LineCtrl){
 // get character from serial port
 // return 0 if none available
 char ser_get_char(){
-    char ch;
-    if (!unget==-1) {
-        ch=unget;
-        unget=-1;
-        return ch;
+    char c=0;
+    if (count){
+        c=rx_queue[head++];
+        head%=QUEUE_SIZE;
+        count--;
     }else{
-        if (UARTReceivedDataIsAvailable (SERIO)){
-               return UARTGetDataByte(SERIO);
-        }else{
-            return 0;
+        IEC1bits.U2RXIE=0;
+        if (rx_off){
+            UARTSendDataByte(SERIO, XON);
+            rx_off=false;
         }
+        IEC1bits.U2RXIE=1;
     }
+    return c;
 };
+
+// Attend un caractère du port sériel
+char ser_wait_char(){
+    char c;
+    while (!(c=ser_get_char()));
+    return c;
+}
 
 // send a character to serial port
 void ser_put_char(char c){
     while(!UARTTransmitterIsReady(SERIO));
       UARTSendDataByte(SERIO, c);
 };
-
-// Attend un caractère du port sériel
-char ser_wait_char(){
-    int t;
-    char ch;
-    if (unget!=-1){
-        ch=unget;
-        unget=-1;
-        return unget;
-    }
-    while (1){
-        if (UARTReceivedDataIsAvailable(SERIO)){
-                return UARTGetDataByte(SERIO);
-        }//if
-    }//while
-}
 
 // send a string to serial port.
 void ser_print(const char* str){
@@ -126,4 +137,30 @@ int ser_read_line(char *buffer, int buff_len){
     return count;
 }
 
+void ser_flush_queue(){
+    IEC1bits.U2RXIE=0;
+    head=0;
+    tail=0;
+    count=0;
+    IEC1bits.U2RXIE=1;
+}
+
+#define ERROR_BITS (7<<1)
+// interruption sur réception ou erreur réception port sériel.
+void __ISR(_UART_2_VECTOR,IPL3SOFT) serial_rx_isr(void){
+    if (U2STA&ERROR_BITS){
+        U2MODEbits.ON=0;
+        U2MODEbits.ON=1;
+        IFS1bits.U2EIF=0;
+    }else{
+        rx_queue[tail++]=U2RXREG;
+        tail%=QUEUE_SIZE;
+        count++;
+        if (count>(QUEUE_SIZE/2)){
+            UARTSendDataByte(SERIO,XOFF);
+            rx_off=true;
+        }
+        IFS1bits.U2RXIF=0;
+    }
+} // serial_rx_isr()
 

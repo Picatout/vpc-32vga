@@ -1,4 +1,17 @@
-2018-03-12
+2018-03-15
+----------
+1. Travail sur serial_comm.c
+2. Modification au projet ps2_rs232 pour ajouter touche virtuelle VK_SDEL=191
+3. Modification à vt100.c et keyboard.h pour ajouter touche VK_SDEL.
+4. Modificationà l'éditeur pour remplacé VK_CBACK par VK_SDEL comme touche effacement début ligne. 
+
+2018-03-14
+----------
+1. Travail sur serial_comm.c, ajout interruption et tampon de réception. 
+2. Modification keyboard:kbd_rx_isr() pour ajouter gestion d'erreur sur réception.
+
+
+2018-03-13
 ----------
 1. Travail sur vt100.c
 

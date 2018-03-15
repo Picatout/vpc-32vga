@@ -243,8 +243,13 @@ void main(void) {
     crlf(con);
     last_shutdown();
     display_date_time();
+//    char c;
 //    while (1){
-//        print_int(con,vt_wait_char(),4);
+//        c=wait_key(con);
+//        if ((c<32)||(c>126)){
+//            print_int(VGA_CONSOLE,(unsigned char)c,1);
+//        }else
+//            vga_put_char(c);
 //    }
     shell();
 } // main()
