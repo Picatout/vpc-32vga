@@ -126,6 +126,16 @@ void vga_clear_screen(){
 } // vga_clear_screen()
 
 
+//efface ligne, laisse le curseur au début.
+void vga_clear_line(unsigned line){
+    if (flags&INV_VID){
+        memset(video_bmp+(line*HRES/8*CHAR_HEIGHT),255,HRES/8*CHAR_HEIGHT);
+    }else{
+        memset(video_bmp+(line*HRES/8*CHAR_HEIGHT),0,HRES/8*CHAR_HEIGHT);
+    }
+    vga_set_curpos(0,line);
+}
+
 
 void vga_scroll_up(){
     char *src, *dst;

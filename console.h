@@ -52,6 +52,7 @@ extern dev_t con;
 // fonctions de l'interface
 void uppercase(char *str);// in situ uppercase
 void clear_screen(dev_t dev); // efface l'écran et positionne le curseur à {0,0}
+void clear_line(dev_t dev, unsigned line); // efface la ligne désignée au complet. et laisse le curseur au début
 void clear_eol(dev_t dev); // efface la fin de la ligne à partir du curseur.
 unsigned char get_key(dev_t dev); // lecture touches clavier
 unsigned char wait_key(dev_t dev); // attend qu'une touche soit enfoncée.

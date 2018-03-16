@@ -156,7 +156,7 @@ void __ISR(_UART_2_VECTOR,IPL3SOFT) serial_rx_isr(void){
         rx_queue[tail++]=U2RXREG;
         tail%=QUEUE_SIZE;
         count++;
-        if (count>(QUEUE_SIZE/2)){
+        if (count>(QUEUE_SIZE/3)){
             UARTSendDataByte(SERIO,XOFF);
             rx_off=true;
         }

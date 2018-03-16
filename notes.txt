@@ -1,3 +1,10 @@
+2018-03-16
+----------
+1. Travail sur serial_comm.c, réduction limite avant d'envoyer XOFF.
+2. Modification de console:clear_line().
+3. Implémentation de vga_clear_line() et modification de vt_clear_line()
+
+
 2018-03-15
 ----------
 1. Travail sur serial_comm.c

@@ -50,7 +50,7 @@ extern "C" {
     unsigned char vt_wait_char();
     void vt_clear_screen();
     void vt_clear_eol();
-    void vt_clear_line();
+    void vt_clear_line(unsigned line);
     text_coord_t vt_get_curpos();
     void vt_set_curpos(int x, int y);
     void vt_put_char(char c);

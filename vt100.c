@@ -86,11 +86,14 @@ void vt_clear_eol(){
     ser_put_char('K');
 }
 
-void vt_clear_line(){
+void vt_clear_line(unsigned line){
+    vt_set_curpos(0,line);
     send_esc_seq();
-    ser_put_char('2');
-    ser_put_char('K');
-    
+    ser_print("?7l"); // auto-wrap off
+    vt_spaces(CHAR_PER_LINE);
+    send_esc_seq();
+    ser_print("?7h"); // auto-wrap on
+    vt_set_curpos(0,line);
 }
 
 // envoie une séquence ESC [ 6 n

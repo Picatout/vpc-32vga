@@ -53,6 +53,7 @@ void vga_show_cursor(BOOL); // affiche ou masque le curseur texte
 BOOL vga_is_cursor_active(); // retourne vrai si le curseur texte est actif.
 void vga_set_cursor(cursor_t shape); // défini la  forme du curseur
 void vga_clear_screen();
+void vga_clear_line(unsigned line);//efface ligne, laisse le curseur au début.
 void vga_clear_eol(); // efface la fin de la ligne à partir du curseur.
 void vga_scroll_up(); // fait glissé le texte une ligne vers le haut.
 void vga_scroll_down(); // fait glissé le texte une ligne vers le bas.

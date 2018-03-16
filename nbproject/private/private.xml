@@ -6,18 +6,15 @@
         <group>
             <file>file:/home/jacques/github/vpc-32vga/hardware/ps2_kbd/keyboard.c</file>
             <file>file:/home/jacques/github/vpc-32vga/console.c</file>
+            <file>file:/home/jacques/github/vpc-32vga/vt100.h</file>
             <file>file:/home/jacques/github/vpc-32vga/hardware/serial_comm/serial_comm.c</file>
+            <file>file:/home/jacques/github/vpc-32vga/vpc-32.c</file>
+            <file>file:/home/jacques/github/vpc-32vga/vt100.c</file>
             <file>file:/home/jacques/github/vpc-32vga/hardware/HardwareProfile.h</file>
             <file>file:/home/jacques/github/vpc-32vga/editor.c</file>
-            <file>file:/home/jacques/github/vpc-32vga/vt100.h</file>
-            <file>file:/home/jacques/github/vpc-32vga/vpc-32.c</file>
-            <file>file:/home/jacques/github/vpc-32vga/hardware/tvout/vga.c</file>
-            <file>file:/home/jacques/github/vpc-32vga/vt100.c</file>
             <file>file:/home/jacques/github/vpc-32vga/hardware/HardwareProfile.c</file>
-            <file>file:/home/jacques/github/vpc-32vga/hardware/tvout/display.h</file>
-            <file>file:/home/jacques/github/vpc-32vga/hardware/exception.c</file>
-            <file>file:/home/jacques/github/vpc-32vga/hardware/serial_comm/serial_comm.h</file>
             <file>file:/home/jacques/github/vpc-32vga/notes.txt</file>
+            <file>file:/home/jacques/github/vpc-32vga/hardware/ps2_kbd/keyboard.h</file>
         </group>
     </open-files>
 </project-private>
