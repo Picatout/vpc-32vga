@@ -103,11 +103,11 @@ typedef struct _var{
     uint8_t vtype;
     char *name;
     union{
-        uint8_t byte;
-        int32_t n;
-        int32_t *nbr;
-        char *str;
-        void *adr;
+        uint8_t byte; // variable octet
+        int32_t n;    // variable entier
+        int32_t *nbr; 
+        char *str;    // adresse chaîne asciiz
+        void *adr;    // addresse tableau,sub ou func
     };
 }var_t;
 
@@ -141,7 +141,6 @@ static void kw_bye();
 static void kw_case();
 static void kw_circle();
 static void kw_cls();
-static void kw_color();
 static void kw_const();
 static void kw_curcol();
 static void kw_curline();
@@ -172,7 +171,6 @@ static void kw_pause();
 static void kw_print();
 static void kw_putc();
 static void kw_randomize();
-static void kw_read_jstick();
 static void kw_rect();
 static void kw_ref();
 static void kw_rem();
@@ -213,12 +211,12 @@ static void kw_xorpixel();
 
 //identifiant KEYWORD doit-être dans le même ordre que
 //dans la liste KEYWORD
-enum {eKW_ABS,eKW_AND,eKW_BOX,eKW_BTEST,eKW_BYE,eKW_CASE,eKW_CIRCLE,eKW_CLS,eKW_COLOR,
+enum {eKW_ABS,eKW_AND,eKW_BOX,eKW_BTEST,eKW_BYE,eKW_CASE,eKW_CIRCLE,eKW_CLS,
       eKW_CONST,eKW_CURCOL,eKW_CURLINE,eKW_DIM,eKW_DO,eKW_ELLIPSE,eKW_ELSE,eKW_END,eKW_EXIT,
       eKW_FOR,eKW_FUNC,eKW_GETPIXEL,eKW_IF,eKW_INPUT,eKW_KEY,eKW_LEN,
       eKW_LET,eKW_LINE,eKW_LOCAL,eKW_LOCATE,eKW_LOOP,eKW_MAX,eKW_MDIV,eKW_MIN,eKW_NEXT,
       eKW_NOISE,eKW_NOT,eKW_OR,eKW_PAUSE,
-      eKW_PRINT,eKW_PUTC,eKW_RANDOMISIZE,eKW_JSTICK,eKW_RECT,eKW_REF,eKW_REM,eKW_REMSPR,eKW_RESTSCR,
+      eKW_PRINT,eKW_PUTC,eKW_RANDOMISIZE,eKW_RECT,eKW_REF,eKW_REM,eKW_REMSPR,eKW_RESTSCR,
       eKW_RETURN,eKW_RND,eKW_SAVESCR,eKW_SCRLUP,eKW_SCRLDN,
       eKW_SCRLRT,eKW_SCRLFT,eKW_SELECT,eKW_SETPIXEL,eKW_SETTMR,eKW_SHL,eKW_SHR,
       eKW_SPRITE,eKW_SRCLEAR,eKW_SRLOAD,eKW_SRREAD,eKW_SRSSAVE,eKW_SRWRITE,eKW_SUB,eKW_THEN,eKW_TICKS,
@@ -236,7 +234,6 @@ static const dict_entry_t KEYWORD[]={
     {kw_case,4,"CASE"},
     {kw_circle,6,"CIRCLE"},
     {kw_cls,3+AS_HELP,"CLS"},
-    {kw_color,5+AS_HELP,"COLOR"},
     {kw_const,5,"CONST"},
     {kw_curcol,6+FUNCTION,"CURCOL"},
     {kw_curline,7+FUNCTION,"CURLINE"},
@@ -269,7 +266,6 @@ static const dict_entry_t KEYWORD[]={
     {kw_print,5,"PRINT"},
     {kw_putc,4,"PUTC"},
     {kw_randomize,9,"RANDOMIZE"},
-    {kw_read_jstick,6+FUNCTION,"JSTICK"},
     {kw_rect,4,"RECT"},
     {kw_ref,1+FUNCTION,"@"},
     {kw_rem,3,"REM"},
@@ -297,9 +293,9 @@ static const dict_entry_t KEYWORD[]={
     {kw_then,4,"THEN"},
     {kw_ticks,5+FUNCTION,"TICKS"},
     {kw_timeout,7+FUNCTION,"TIMEOUT"},
-    {kw_tone,4+FUNCTION,"TONE"},
+    {kw_tone,4,"TONE"},
     {kw_trace,5,"TRACE"},
-    {kw_tune,4+FUNCTION,"TUNE"},
+    {kw_tune,4,"TUNE"},
     {kw_ubound,6+FUNCTION,"UBOUND"},
     {bad_syntax,5,"UNTIL"},
     {kw_use,3,"USE"},
@@ -891,14 +887,15 @@ static void expression();
 
 // compile le calcul d'indice dans les variables vecteur
 static void code_array_address(var_t *var){
-    expression();
+    expression();// empile la valeur de l'index.
     expect(eRPAREN);
     if (var->vtype==eVAR_INTARRAY || var->vtype==eVAR_STRARRAY){
-        bytecode(ILSHIFT);//2*index
+        _litc(2);
+        bytecode(ILSHIFT);//4*index
     }else{
-        // élément 0 et 1  réservé pour size
-        // index 1 correspond à array[2]
-        _litc(1);
+        // élément 0,1,2,3  réservé pour size
+        // index 1 correspond à array[4]
+        _litc(4);
         bytecode(IPLUS);
     }
     //index dans le tableau
@@ -932,8 +929,6 @@ static void factor(){
     int i,op=eNONE;
     
     if (try_addop()){
-        bytecode(ICLIT);
-        bytecode(0);
         op=token.id;
         unget_token=false;
     }
@@ -1027,10 +1022,8 @@ static void factor(){
         default:
             throw(eERR_SYNTAX);
     }//switch
-    if (op==ePLUS){
-        bytecode(IPLUS);
-    }else if (op==eMINUS){
-        bytecode(ISUB);
+    if (op==eMINUS){
+        bytecode(INEG);
     }
 }//f()
 
@@ -1058,19 +1051,8 @@ static void term(){
 static void expression(){
     int mark_dp=dptr;
     int op=eNONE;
-    if (try_addop()){
-        bytecode(ICLIT);
-        bytecode(0);
-        op=token.id;
-    }
+    
     term();
-    switch(op){
-        case ePLUS:
-            bytecode(IPLUS);
-            break;
-        case eMINUS:
-            bytecode(ISUB);
-    }    
     while (try_addop()){
         op=token.id;
         term();
@@ -1215,7 +1197,7 @@ static void init_int_array(var_t *var){
         barray=var->adr;
         size=*barray;
     }
-    if (var->vtype==eVAR_BYTEARRAY) count=2;
+    if (var->vtype==eVAR_BYTEARRAY){ count=4;}
     expect(eLPAREN);
     next_token();
     while (token.id!=eRPAREN){
@@ -1248,7 +1230,7 @@ static void init_int_array(var_t *var){
         next_token();
     }
     if (count<size) throw(eERR_MISSING_ARG);
-    if (((var->vtype==eVAR_BYTEARRAY) && (count>(size+2))) ||
+    if (((var->vtype==eVAR_BYTEARRAY) && (count>(size+sizeof(uint32_t)))) ||
         ((var->vtype!=eVAR_BYTEARRAY) && (count>(size+1)))) throw(eERR_EXTRA_ARG);
 }//f
 
@@ -1312,8 +1294,8 @@ static void dim_array(char *var_name){
     len=strlen(var_name);
     if (size<1) throw(eERR_BAD_ARG);
     if (var_name[len-1]=='#'){ //table d'octets
-        array=alloc_var_space(size+2);
-        memset(array,0,size+2);
+        array=alloc_var_space(sizeof(uint8_t)*size+sizeof(int));
+        memset(array,0,sizeof(uint8_t)*size+sizeof(int));
         *((uint32_t*)array)=size;
     }else{ // table d'entiers ou de chaînes
         array=alloc_var_space(sizeof(int)*(size+1));
@@ -1404,20 +1386,17 @@ static void kw_ref(){
     switch(var->vtype){
     case eVAR_INT:
     case eVAR_CONST:
-        bytecode(_byte0((uint32_t)&var->n));
-        bytecode(_byte1((uint32_t)&var->n));
+        lit_int((uint32_t)&var->n);
         break;
     case eVAR_INTARRAY:
     case eVAR_STRARRAY:
     case eVAR_BYTEARRAY:
-        bytecode(_byte0(((uint32_t)var->adr)+2));
-        bytecode(_byte1(((uint32_t)var->adr)+2));
+        lit_int(((uint32_t)var->adr)+sizeof(int));
         break;
     case eVAR_FUNC:
     case eVAR_SUB:
     case eVAR_STR:
-        bytecode(_byte0((uint32_t)var->adr));
-        bytecode(_byte1((uint32_t)var->adr));
+        lit_int((uint32_t)var->adr);
         break;
     default:
         throw(eERR_BAD_ARG);
@@ -1437,7 +1416,7 @@ static void kw_ubound(){
     var=var_search(name);
     if (!var || !(var->vtype>=eVAR_INTARRAY && var->vtype<=eVAR_STRARRAY)) throw(eERR_BAD_ARG);
     _lit((uint32_t)var->adr);
-    bytecode(IUBOUND);
+    bytecode(IFETCH);
 }//f
 
 static void kw_use(){
@@ -1493,14 +1472,6 @@ static void kw_curcol(){
 //    expression();
 //    bytecode(EXEC);
 //}//f
-
-// COLOR(texte,fond)
-// fixe couleur de police et du fond
-static void kw_color(){
-    parse_arg_list(2);
-    bytecode(IBACK_COLOR);
-    bytecode(IFONT_COLOR);
-}//f
 
 // CONST  nom[$]=expr|string [, nom[$]=expr|string]
 // définition d'une constante
@@ -1614,22 +1585,6 @@ static void kw_noise(){
     bytecode(INOISE);
 }//f
 
-// FONCTION BASIC: JSTICK()
-// retourne un entier entre 0 et 31
-// chaque bit représente un bouton
-// 1=enfoncé, 0=relâché
-// joystick Atari 2600
-// bit 0 bouton
-// bit 1 droite
-// bit 2 gauche
-// bit 3 bas
-// bit 4 haut
-static void kw_read_jstick(){
-    expect(eLPAREN);
-    expect(eRPAREN);
-    bytecode(IJSTICK);
-}//f
-
 //COMMANDE BASIC: BYE
 //quitte l'interpréteur
 static void kw_bye(){
@@ -1669,21 +1624,9 @@ static void kw_exit(){
     }
 }//f
 
-// CLS [color]
+// CLS
 // efface écran
-// si argument couleur
-// fixe la couleur de fond
 static void kw_cls(){
-    uint8_t color;
-   
-    next_token();
-    if (token.id==eNUMBER){
-        color=token.n;
-        _litc(color);
-        bytecode(IBACK_COLOR);
-    }else{
-        unget_token=true;
-    }
     bytecode(ICLS);
 }//f
 
@@ -2586,6 +2529,7 @@ static void kw_print(){
                         if (var->vtype==eVAR_STRARRAY){
                             expect(eLPAREN);
                             code_array_address(var);
+                            bytecode(IFETCH);
                         }else{
                             _lit((uint32_t)var->str);
                         }

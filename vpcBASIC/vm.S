@@ -179,10 +179,15 @@ next:
     sll   t0, t0, 2   
     la t1,opcodes_table
     addu t1,t1,t0
+#define _CHECK_OPCODE
+#ifdef _CHECK_OPCODE    
     la t0, bad_op
     subu t0,t0,t1
     blez t0,vm_bad_op
+#endif    
     lw    t1, 0(t1)
+//#define _PRT_XT
+#ifdef _PRT_XT    
 // debug code    
 //    addiu sp,sp,-4
 //    sw t1,0(sp)
@@ -192,10 +197,12 @@ next:
 //    addu a2,zero,zero
 //    lw t1,0(sp)
 //    addiu sp,sp,4
-// debug code    
+// debug code 
+#endif    
     jr    t1
     _inc_ip
 
+#ifdef _CHECK_OPCODE    
 vm_bad_op:
     la a0, con
     lbu a0,0(a0)
@@ -209,7 +216,7 @@ vm_bad_op:
     addu a2,zero,zero
     b 1f
     addiu t0,zero,1
-    
+#endif    
 bye:   // 'bye' ( -- ) exit virtual machine
     addu t0,zero,zero
 1:  lw  s0,0(sp)
@@ -456,6 +463,10 @@ rot: // ( n3 n2 n1 -- n2 n1 n3)
     b next
     sw t1, -CELL_SIZE(dp)
 
+invert: // ( n -- -n)  
+    b next
+    subu T,zero,T
+    
 plus:  // '+'   ( n1 n2 -- n1+n2 )
     lw t0,0(dp)
     addu T,T,t0
@@ -754,7 +765,7 @@ type: // ( -- addr ) // imprime la chaîne ascciz
     move a1,T
     lw T, 0(dp)
     b next
-    addiu dp,dp,CELL_SIZE
+    addiu dp,dp,-CELL_SIZE
     
     
 dot: // "." ( n -- ) imprime un entier en format libre
@@ -888,14 +899,25 @@ beep: // ( freq,duration -- ) fait entendre une tonalitée
     jal tone
     lw T,0(dp)
     b next
-    addiu dp,dp,CELL_SIZE
+    addiu dp,dp,-CELL_SIZE
     
 melody: // ( addr -- ) fait entendre la mélodie contenue dans le tableau
     move a0,T
     jal tune
     lw T,0(dp)
     b next
-    addiu dp,dp,CELL_SIZE
+    addiu dp,dp,-CELL_SIZE
+ 
+clr_scr: // ( -- ) efface l'écran
+    la a0,con
+    jal clear_screen
+    lbu a0,0(a0)
+    b next
+    nop
+    
+array_bound: // ( addr -- n ) retourne l'index supérieur d'un tableau
+    b next
+    nop
     
 .end StackVM
 
@@ -919,7 +941,7 @@ melody: // ( addr -- ) fait entendre la mélodie contenue dans le tableau
 // routines names must be in same order as OP_CODES enum in vm.h    
 opcodes_table:
 .word bye,lit,wlit,clit,docol,exit,bra,qbra,exec,store,fetch,cstore
-.word cfetch,rfetch,tor,rfrom,drop,dup,swap,over,pick
+.word cfetch,rfetch,tor,rfrom,drop,dup,swap,over,pick,invert
 .word plus,minus,star,ustar,mstar,umstar,slash,uslash,modulo,umsmod,msmod,ltz
 .word zequal, bitand,bitor
 .word bitxor,bitnot,ticks, delay
@@ -928,7 +950,7 @@ opcodes_table:
 .word equal,nequal, less, greater,lteq,gteq, dodo,unloop,ifetch,jfetch,loop, ploop
 .word sine, cos, tan, atan, acos, asin,random,trunc,num
 .word key,qrx,emit,dotq,cr,dot,lits,type,space
-.word beep,melody    
+.word beep,melody,clr_scr    
 
 bad_op:  
 badop_msg: .asciz "bad operating code: "    
