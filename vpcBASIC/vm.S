@@ -3,29 +3,42 @@
  *  Description:
  *      machine viruelle à piles qui exécute du bytecode.
  *      le programme utilisant la VM doit l'appellé en utilisant le prototype de
- *      fonction suivant: void StackVM( char *ip, int* user);
+ *      fonction suivant: void StackVM( char *ip);
  *         ip pointe vers le bytecode à exécuter
- *         user pointe vers un tableau de variables utilisé par le programme.
- *  rev: 2017-08-01
+ *  rev: 2018-03-20
  */
 
 #define _ASM_CODE_
     
 #include <p32xxxx.h>
-//#include "vm.h"
 
+// fonctions en C    
 .extern sys_ticks
-.extern comm_channel    
-.extern put_char
+.extern con  
+.extern uppercase
+.extern clear_screen
+.extern clear_line
+.extern clear_eol
 .extern get_key
 .extern wait_key
+.extern read_line
+.extern get_curpos
+.extern set_curpos
+.extern put_char
+.extern print
+.extern spaces
+.extern invert_video
+.extern crlf
 .extern print_int
 .extern print_hex
-.extern print  
-.extern readline    
+.extern println
+.extern scroll_down
+.extern scroll_up
+.extern set_tab_witdh
+.extern get_tab_width
+//math 
 .extern print_float
 .extern rnd
-//math fonctions
 .extern sinf
 .extern cosf
 .extern tanf
@@ -41,14 +54,21 @@
 .extern rintf
 .extern floorf
 .extern ceilf
-
-
-#define _getch get_key
-#define _putch put_char
-#define _print print
-#define _readln readline
-#define _key   wait_key
-
+//graphiques
+.extern getPixel
+.extern setPixel
+.extern clearPixel
+.extern line
+.extern rectangle
+.extern circle
+.extern ellipse
+.extern polygon
+.extern bezier
+.extern fill
+// son
+.extern tone
+.extern tune
+    
 
 /*************** macros *************/
 
@@ -95,11 +115,10 @@ rp=s2  /* pointeur pile de contrôle */
 w=s3  /* pointeur de travail */
 T=s4  /* sommet de la pile des données */
 R=s5  /* sommet de la pile des retours */
-U=s6  /* pointeur variables utilisateur */
-L=s7  /* limite boucle do...loop */
-I=s8  /* compteur boucle do...looop */ 
+L=s6  /* limite boucle do...loop */
+I=s7  /* compteur boucle do...looop */ 
 
-STDIO=1
+
 
 RAM_SEG=0xA000
 CODE_SEG=0x9D00
@@ -108,8 +127,8 @@ CFG_SEG=0xBFC0
     
 CELL_SIZE=4
     
-DSTACK_SIZE=80
-RSTACK_SIZE=64
+DSTACK_SIZE=128
+RSTACK_SIZE=128
 TIB_SIZE=80
 PAD_SIZE=80
     
@@ -119,11 +138,16 @@ SFR_INV=12
 
     
 .bss
-
+.global dstack,rstack,rsp,dsp,endmark,dptr
 // piles
 dstack: .space DSTACK_SIZE
 rstack: .space RSTACK_SIZE
-
+dsp: .space 4
+rsp: .space 4
+endmark: .space 4
+dptr: .space 4    
+    
+    
 .text
 .align 2, 0xff
 .set noreorder
@@ -134,7 +158,6 @@ rstack: .space RSTACK_SIZE
 .ent StackVM
 StackVM:  // VM initialization
     addiu sp, sp, -40 // save registers
-    sw  ra, 36(sp)
     sw  s0, 0(sp)
     sw  s1, 4(sp)
     sw  s2, 8(sp)
@@ -144,8 +167,8 @@ StackVM:  // VM initialization
     sw  s6,24(sp)
     sw  s7,28(sp)
     sw  s8,32(sp)
+    sw  ra,36(sp)
     move ip, a0   // pointeur bytecode à exécuter
-    move U, a1    // pointeur tableau de variables
     lui w, RAM_SEG
     ori dp, w, dstack
     ori rp, w, rstack
@@ -156,45 +179,82 @@ next:
     sll   t0, t0, 2   
     la t1,opcodes_table
     addu t1,t1,t0
+    la t0, bad_op
+    subu t0,t0,t1
+    blez t0,vm_bad_op
     lw    t1, 0(t1)
+// debug code    
+//    addiu sp,sp,-4
+//    sw t1,0(sp)
+//    addiu a0,zero,2
+//    move a1,t1
+//    jal print_hex
+//    addu a2,zero,zero
+//    lw t1,0(sp)
+//    addiu sp,sp,4
+// debug code    
     jr    t1
     _inc_ip
 
+vm_bad_op:
+    la a0, con
+    lbu a0,0(a0)
+    la a1,badop_msg
+    jal print
+    nop
+    la a0, con
+    lbu a0, 0(a0)
+    lbu a1,0(ip)
+    jal print_int
+    addu a2,zero,zero
+    b 1f
+    addiu t0,zero,1
+    
 bye:   // 'bye' ( -- ) exit virtual machine
-    b exit_vm
-    move v0,T  // return T
+    addu t0,zero,zero
+1:  lw  s0,0(sp)
+    lw  s1,4(sp)
+    lw  s2,8(sp)
+    lw  s3,12(sp)
+    lw  s4,16(sp)
+    lw  s5,20(sp)
+    lw  s6,24(sp)
+    lw  s7,28(sp)
+    lw  s8,32(sp)
+    lw  ra,36(sp)
+    move v0,t0
+    jr  ra
+    addiu sp,sp,40
 
 qrx: // '?key' ( -- ch -1 | 0 )
-    la a0,comm_channel
+    la a0,con
+    jal get_key
     lbu a0,0(a0)
-    jal _getch
-    ori a0,zero,STDIO
     _tpush
-    bltz v0, qrx_exit
-    addiu t0,v0,1
-    move T, v0
+    beqz v0, next
+    addu T,v0,zero 
     addiu t0,zero,-1
     _tpush
 qrx_exit:
     b next
     move T, t0
 
+space: // ( -- ) émet un caractère ascii 32
+    _tpush
+    addiu T,zero,32
 emit:   // 'emit' ( ch -- ) transmet charactère au terminal
-    la a0,comm_channel
+    la a0,con
     lbu a0,0(a0)
+    jal put_char
     move  a1, T
     lw T, 0(dp)
-    jal _putch
-    addiu dp,dp,-CELL_SIZE
     b next
-    nop
+    addiu dp,dp,-CELL_SIZE
 
 cr: // 'cr' ( -- ) émet un carriage return line feed
-    la a0,comm_channel
+    la a0,con
+    jal crlf
     lbu a0,0(a0)
-    addiu a1,zero,13
-    jal _putch
-    nop
     b next
     nop
     
@@ -207,7 +267,7 @@ lit:    // 'lit' ( -- n) empile un entier
 
 clit:   // 'clit' ( -- byte ) empile un octet signe étendu sur 32 bits
     _tpush
-    lb T, 0(ip)
+    lbu T, 0(ip)
     b next
     _inc_ip
 
@@ -218,6 +278,16 @@ wlit:  // 'wlit' ( -- w16  ) empile un mot de 16 bits
     b next
     addiu ip,ip,2
 
+lits: // 's"' ( -- addr) empile l'adresse d'une chaîne litérale
+    _tpush
+    move T,ip
+    lbu w,0(T)
+    addu ip,ip,w
+    b next
+    _inc_ip
+    
+    
+    
 docol:   // 'call' (R: -- addr_ret ) appelle mot de haut niveau
     ulw t0,0(ip)
     _rpush
@@ -297,24 +367,6 @@ rfetch:   // 'r@'  ( -- n R: n -- n )  empile le sommet de la pile des retours
     _tpush
     b next
     move T, R
-
-ufetch: // 'u@'  ( -- a-addr ) empile U
-    _tpush
-    b next
-    move T, U
-
-ustore: // 'u!'  ( a-addr -- ) transfert T dans U
-    move U, T
-    lw T, 0(dp)
-    b next
-    addiu dp,dp,-CELL_SIZE
-
-user: // 'user'  ( n -- a-addr) empile le pointeur de la variable
-      // utilisateur d'indice n.
-      sll  T,T,2
-      b next
-      addu T, U, T
-
 
 tor:  // '>r' ( n -- ) (R: -- n ) envoie T sur pile retour
     _rpush
@@ -656,7 +708,7 @@ greater:  // '>'  ( n1 n2 -- t|f ) n1>n2?
     b next
     li T, 0
 
-ltez:  // '<=' ( n1 n2 -- t|f ) n1<=n2?
+lteq:  // '<=' ( n1 n2 -- t|f ) n1<=n2?
     lw t0,0(dp)
     addiu dp,dp,-CELL_SIZE
     subu t0,t0,T
@@ -665,7 +717,7 @@ ltez:  // '<=' ( n1 n2 -- t|f ) n1<=n2?
     b next
     li T, 0
 
-gtez:  // '>=' ( n1 n2 -- t|f ) n1>=n2?
+gteq:  // '>=' ( n1 n2 -- t|f ) n1>=n2?
     lw t0,0(dp)
     addiu dp,dp,-CELL_SIZE
     subu t0,t0,T
@@ -674,10 +726,10 @@ gtez:  // '>=' ( n1 n2 -- t|f ) n1>=n2?
     b next
     li T, 0
 
-key:  // ( -- char ) attend réception caractère par terminal
-    la a0,comm_channel
+key:  // ( -- char ) attend réception caractère de la console
+    la a0,con
+    jal wait_key
     lbu a0,0(a0)
-    jal _key
     _tpush
     b next
     move T, v0  // T=v0
@@ -685,24 +737,32 @@ key:  // ( -- char ) attend réception caractère par terminal
 
 dotq: // '."' ( -- ) ip pointe vers le texte, le premier octet est le compte.
     lbu w, 0(ip)
-    _inc_ip
-1:
+1:  _inc_ip
     beqz w, next
     addiu w,w,-1
-    la a0,comm_channel
+    la a0,con
     lbu a0,0(a0)
-    lb a1, 0(ip)
-    jal _putch
-    _inc_ip
+    jal put_char
+    lbu a1, 0(ip)
     b 1b
     nop
 
+type: // ( -- addr ) // imprime la chaîne ascciz
+    la a0,con
+    lbu a0,0(a0)
+    jal print
+    move a1,T
+    lw T, 0(dp)
+    b next
+    addiu dp,dp,CELL_SIZE
+    
+    
 dot: // "." ( n -- ) imprime un entier en format libre
-    la a0,comm_channel
+    la a0,con
     lbu a0,0(a0)
     move a1,T
-    move a2,zero
     jal print_int
+    move a2,zero
     lw T,0(dp)
     b next
     addiu dp,dp,-CELL_SIZE
@@ -821,23 +881,22 @@ num: //
     b next
     nop
 
-badop: //
-    move v0,t0
-exit_vm:
-    lw  s0,0(sp)
-    lw  s1,4(sp)
-    lw  s2,8(sp)
-    lw  s3,12(sp)
-    lw  s4,16(sp)
-    lw  s5,20(sp)
-    lw  s6,24(sp)
-    lw  s7, 28(sp)
-    lw  s8, 32(sp)
-    lw  ra,36(sp)
-    jr  ra
-    addiu sp,sp,40
-
-
+beep: // ( freq,duration -- ) fait entendre une tonalitée
+    move a1,T
+    _tpop
+    move a0,T
+    jal tone
+    lw T,0(dp)
+    b next
+    addiu dp,dp,CELL_SIZE
+    
+melody: // ( addr -- ) fait entendre la mélodie contenue dans le tableau
+    move a0,T
+    jal tune
+    lw T,0(dp)
+    b next
+    addiu dp,dp,CELL_SIZE
+    
 .end StackVM
 
 //.ent fetch_int
@@ -859,16 +918,19 @@ exit_vm:
 
 // routines names must be in same order as OP_CODES enum in vm.h    
 opcodes_table:
-.word lit,docol,exit,bra,qbra,exec,store,fetch,cstore
-.word cfetch,rfetch,ufetch,ustore,tor,rfrom,drop,dup,swap,over,pick
+.word bye,lit,wlit,clit,docol,exit,bra,qbra,exec,store,fetch,cstore
+.word cfetch,rfetch,tor,rfrom,drop,dup,swap,over,pick
 .word plus,minus,star,ustar,mstar,umstar,slash,uslash,modulo,umsmod,msmod,ltz
 .word zequal, bitand,bitor
-.word bitxor,bitnot,clit, wlit, ticks, delay
+.word bitxor,bitnot,ticks, delay
 .word qdup, oneplus, oneminus,plusstore, twostar, twoslash, twodrop, rot, twodup
 .word  min, max, abs, lshift, rshift, divmod, qbraz, dcnt, rcnt
-.word equal,nequal, less, greater,ltez,gtez, dodo,unloop,ifetch,jfetch,loop, ploop,user
+.word equal,nequal, less, greater,lteq,gteq, dodo,unloop,ifetch,jfetch,loop, ploop
 .word sine, cos, tan, atan, acos, asin,random,trunc,num
-.word key,qrx,emit,dotq,cr,dot
-.word bye
+.word key,qrx,emit,dotq,cr,dot,lits,type,space
+.word beep,melody    
+
+bad_op:  
+badop_msg: .asciz "bad operating code: "    
     
 #undef _ASM_CODE_

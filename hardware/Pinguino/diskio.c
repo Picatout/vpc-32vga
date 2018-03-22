@@ -619,6 +619,21 @@ DWORD get_fattime(void) {
 	tmr = (tmr << 6) | cTm.minutes;		// shift left 6 bits and adds minutes
 	tmr = (tmr << 5) | (cTm.seconds/2);	// shifts left 5 bits and adds seconds/2
 
+    // pour ordinateur VPC_32VGA, Jacques Deschênes, mars 2018
+#elif defined (VPC_32)
+#include "../rtcc/rtcc.h"
+    sdate_t date;
+    stime_t time;
+    
+    rtcc_get_time(&time);
+    rtcc_get_date(&date);
+    tmr=date.year-1980; // nombre d'années depuis 1980
+    tmr=(tmr<<4)|date.month; // mois
+    tmr=(tmr<<5)|date.day; // jour du mois
+    tmr=(tmr<<5)|time.hour; // heures
+    tmr=(tmr<<6)|time.min; // minutes
+    tmr=(tmr<<5)|time.sec; // secondes/2
+    
 //	For other boards use a fixed date and time of 01 Jan 2012 12:00:00
 #else
      tmr = 12 + 20;

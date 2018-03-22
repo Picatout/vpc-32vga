@@ -9,35 +9,31 @@
 #ifndef OPCODES_H
 #define	OPCODES_H
 
-#define RAM_SEG  0xA000
-#define CODE_SEG 0x9D00
-#define SFR_SEG  0xBF80
-#define CFG_SEG  0xBFC0
-
-
+#include <stdint.h>
 
 // op codes
 enum OP_CODES{
- ILIT=0, 
+ IBYE,  
+ ILIT,
+ IWLIT,
+ ICLIT,
  IDOCOL , 
- IEXIT , 
+ IEXIT ,  
  IBRA , 
  IQBRA ,
  IEXEC ,
  ISTORE ,
- IFETCH ,
+ IFETCH , 
  ICSTORE ,
  ICFETCH ,
  IRFETCH ,
- IUFETCH ,
- IUSTORE ,
  ITOR   , 
  IRFROM , 
- IDROP , 
+ IDROP ,  
  IDUP , 
  ISWAP ,
  IOVER ,
- IPICK ,
+ IPICK ,  
  IPLUS ,
  ISUB  ,
  ISTAR  ,
@@ -55,8 +51,6 @@ enum OP_CODES{
  IOR  , 
  IXOR  , 
  INOT  , 
- ICLIT , 
- IWLIT , 
  ITICKS ,
  IDELAY ,
  IQDUP  ,
@@ -81,15 +75,14 @@ enum OP_CODES{
  INEQUAL,
  ILESS,
  IGREATER ,
- ILTEZ , 
- IGTEZ , 
+ ILTEQ , 
+ IGTEQ , 
  IDO , 
  IUNLOOP ,
  IIFETCH  ,
  IJFETCH ,
  ILOOP , 
  IPLOOP ,
- IUSER , 
  ISINE , 
  ICOS , 
  ITAN , 
@@ -105,18 +98,87 @@ enum OP_CODES{
  IDOTQ ,
  ICR , 
  IDOT,
- IBYE
+ ILITS,
+ ITYPE,
+ ISPACE,
+ ITONE,
+ ITUNE,
+ 
+ ICALL,
+ ITRACE,
+ IFRAME,
+ ILCVARSPACE,
+ IINT,
+ ISTRCPY,
+ IALLOC,
+ IACCEPT,
+ ILEN,
+ ILCSTORE,
+ ILCFETCH,
+ ISAVESCR,
+ IRESTSCR,
+ ISRWRITE,
+ ISRREAD,
+ ISRCLEAR,
+ ISRSAVE,
+ ISRLOAD,
+ IRESTLOOP,
+ INEXT,
+ ILCADR,
+ ILOOPTEST,
+ ISAVESTEP,
+ ISAVELIMIT,
+ ISAVELOOP,
+ IREMSPR,
+ ISPRITE,
+ IELLIPSE,
+ ICIRCLE,
+ IRECT,
+ IBOX,
+ ILINE,
+ ISCRLLT,
+ ISCRLRT,
+ ISCRLDN,
+ ISCRLUP,
+ IXORPIXEL,
+ ISETPIXEL,
+ IGETPIXEL,
+ IMDIV,
+ IRANDOMIZE,
+ ILEAVE,
+ ILOCATE,
+ ICLS,
+ IBACK_COLOR,
+ IJSTICK,
+ INOISE,
+ ITIMEOUT,
+ ISETTMR,
+ IIDLE,
+ IBTEST,
+ IFONT_COLOR,
+ ICURCOL,
+ ICURLINE,
+ IVIDEOCTRL,
+ IUBOUND,
+  
+ INOP
 };
 
-#define LASTOP IDOT
+#define LASTOP INOP
 
 
-#define TOK_COUNT (LASTOP+1)
-#define IBADOP (-TOK_COUNT)
+#define TOK_COUNT (INOP)
+
 
 
 
 #define CELL_SIZE (4)
+
+#define DSTACK_SIZE (32*CELL_SIZE)
+#define RSTACK_SIZE (32*CELL_SIZE)
+
+
+extern int StackVM(const uint8_t* prog_space);
 
 
 #endif	/* OPCODES_H */

@@ -33,6 +33,12 @@
 
 #define VPC_32
 
+#define RAM_SEG  0xA000
+#define CODE_SEG 0x9D00
+#define SFR_SEG  0xBF80
+#define CFG_SEG  0xBFC0
+
+
 #define SERIO   UART2
 #define STDOUT  SERIO
 #define STDIN   SERIO

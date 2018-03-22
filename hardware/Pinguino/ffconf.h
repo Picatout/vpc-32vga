@@ -57,7 +57,7 @@
 / Locale and Namespace Configurations
 /----------------------------------------------------------------------------*/
 
-#define _CODE_PAGE	932
+#define _CODE_PAGE	1252
 /* The _CODE_PAGE specifies the OEM code page to be used on the target system.
 /  Incorrect setting of the code page can cause a file open failure.
 /
@@ -182,7 +182,7 @@
 /      function must be added to the project. */
 
 
-#define	_FS_SHARE	0	/* 0:Disable or >=1:Enable */
+#define	_FS_SHARE	5	/* 0:Disable or >=1:Enable */
 /* To enable file sharing feature, set _FS_SHARE to 1 or greater. The value
    defines how many files can be opened simultaneously. */
 

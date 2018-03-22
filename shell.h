@@ -55,6 +55,8 @@ typedef struct env_var{
 } env_var_t;
 
 
+void last_shutdown();
+
 void print_error_msg(SH_ERROR err_code, const char *detail, FRESULT io_code);
 
 void shell(void);

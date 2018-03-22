@@ -35,7 +35,7 @@ extern "C" {
 #include "display.h"
 #include "../../font.h"
     
-extern unsigned int video_bmp[VRES][HRES/32];
+extern unsigned int video_bmp[VRES][IPL];
 
 typedef void (*cursor_tmr_callback_f)(void);
 

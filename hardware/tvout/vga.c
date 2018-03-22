@@ -128,10 +128,14 @@ void vga_clear_screen(){
 
 //efface ligne, laisse le curseur au début.
 void vga_clear_line(unsigned line){
+    uint8_t* addr;
+    
+    addr=(uint8_t*)video_bmp;
+    addr+=line*CHAR_HEIGHT*BPL;
     if (flags&INV_VID){
-        memset(video_bmp+(line*HRES/8*CHAR_HEIGHT),255,HRES/8*CHAR_HEIGHT);
+        memset(addr,255,BPL*CHAR_HEIGHT);
     }else{
-        memset(video_bmp+(line*HRES/8*CHAR_HEIGHT),0,HRES/8*CHAR_HEIGHT);
+        memset(addr,0,BPL*CHAR_HEIGHT);
     }
     vga_set_curpos(0,line);
 }

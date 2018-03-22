@@ -4,6 +4,9 @@
     <logicalFolder name="HeaderFiles"
                    displayName="Header Files"
                    projectFiles="true">
+      <logicalFolder name="f2" displayName="BASIC" projectFiles="true">
+        <itemPath>vpcBASIC/vm.h</itemPath>
+      </logicalFolder>
       <logicalFolder name="f1" displayName="hardware" projectFiles="true">
         <logicalFolder name="f1" displayName="ps2_kbd" projectFiles="true">
           <itemPath>hardware/ps2_kbd/keyboard.h</itemPath>
@@ -33,9 +36,6 @@
         <itemPath>hardware/HardwareProfile.h</itemPath>
         <itemPath>hardware/syscall.h</itemPath>
       </logicalFolder>
-      <logicalFolder name="f2" displayName="VM" projectFiles="true">
-        <itemPath>vpcBASIC/vm.h</itemPath>
-      </logicalFolder>
       <itemPath>font.h</itemPath>
       <itemPath>console.h</itemPath>
       <itemPath>hardware/Pinguino/ff.h</itemPath>
@@ -55,6 +55,11 @@
     <logicalFolder name="SourceFiles"
                    displayName="Source Files"
                    projectFiles="true">
+      <logicalFolder name="f2" displayName="BASIC" projectFiles="true">
+        <itemPath>vpcBASIC/vm.S</itemPath>
+        <itemPath>vpcBASIC/BASIC.c</itemPath>
+        <itemPath>vpcBASIC/testVM.c</itemPath>
+      </logicalFolder>
       <logicalFolder name="f1" displayName="hardware" projectFiles="true">
         <logicalFolder name="f3" displayName="ps2_kbd" projectFiles="true">
           <itemPath>hardware/ps2_kbd/keyboard.c</itemPath>
@@ -86,8 +91,6 @@
         <itemPath>hardware/syscall.c</itemPath>
         <itemPath>hardware/Pinguino/ff.c</itemPath>
         <itemPath>hardware/Pinguino/fileio.c</itemPath>
-      </logicalFolder>
-      <logicalFolder name="f2" displayName="VM" projectFiles="true">
       </logicalFolder>
       <itemPath>font.c</itemPath>
       <itemPath>vpc-32.c</itemPath>

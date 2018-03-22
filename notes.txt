@@ -1,9 +1,26 @@
+2018-03-21
+----------
+1. Travail sur interpréteur BASIC et la machine virtuelle.
+
+
+2018-03-17
+----------
+1. Travail sur interpréteur BASIC et la machine virtuelle.
+
+
+2018-03-17
+----------
+1. Travail sur interpréteur BASIC et la machine virtuelle.
+2. diskio:get_fattime()  ajout du code pour VPC_32VGA
+3. Correction bogue dans console:clear_line()
+4. Correction bogue dans vga:vga_clear_line()
+
 2018-03-16
 ----------
-1. Travail sur serial_comm.c, réduction limite avant d'envoyer XOFF.
+1. Travail sur serial_comm.c, serial_rx_isr(void):réduction limite avant d'envoyer XOFF.
 2. Modification de console:clear_line().
 3. Implémentation de vga_clear_line() et modification de vt_clear_line()
-
+4. Commencer travail sur machine virtuelle à piles vms.S
 
 2018-03-15
 ----------

@@ -36,6 +36,8 @@ extern "C" {
 #define FRAME_LINES (525) // lines per VGA frame
 #define VRES (240)  // vertical pixels
 #define HRES (480)  // horizontal pixels
+#define IPL  (480/32) // nombre d'entiers par ligne vidéo.    
+#define BPL  (480/8) // nombre d'octets par ligne vidéo
 #define PPB (8)     // pixels per byte
 #define BMP_SIZE (VRES*HRES/PPB) // video buffer size
 #define LINE_PER_SCREEN ((int)VRES/CHAR_HEIGHT)

@@ -244,7 +244,7 @@ int get_tab_width(dev_t dev){
 
  // efface la ligne désignée au complet. et laisse le curseur au début
 void clear_line(dev_t dev, unsigned line){
-    if (dev=VGA_CONSOLE){
+    if (dev==VGA_CONSOLE){
         vga_clear_line(line);
     }else{
         vt_clear_line(line);

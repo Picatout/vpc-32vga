@@ -58,29 +58,29 @@
 
 #define MAX_LINE_LEN 80
 
-const char _version[]="1.0";
-const char *console_name[]={"VGA","SERIAL"};
-const char _true[]="T";
-const char _false[]="F";
-const char _nil[]="";
+static const char _version[]="1.0";
+static const char *console_name[]={"VGA","SERIAL"};
+static const char _true[]="T";
+static const char _false[]="F";
+static const char _nil[]="";
 
 //jmp_buf back_to_cmd_line;
 
 //dev_t con=SERIAL_CONSOLE;
 dev_t con=VGA_CONSOLE;
 
-const env_var_t shell_version={NULL,"SHELL_VERSION",(char*)_version};
-const env_var_t true={(env_var_t*)&shell_version,"TRUE",(char*)_true};
-const env_var_t false={(env_var_t*)&true,"FALSE",(char*)_false};
-const env_var_t nil={(env_var_t*)&false,"NIL",(char*)_nil};
-env_var_t *shell_vars=(env_var_t*)&nil;
+static const env_var_t shell_version={NULL,"SHELL_VERSION",(char*)_version};
+static const env_var_t true={(env_var_t*)&shell_version,"TRUE",(char*)_true};
+static const env_var_t false={(env_var_t*)&true,"FALSE",(char*)_false};
+static const env_var_t nil={(env_var_t*)&false,"NIL",(char*)_nil};
+static env_var_t *shell_vars=(env_var_t*)&nil;
 
-env_var_t *search_var(const char *name);
-void erase_var(env_var_t *var);
-char* exec_script(const char *script);
+static env_var_t *search_var(const char *name);
+static void erase_var(env_var_t *var);
+static char* exec_script(const char *script);
 
 
-const char *ERR_MSG[]={
+static const char *ERR_MSG[]={
     "no error\n",
     "unknown command.\n",
     "syntax error.\n",
@@ -92,7 +92,7 @@ const char *ERR_MSG[]={
     "Mkdir error.\n",
     "file does not exist.\n",
     "operation denied.\n",
-    "disk operation error, code is %d \n",
+    "disk operation error, code is %d\n",
     "no SD card detected.\n"
 };
 
@@ -122,14 +122,14 @@ typedef struct{
 } parse_str_t;
 
 
-extern int nbr_cmd;
+static int nbr_cmd;
 
 typedef struct shell_cmd{
     char *name;
     char *(*fn)(int,const char**);
 }shell_cmd_t;
 
-extern const shell_cmd_t commands[];
+static const shell_cmd_t commands[];
 
 //Affichage de la date et heure du dernier shutdown
 //enerigistré dans le RTCC.
@@ -145,7 +145,7 @@ void last_shutdown(){
     }
 }
 
-int cmd_search(const char *target){
+static int search_command(const char *target){
     int i;
     for (i=nbr_cmd-1;i>=0;i--){
         if (!strcmp(target,commands[i].name)){
@@ -153,9 +153,9 @@ int cmd_search(const char *target){
         }
     }
     return i;
-}//cmd_search()
+}//search_command()
 
-char* cmd_help(int tok_count, const char **tok_list){
+static char* cmd_help(int tok_count, const char **tok_list){
     int i;
     text_coord_t pos;
     for(i=0;i<nbr_cmd;i++){
@@ -172,14 +172,14 @@ char* cmd_help(int tok_count, const char **tok_list){
     return NULL;
 }
 
-char* cmd_cls(int tok_count, const char **tok_list){
+static char* cmd_cls(int tok_count, const char **tok_list){
     clear_screen(con);
     return NULL;
 }
 
 // calibration oscillateur du RTCC
 // +-127 ppm
-char* cmd_clktrim(int tok_count, const char **tok_list){
+static char* cmd_clktrim(int tok_count, const char **tok_list){
     int trim;
     char fmt[64];
     if (tok_count>1){
@@ -201,7 +201,7 @@ char* cmd_clktrim(int tok_count, const char **tok_list){
 
 // imprime le temps depuis
 // le démarrage de l'ordinateur
-char* cmd_uptime(int tok_count, const char **tok_list){
+static char* cmd_uptime(int tok_count, const char **tok_list){
     unsigned sys_ticks;
     unsigned day,hour,min,sec,remainder;
     char fmt[32];
@@ -220,7 +220,7 @@ char* cmd_uptime(int tok_count, const char **tok_list){
 }
 
 
-char* cmd_format(int tok_count, const char **tok_list){
+static char* cmd_format(int tok_count, const char **tok_list){
     if (tok_count==2){
         print_error_msg(ERR_NOT_DONE,NULL,0);
     }else{
@@ -229,12 +229,25 @@ char* cmd_format(int tok_count, const char **tok_list){
     return NULL;
 }
 
-char* cmd_forth(int tok_count, const char **tok_list){
-//    test_vm();
-    return NULL;
+static char* cmd_basic(int tok_count, const char **tok_list){
+    char *code=NULL;
+    int exit_code;
+//#define TEST_VM
+#ifdef TEST_VM    
+    exit_code=test_vm();
+#else    
+    if (tok_count>1){
+        exit_code=BASIC_shell(tok_list[1]);
+    }else{
+        exit_code=BASIC_shell(NULL);
+    }
+    code=malloc(32);
+    sprintf(code,"\nBASIC exit code: %d", exit_code);
+#endif    
+    return code;
 }
 
-char* cmd_cd(int tok_count, const char **tok_list){ // change le répertoire courant.
+static char* cmd_cd(int tok_count, const char **tok_list){ // change le répertoire courant.
     char *path;
     if (!SDCardReady){
         if (!mount(0)){
@@ -262,7 +275,7 @@ char* cmd_cd(int tok_count, const char **tok_list){ // change le répertoire cour
     return NULL;
 }//cmd_cd()
 
-char* cmd_del(int tok_count, const char **tok_list){ // efface un fichier
+static char* cmd_del(int tok_count, const char **tok_list){ // efface un fichier
     FILINFO *fi;
     if (!SDCardReady){
         if (!mount(0)){
@@ -298,7 +311,7 @@ char* cmd_del(int tok_count, const char **tok_list){ // efface un fichier
     return NULL;
 }//del()
 
-char* cmd_ren(int tok_count, const char **tok_list){ // renomme un fichier
+static char* cmd_ren(int tok_count, const char **tok_list){ // renomme un fichier
     if (!SDCardReady){
         if (!mount(0)){
             print_error_msg(ERR_NO_SDCARD,NULL,0);
@@ -315,7 +328,7 @@ char* cmd_ren(int tok_count, const char **tok_list){ // renomme un fichier
     return NULL;
 }//ren
 
-char* cmd_copy(int tok_count, const char **tok_list){ // copie un fichier
+static char* cmd_copy(int tok_count, const char **tok_list){ // copie un fichier
     FIL *fsrc, *fnew;
     char *buff;
     int n;
@@ -363,7 +376,7 @@ char* cmd_copy(int tok_count, const char **tok_list){ // copie un fichier
     return NULL;
 }//copy()
 
-char* cmd_send(int tok_count, const char **tok_list){ // envoie un fichier via uart
+static char* cmd_send(int tok_count, const char **tok_list){ // envoie un fichier via uart
     // to do
    if (tok_count==2){
        print_error_msg(ERR_NOT_DONE,NULL,0);
@@ -373,7 +386,7 @@ char* cmd_send(int tok_count, const char **tok_list){ // envoie un fichier via u
    return NULL;
 }//cmd_send()
 
-char* cmd_receive(int tok_count, const char **tok_list){ // reçois un fichier via uart
+static char* cmd_receive(int tok_count, const char **tok_list){ // reçois un fichier via uart
     // to do
    if (tok_count==2){
        print_error_msg(ERR_NOT_DONE,NULL,0);
@@ -383,7 +396,7 @@ char* cmd_receive(int tok_count, const char **tok_list){ // reçois un fichier vi
    return NULL;
 }//cmd_receive()
 
-char* cmd_hdump(int tok_count, const char **tok_list){ // affiche un fichier en hexadécimal
+static char* cmd_hdump(int tok_count, const char **tok_list){ // affiche un fichier en hexadécimal
     FIL *fh;
     unsigned char *fmt, *buff, *rbuff, c,key,line[18];
     int n,col=0,scr_line=0;
@@ -461,7 +474,7 @@ char* cmd_hdump(int tok_count, const char **tok_list){ // affiche un fichier en 
     return NULL;
 }//f
 
-char* cmd_mount(int tok_count, const char **tok_list){// mount SDcard drive
+static char* cmd_mount(int tok_count, const char **tok_list){// mount SDcard drive
     if (!SDCardReady){
         if (!mount(0)){
             print_error_msg(ERR_NO_SDCARD,NULL,0);
@@ -473,14 +486,14 @@ char* cmd_mount(int tok_count, const char **tok_list){// mount SDcard drive
     return NULL;
 }
 
-char* cmd_umount(int tok_count, const char **tok_list){
+static char* cmd_umount(int tok_count, const char **tok_list){
     unmountSD();
     SDCardReady=FALSE;
     return NULL;
 }
 
 // affiche à l'écran le contenu d'un fichier texte
-char* cmd_more(int tok_count, const char **tok_list){
+static char* cmd_more(int tok_count, const char **tok_list){
     FIL *fh;
     char *fmt, *buff, *rbuff, c, prev,key;
     int n,lcnt,colcnt=0;
@@ -544,7 +557,7 @@ char* cmd_more(int tok_count, const char **tok_list){
     return NULL;
 }//more
 
-char* cmd_edit(int tok_count, const char **tok_list){ // lance l'éditeur de texte
+static char* cmd_edit(int tok_count, const char **tok_list){ // lance l'éditeur de texte
     if (tok_count>1){
         editor(tok_list[1]);
     }else{
@@ -553,7 +566,7 @@ char* cmd_edit(int tok_count, const char **tok_list){ // lance l'éditeur de text
     return NULL;
 }//f
 
-char* cmd_mkdir(int tok_count, const char **tok_list){
+static char* cmd_mkdir(int tok_count, const char **tok_list){
     FRESULT error=FR_OK;
     char *fmt;
     if (!SDCardReady){
@@ -582,7 +595,7 @@ char* cmd_mkdir(int tok_count, const char **tok_list){
     return NULL;
 }// mkdir()
 
-char* cmd_dir(int tok_count, const char **tok_list){
+static char* cmd_dir(int tok_count, const char **tok_list){
     FRESULT error;
     FIL *fh;
     char fmt[55];
@@ -612,25 +625,25 @@ char* cmd_dir(int tok_count, const char **tok_list){
     return NULL;
 }//list_directory()
 
-char* cmd_puts(int tok_count, const char **tok_list){
+static char* cmd_puts(int tok_count, const char **tok_list){
     print(con, "puts, to be done.\n");
     return NULL;
 }//puts()
 
-char* cmd_expr(int tok_count, const char **tok_list){
+static char* cmd_expr(int tok_count, const char **tok_list){
     print(con, "expr, to be done.\n");
     return NULL;
 }//expr()
 
 //display heap status
-char* cmd_free(int tok_count, const char **tok_list){
+static char* cmd_free(int tok_count, const char **tok_list){
     char *free_ram;
     free_ram=calloc(sizeof(char),80);
     sprintf(free_ram,"free RAM %d/%d BYTES\n",free_heap(),heap_size);
     return free_ram;
 }
 
-void parse_time(char *time_str,stime_t *time){
+static void parse_time(char *time_str,stime_t *time){
     char *str;
     unsigned short hr,min=0,sec=0;
     
@@ -646,7 +659,7 @@ void parse_time(char *time_str,stime_t *time){
     time->sec=sec;
 }
 
-void parse_date(char *date_str,sdate_t *date){
+static void parse_date(char *date_str,sdate_t *date){
     unsigned y,m=1,d=1;    
     char *str;
 
@@ -672,7 +685,7 @@ void parse_date(char *date_str,sdate_t *date){
 
 // affiche ou saisie de la date
 // format saisie: [yy]yy/mm/dd
-char* cmd_date(int tok_count, const char **tok_list){
+static char* cmd_date(int tok_count, const char **tok_list){
     char *fmt;
     sdate_t date;
     
@@ -689,7 +702,7 @@ char* cmd_date(int tok_count, const char **tok_list){
 
 // affiche ou saisie de  l'heure
 // format saisie:  hh:mm:ss
-char* cmd_time(int tok_count, const char **tok_list){
+static char* cmd_time(int tok_count, const char **tok_list){
     char *fmt;
     stime_t t;
     
@@ -704,7 +717,7 @@ char* cmd_time(int tok_count, const char **tok_list){
     return fmt;
 }
 
-void report_alarms_state(){
+static void report_alarms_state(){
     char fmt[80];
     int i,wkday;
     
@@ -727,7 +740,7 @@ void report_alarms_state(){
     
 }
 
-char* cmd_alarm(int tok_count, const char **tok_list){
+static char* cmd_alarm(int tok_count, const char **tok_list){
     sdate_t date;
     stime_t time;
     char msg[32];
@@ -760,7 +773,7 @@ char* cmd_alarm(int tok_count, const char **tok_list){
     return NULL;
 }
 
-char* cmd_echo(int tok_count, const char **tok_list){
+static char* cmd_echo(int tok_count, const char **tok_list){
     int j;
     
     for (j=1;j<tok_count;j++){
@@ -770,13 +783,13 @@ char* cmd_echo(int tok_count, const char **tok_list){
     return NULL;
 }
 
-char* cmd_reboot(int tok_count, const char **tok_list){
+static char* cmd_reboot(int tok_count, const char **tok_list){
     asm("lui $t0, 0xbfc0"); // _on_reset
     asm("j  $t0\n nop");
 }
 
 
-env_var_t *search_var(const char *name){
+static env_var_t *search_var(const char *name){
     env_var_t *list;
     list=shell_vars;
     while (list){
@@ -786,7 +799,7 @@ env_var_t *search_var(const char *name){
     return list;
 }
 
-void erase_var(env_var_t *var){
+static void erase_var(env_var_t *var){
     env_var_t *prev, *list;
    
     if (!(var && _is_ram_addr(var))) return;
@@ -809,7 +822,7 @@ void erase_var(env_var_t *var){
     }
 }
 
-void list_vars(){
+static void list_vars(){
     char *name, *value;
     env_var_t *list;
     list=shell_vars;
@@ -824,7 +837,7 @@ void list_vars(){
     }
 }
 
-char* cmd_set(int tok_count, const char **tok_list){
+static char* cmd_set(int tok_count, const char **tok_list){
     env_var_t *var;
     char *name, *value;
     if (tok_count>=2){
@@ -861,7 +874,7 @@ char* cmd_set(int tok_count, const char **tok_list){
     return NULL;
 }
 
-char *cmd_con(int tok_count, const char** tokens){
+static char *cmd_con(int tok_count, const char** tokens){
 #define DISPLAY_NAME (-2)
     char *result;
     int console_id=-1;
@@ -900,7 +913,42 @@ char *cmd_con(int tok_count, const char** tokens){
     return result;
 }
 
-const shell_cmd_t commands[]={
+//charge compile et exécute
+// un fichier basic
+static char  *cmd_run(){
+//    struct fat_file_struct *fh;
+//    
+//    parse_filter();
+//    if (token.id==eNONE){
+//        if (!program_loaded)
+//            throw(eERR_MISSING_ARG);
+//        else
+//            run_it=true;
+//        return;
+//    }
+//    if (strchr(token.str,'*')) throw(eERR_BAD_ARG);
+//    if ((fh=fs_open_file(token.str))){
+//        reader_init(&file_reader,eDEV_SDCARD,fh);
+//        activ_reader=&file_reader;
+//        cmd_clear();
+//        compiler_msg(COMPILING,token.str);
+//        line_count=1;
+//        compile();
+//        fs_close_file(fh);
+//        activ_reader=&std_reader;
+//        program_loaded=true;
+//        program_end=dp;
+//        run_it=true;
+//        compiler_msg(COMP_END,NULL);
+//    }else{
+//        compiler_msg(COMP_FILE_ERROR,token.str);
+//    }
+    return NULL;
+}//f
+
+
+
+static const shell_cmd_t commands[]={
     {"alarm",cmd_alarm},
     {"cd",cmd_cd},
     {"clktrim",cmd_clktrim},
@@ -915,7 +963,7 @@ const shell_cmd_t commands[]={
     {"expr",cmd_expr},
     {"free",cmd_free},
     {"format",cmd_format},
-    {"forth",cmd_forth},
+    {"basic",cmd_basic},
     {"hdump",cmd_hdump},
     {"help",cmd_help},
     {"mkdir",cmd_mkdir},
@@ -929,15 +977,16 @@ const shell_cmd_t commands[]={
     {"set",cmd_set},
     {"time",cmd_time},
     {"umount",cmd_umount},
-    {"uptime",cmd_uptime}
+    {"uptime",cmd_uptime},
+    {"run",cmd_run}
 };
 
-int nbr_cmd=sizeof(commands)/sizeof(shell_cmd_t);
+static int nbr_cmd=sizeof(commands)/sizeof(shell_cmd_t);
 
 
-char* execute_cmd(int tok_count, const char  **tok_list){
+static char* execute_cmd(int tok_count, const char  **tok_list){
     int cmd;
-        cmd=cmd_search(tok_list[0]);
+        cmd=search_command(tok_list[0]);
         if (cmd>=0){
             return commands[cmd].fn(tok_count,tok_list);
         }else{
@@ -946,10 +995,10 @@ char* execute_cmd(int tok_count, const char  **tok_list){
         }
 }// execute_cmd()
 
-const char *prompt="\n$";
+static const char *prompt="\n$";
 
 
-void free_tokens(int tok_count , char **tok_list){
+static void free_tokens(int tok_count , char **tok_list){
     while (tok_count>0){
         --tok_count;
         free(tok_list[tok_count]);
@@ -957,7 +1006,7 @@ void free_tokens(int tok_count , char **tok_list){
     free(tok_list);
 }//free_tokens()
 
-char expect_char(parse_str_t *parse){
+static char expect_char(parse_str_t *parse){
     if (parse->next>=parse->len){
         parse->err_pos=parse->len;
         return 0;
@@ -968,14 +1017,14 @@ char expect_char(parse_str_t *parse){
 
 // skip() avance l'index parse->next jusqu'au premier caractère
 // non compris dans l'ensemble skip.
-void skip(parse_str_t *parse, const char *skip){
+static void skip(parse_str_t *parse, const char *skip){
     while (parse->next<parse->len && strchr(skip, parse->script[parse->next++]));
     parse->next--;
 }
 
 // scan() retourne la position du premier caractère faisant
 // partie de l'ensemble target.
-int scan(parse_str_t *parse, const char *target){
+static int scan(parse_str_t *parse, const char *target){
     int pos;
     pos=parse->next;
     while (pos<parse->len && !strchr(target,parse->script[pos++]));
@@ -986,7 +1035,7 @@ int scan(parse_str_t *parse, const char *target){
 // le nom d'une variable.
 // Les noms de variables commencent par une lette ou '_'
 // suivie d'un nombre quelconque de lettres,chiffres et '_'
-char *parse_var(parse_str_t *parse){
+static char *parse_var(parse_str_t *parse){
     int first,len;
     char c, *var_name;
     env_var_t *var;
@@ -1017,7 +1066,7 @@ char *parse_var(parse_str_t *parse){
 }
 
 // extrait un mot délimité par des accolades
-void parse_brace(){
+static void parse_brace(){
     int level=1;
     BOOL escape=FALSE;
     
@@ -1033,7 +1082,7 @@ void parse_brace(){
 static const char bkslashed_char[]="abfnrtv";
 static const char bkslashed_subst[]={0x7,0x8,0xc,0xa,0xd,0x9,0xb};
 
-char parse_backslash(parse_str_t *parse){
+static char parse_backslash(parse_str_t *parse){
     char n=0, c, *s;
     int i;
     c= expect_char(parse);
@@ -1079,7 +1128,7 @@ char parse_backslash(parse_str_t *parse){
     }//switch
 }
 
-char *parse_quote(parse_str_t *parse){
+static char *parse_quote(parse_str_t *parse){
     char c,*quote;
     int slen=0;
     BOOL loop=TRUE;
@@ -1115,7 +1164,7 @@ char *parse_quote(parse_str_t *parse){
     return quote;
 }
 
-char *next_token(parse_str_t *parse){
+static char *next_token(parse_str_t *parse){
 #define TOK_BUF_INCR (64)
 #define _expand_token() if (buf_len<=(slen+strlen(xparsed))){\
                         buf_len=slen+strlen(xparsed)+TOK_BUF_INCR;\
@@ -1190,7 +1239,7 @@ char *next_token(parse_str_t *parse){
 }//next_token()
 
  // découpe la ligne d'entrée en mots
-char** tokenize(int *i,const char *script){
+static char** tokenize(int *i,const char *script){
 #define TOK_COUNT_INCR (5)
     
     int j, slen,array_size=TOK_COUNT_INCR;
@@ -1226,7 +1275,7 @@ char** tokenize(int *i,const char *script){
     return tokens;
 }//tokenize()
 
-char* exec_script(const char *script){
+static char* exec_script(const char *script){
     int tok_count;
     char *result, **tokens;
 
