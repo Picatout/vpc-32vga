@@ -52,17 +52,25 @@
 #define _prt_varname(v) lit_int((uint32_t)v->name);\
                       bytecode(ITYPE)
 
+#define _cpush(n)  ctrl_stack[csp++]=n
+#define _cpop()  ctrl_stack[--csp]
+#define _cdrop() csp--;
 
 static bool exit_basic;
 
+extern int complevel;
+
 static uint8_t *progspace; // espace programme.
-extern unsigned dptr; //data pointer
+static unsigned dptr; //data pointer
 extern void* endmark;
 extern volatile uint32_t pause_timer;
-extern int dstack[DSTACK_SIZE];
-extern int rstack[RSTACK_SIZE];
-extern int8_t dsp;
-extern int8_t rsp;
+//extern int dstack[DSTACK_SIZE];
+//extern int ctrl_stack[RSTACK_SIZE];
+//extern int8_t dsp;
+//extern int8_t csp;
+
+static uint32_t ctrl_stack[32];
+static int8_t csp;
 
 static jmp_buf failed; // utilisé par setjmp() et lngjmp()
 
@@ -329,14 +337,13 @@ static int dict_search(const  dict_entry_t *dict){
 //code d'erreurs
 //NOTE: eERR_DSTACK et eERR_RSTACK sont redéfinie dans stackvm.h
 //      si leur valeur change elles doivent aussi l'être dans stackvm.h
-enum {eERROR_NONE,eERR_BADOP,eERR_DSTACK,eERR_RSTACK,eERR_MISSING_ARG,eERR_EXTRA_ARG,
+enum {eERROR_NONE,eERR_DSTACK,eERR_RSTACK,eERR_MISSING_ARG,eERR_EXTRA_ARG,
       eERR_BAD_ARG,eERR_SYNTAX,eERR_ALLOC,eERR_REDEF,eERR_ASSIGN,
-      eERR_NOTDIM,eERR_CMDONLY,eERR_BOUND,eERR_PROGSPACE
+      eERR_NOTDIM,eERR_BOUND,eERR_PROGSPACE,eERR_OUT_RANGE
       };
 
  static  const char* error_msg[]={
     "no error\n",
-    "bad virtual machine operating code\n"
     "data stack out of bound\n",
     "control stack out of bound\n",
     "missing argument\n",
@@ -347,9 +354,9 @@ enum {eERROR_NONE,eERR_BADOP,eERR_DSTACK,eERR_RSTACK,eERR_MISSING_ARG,eERR_EXTRA
     "can't be redefined\n",
     "can't be reassigned\n",
     "undefined array variable\n",
-    "command line only directive\n",
     "array index out of range\n",
     "program space full\n",
+    "jump out of range\n"
  };
  
  
@@ -1123,8 +1130,8 @@ static void bool_term(){// print(con,"bool_term()\n");
         //code pour évaluation court-circuitée
         bytecode(IDUP);
         bytecode(IQBRAZ); // si premier facteur==faux saut court-circuit.
-        rstack[++rsp]=dptr;
-        dptr+=2;
+        ctrl_stack[csp++]=dptr;
+        dptr+=1;
         fix_count++;
         bool_factor();
         bytecode(IAND);
@@ -1138,12 +1145,12 @@ static void bool_term(){// print(con,"bool_term()\n");
 
 static void bool_expression(){// print(con,"bool_expression()\n");
     int fix_count=0; // pour évaluation court-circuitée.
-    bool_term(); //print(con,"first bool_term done\n");
+    bool_term();
     while (try_boolop() && token.n==eKW_OR){
         bytecode(IDUP);
-        bytecode(IQBRA); // is premier facteur==vrai saut court-circuit.
-        rstack[++rsp]=dptr;
-        dptr+=2;
+        bytecode(IQBRA); // si premier facteur==vrai saut court-circuit.
+        ctrl_stack[csp++]=dptr;
+        dptr+=1;
         fix_count++;
         bool_term();
         bytecode(IOR);
@@ -1648,31 +1655,31 @@ static void kw_rem(){
 // IF condition THEN bloc_instructions ELSE bloc_instructions END IF
 static void kw_if(){
     complevel++;
-    rstack[++rsp]=eKW_IF;
+    _cpush(eKW_IF);
     bool_expression();
 }//f
 
 // THEN voir kw_if
 static void kw_then(){
     bytecode(IQBRAZ);
-    rstack[++rsp]=dptr;
-    bytecode(0);
-    bytecode(0);
+    _cpush(dptr);
+    dptr++;
 }//f
 
 static void fix_branch_address(){
-    progspace[rstack[rsp]]=_byte0(dptr-rstack[rsp]-2);
-    progspace[rstack[rsp]+1]=_byte1(dptr-rstack[rsp]-2);
-    rsp--;
+    int n,rel_jump;
+    n=_cpop();
+    rel_jump=dptr-n-1;
+    if ((rel_jump<-128) || (rel_jump>127)){throw(eERR_OUT_RANGE);}
+    progspace[n]=rel_jump;
 }//f
 
 // ELSE voir kw_if
 static void kw_else(){
     bytecode(IBRA);
     bytecode(0);
-    bytecode(0);
     fix_branch_address();
-    rstack[++rsp]=dptr-2;
+    ctrl_stack[csp++]=dptr-1;
 }//f
 
 //déplace le code des sous-routine
@@ -1697,28 +1704,28 @@ static void movecode(var_t *var){
 }//f
 
 // END [IF|SUB|FUNC|SELECT]  termine les blocs conditionnels.
-static void kw_end(){ // IF ->(R: blockend adr -- ) |
-                      //SELECT -> (R: n*(addr,...) blockend n -- )
-                      //SUB et FUNC -> (R: endmark blockend &var -- )
+static void kw_end(){ // IF ->(C: blockend adr -- ) |
+                      //SELECT -> (C: n*(addr,...) blockend n -- )
+                      //SUB et FUNC -> (C: endmark blockend &var -- )
     int blockend,fix_count;
     var_t *var;
 
     expect(eKWORD);
-    blockend=token.n;
-    if (rstack[rsp-1]!=blockend) throw(eERR_SYNTAX);
+    blockend=token.n; 
+    if (ctrl_stack[csp-2]!=blockend) throw(eERR_SYNTAX);
     switch (blockend){
         case eKW_IF:
             fix_branch_address();
-            rsp--; //drop eKW_IF
+            _cdrop(); //drop eKW_IF
             break;
         case eKW_SELECT:
-            fix_count=rstack[rsp--];
+            fix_count=_cpop();
             if (!fix_count) throw(eERR_SYNTAX);
-            rsp--; //drop eKW_SELECT
+            _cdrop(); //drop eKW_SELECT
             while (fix_count){ //print_int(con,fix_count,0); crlf(con);
                 fix_branch_address();
                 fix_count--;
-            } //print_int(con,rsp,0);
+            } //print_int(con,csp,0);
             bytecode(IDROP);
             break;
         case eKW_FUNC:
@@ -1734,10 +1741,10 @@ static void kw_end(){ // IF ->(R: blockend adr -- ) |
             varlist=globals;
             globals=NULL;
             var_local=false;
-            var=(var_t*)rstack[rsp--];
-            endmark=(void*)rstack[rsp-1];
+            var=(var_t*)ctrl_stack[csp--];
+            endmark=(void*)ctrl_stack[csp-1];
             movecode(var);
-            rsp-=2; // drop eKW_xxx et endmark
+            csp-=2; // drop eKW_xxx et endmark
             var_local=false;
 //#define DEBUG
 #ifdef DEBUG
@@ -1771,8 +1778,8 @@ static void kw_select(){
     expect(eKWORD);
     if (token.n!=eKW_CASE) throw(eERR_SYNTAX);
     complevel++;
-    rstack[++rsp]=eKW_SELECT;
-    rstack[++rsp]=0; // compteur clauses CASE
+    _cpush(eKW_SELECT);
+    _cpush(0); // compteur clauses CASE
     expression();
 }//f
 
@@ -1787,8 +1794,8 @@ static void compile_case_list(){
         expression();
         bytecode(IEQUAL);
         bytecode(IQBRAZ);
-        rstack[++rsp]=dptr;
-        dptr+=2;
+        _cpush(dptr);
+        dptr+=1;
         fix_count++;
         next_token();
         if (token.id!=eCOMMA){
@@ -1797,15 +1804,15 @@ static void compile_case_list(){
         }
     }//while
     bytecode(IBRA);
-    dptr+=2;
+    dptr+=1;
     while (fix_count){
         fix_branch_address();
         fix_count--;
     }
-    rsp++;
-    rstack[rsp]=rstack[rsp-1]+1; //incrémente le nombre de clause CASE
-    rstack[rsp-1]=rstack[rsp-2]; // blockend
-    rstack[rsp-2]=dptr-2;   // bra_adr
+    ctrl_stack[csp]=ctrl_stack[csp-1]+1; //incrémente le nombre de clause CASE
+    ctrl_stack[csp-1]=ctrl_stack[csp-2]; // blockend
+    ctrl_stack[csp-2]=dptr-2;   // bra_adr
+    csp++;
 }//f
 
 // compile un CASE, voir kw_select
@@ -1813,23 +1820,23 @@ static void kw_case(){
     uint32_t adr;
     next_token();
     if (token.id==eKWORD && token.n==eKW_ELSE){
-        if (rstack[rsp]){
-            adr=rstack[rsp-2]; //( br_adr blockend n  -- br_adr blockend n)
+        if (ctrl_stack[csp-1]){
+            adr=ctrl_stack[csp-3]; //( br_adr blockend n  -- br_adr blockend n)
             bytecode(IBRA);  // branchement à la sortie du select case
-            rstack[rsp-2]=dptr; // (adr blockend n -- dptr blockend n )
-            dptr+=2;
-            rstack[++rsp]=adr;
+            ctrl_stack[csp-3]=dptr; // (adr blockend n -- dptr blockend n )
+            dptr+=1;
+            _cpush(adr);
             fix_branch_address(); // fixe branchement vers CASE ELSE
         }else
             throw(eERR_SYNTAX);
     }else{
         unget_token=true;
-        if (rstack[rsp]){//y a-t-il un case avant celui-ci?
-            adr=rstack[rsp-2]; //( br_adr blockend n  -- br_adr blockend n)
+        if (ctrl_stack[csp-1]){//y a-t-il un case avant celui-ci?
+            adr=ctrl_stack[csp-3]; //( br_adr blockend n  -- br_adr blockend n)
             bytecode(IBRA);  // branchement à la sortie du select case
-            rstack[rsp-2]=dptr; // (adr blockend n -- dptr blockend n )
-            dptr+=2;
-            rstack[++rsp]=adr;
+            ctrl_stack[csp-3]=dptr; // (adr blockend n -- dptr blockend n )
+            dptr+=1;
+            _cpush(adr);
             fix_branch_address(); // fixe branchement vers ce case
         }
         compile_case_list();
@@ -2023,7 +2030,7 @@ static void kw_for(){
     bytecode(IFETCH);
     bytecode(ILOOPTEST);
     bytecode(IQBRAZ);
-    rstack[++rsp]=dptr;
+    ctrl_stack[csp++]=dptr;
     bytecode(0);
     bytecode(0);
 }//f
@@ -2043,9 +2050,8 @@ static void kw_next(){
     }
     bytecode(INEXT);
     bytecode(IBRA);
-    progspace[dptr]=_byte0((rstack[rsp]-dptr-4));
-    progspace[dptr+1]=_byte1((rstack[rsp]-dptr-4));
-    dptr+=2;
+    progspace[dptr]=_byte0((ctrl_stack[csp-1]-dptr-4));
+    dptr+=1;
     fix_branch_address();
     bytecode(IRESTLOOP); 
     complevel--;
@@ -2056,21 +2062,24 @@ static void kw_next(){
 // WEND
 static void kw_while(){
     complevel++;
-    rstack[++rsp]=dptr;
+    _cpush(dptr);
     bool_expression();
     bytecode(IQBRAZ);
-    rstack[++rsp]=dptr;
-    dptr+=2;
+    _cpush(dptr);
+    dptr+=1;
 }//f
 
 // voir kw_while()
 static void kw_wend(){
+    int n;
+    
+    n=(ctrl_stack[csp-2]-dptr-1);
+    if (n<-128) {throw(eERR_OUT_RANGE);}
     bytecode(IBRA);
-    progspace[dptr]=_byte0(rstack[rsp-1]-dptr-2);
-    progspace[dptr+1]=_byte1(rstack[rsp-1]-dptr-2);
-    dptr+=2;
+    progspace[dptr]=n;
+    dptr+=1;
     fix_branch_address();
-    rsp--;
+    _cdrop();
     complevel--;
 }//f
 
@@ -2079,7 +2088,7 @@ static void kw_wend(){
 // LOOP WHILE|UNTIL condition
 static void kw_do(){
     complevel++;
-    rstack[++rsp]=dptr;
+    _cpush(dptr);
 }//f
 
 // voir kw_do()
@@ -2095,10 +2104,9 @@ static void kw_loop(){
     }else{
         throw(eERR_SYNTAX);
     }
-    progspace[dptr]=_byte0(rstack[rsp]-dptr-2);
-    progspace[dptr+1]=_byte1(rstack[rsp]-dptr-2);
-    dptr+=2;
-    rsp--;
+    progspace[dptr]=_byte0(ctrl_stack[csp-1]-dptr-2);
+    dptr+=1;
+    _cdrop();
     complevel--;
 }//f
 
@@ -2312,16 +2320,14 @@ static void kw_len(){
 static void compile_accept_var(var_t* var){
     bytecode(IFETCH); // (var->str -- char* )
     bytecode(IQBRAZ); // si NULL accepte
-    rstack[++rsp]=dptr;
-    bytecode(0);
-    bytecode(0);
+    _cpush(dptr);
+    dptr++;
     // variable chaîne déjà assignée on ignore cette variable
     bytecode(IDROP); // la copie ne sera pas utilisée
     bytecode(IBRA);
-    bytecode(0);
-    bytecode(0);
+    dptr++;
     fix_branch_address();
-    rstack[++rsp]=dptr-2;
+    _cpush(dptr-1);
 }//f
 
 // INPUT [string ','] identifier (',' identifier)
@@ -2614,10 +2620,10 @@ static void subrtn_create(int var_type, int blockend){
     var->adr=(void*)&progspace[dptr];
     globals=varlist;
     var_local=true;
-    rstack[++rsp]=(uint32_t)endmark;
+    _cpush((uint32_t)endmark);
     complevel++;
-    rstack[++rsp]=blockend;
-    rstack[++rsp]=(uint32_t)var;
+    _cpush(blockend);
+    _cpush((uint32_t)var);
     create_arg_list();
 }//f
 
@@ -2699,7 +2705,7 @@ static void compile(){
 
 //efface le contenu de progspace
 static void clear(){
-    rsp=-1;
+    csp=-1;
     dptr=0;
     varlist=NULL;
     globals=NULL;
@@ -2712,6 +2718,7 @@ static void clear(){
     run_it=false;
     program_end=0;
     exit_basic=false;
+    csp=0;
 }//f
 
 
