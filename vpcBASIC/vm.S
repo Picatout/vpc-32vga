@@ -115,10 +115,9 @@ rp=s2  /* pointeur pile de contrôle */
 w=s3  /* pointeur de travail */
 T=s4  /* sommet de la pile des données */
 R=s5  /* sommet de la pile des retours */
-L=s6  /* limite boucle do...loop */
-I=s7  /* compteur boucle do...looop */ 
-
-
+limit=s6  /* limite boucle FOR ... NEXT */
+step=s7  /* incrément boucle FOR ... NEXT */ 
+frame=s8 /* pointeur variables locales */
 
 RAM_SEG=0xA000
 CODE_SEG=0x9D00
@@ -655,14 +654,6 @@ abs:  // 'abs' ( n -- abs(n) )
     b next
     negu T
 
-ltz:  // '0<'  ( n -- t|f )
-    b next
-    slt T,T,zero
-
-zequal: // '0=' ( n -- t|f ) vrai si n == 0 sinon faux
-    b next
-    sltiu T,1
-
 bitand: // 'and' ( n1 n2 -- n1&n2)
     lw t0, 0(dp)
     and T,T,t0
@@ -700,6 +691,14 @@ nequal: // '<>' ( n1 n2 -- t|f ) n1<>n2?
     li T, -1
     b next
     li T, 0
+
+ltz:  // '0<'  ( n -- t|f )
+    b next
+    slt T,T,zero
+
+zequal: // '0=' ( n -- t|f ) vrai si n == 0 sinon faux
+    b next
+    sltiu T,1
 
 less:  //  '<'  ( n1 n2 -- t|f ) n1<n2?
     lw t0,0(dp)
@@ -796,61 +795,101 @@ ticks:  // 'ticks'  ( -- n ) empile le compteur sys_tick
     b next
     lw T, 0(w)
 
-dodo: // 'do' ( n1 n2 -- R: -- L J ) initialise une boucle do...loop 
+forsave: // ISAVEFOR ( R: -- limit step ) sauvegarde limit et step sur rstack
     _rpush
-    move R, L  // R: -- L
-    lw L, 0(dp) // L=n1
-    addiu dp,dp,-CELL_SIZE
+    move R,limit
     _rpush
-    move R,I // R: -- L J
-    move I,T
-    lw T, 0(dp)
     b next
-    addiu dp,dp,-CELL_SIZE
+    move R,step
 
-unloop: // ( R: L J -- ) restitue les valeurs originales de L et I
-    move I,R
+forrest: // IRESTFOR ( R: L S -- ) restitue les valeurs originales de limit et step après NEXT
+    move step,R
     _rpop
-    move L,R
+    move limit,R
     lw R,0(rp)
     b next
     addiu rp,rp,-CELL_SIZE
     
-ifetch: // 'I' ( -- n ) empile le compteur de boucle I
+for: // IFOR ( limit step -- ) initialise une boucle FOR...NEXT 
+    lw limit, 0(dp) 
+    move step,T
+    lw T, -CELL_SIZE(dp)
+    b next
+    addiu dp,dp,-(2*CELL_SIZE)
+    
+// vrai si var dépasse la limite    
+fortest: // IFORTEST ( n -- f|t ) n=valeur variable boucle.  
+   move t0,T
+   bgtz step, 1f
+   subu t0,t0,limit
+   bltz t0,next
+   addu T,zero,zero
+   b next
+   addiu T,zero,-1
+1: blez t0,next
+   addiu T,zero,-1
+   b next
+   addu T,zero,zero
+   
+fornext: // INEXT ( adr -- ) incrémente la variable for
+    lw t0,0(T)
+    addu t0,t0,step
+    sw t0,0(T)
+    lw T,0(dp)
+    b next
+    addiu dp,dp,-CELL_SIZE
+    
+//sauvegarde variable local
+//[IP] indique la position de la variable
+local_store: // ( n -- )
+    lbu t0,0(ip)
+    _inc_ip
+    sll t0,t0,2
+    subu t0,frame,t0
+    sw T,0(t0)
+    lw T,0(dp)
+    b next
+    addiu dp,dp,-CELL_SIZE
+    
+//empile variable locale
+//[IP] indique la position  de la variable
+local_fetch:
+    lbu t0,0(ip)
+    _inc_ip
+    sll t0,t0,2
+    subu t0,frame,t0
     _tpush
     b next
-    move T, I
-
-jfetch: // 'J' ( -- n ) empile la valeur J
+    lw T,0(t0)
+    
+//empile l'adresse de la variable locale
+// [IP] indique la position de la variable
+//sur la pile
+local_addr: //( -- addr )
+    lbu t0,0(ip)
+    _inc_ip
+    sll t0,t0,2
     _tpush
-    move T,R
-    lw R,0(rp)
+    subu t0,frame,t0
     b next
-    addiu rp,rp,-CELL_SIZE
-    
-    
-loop: //  'loop'  incrémente I et si I==L quittte la boucle
-    addiu I,I,1  
-    beq  I, L, 1f
-    _back_jump
-1:  b unloop
-    addiu ip,ip,1
+    lw T,0(t0)
 
-ploop: // '+loop' ( n -- ) soustrait n à X, si X>0 boucle sinon quitte la boucle
-    move t0,I
-    addu I,I,T
-    _tpop
-   subu t0,t0,L
-   bltz t0, 3f
-   addiu t0,L,-1
-   subu t0,t0,I
-   bgez t0,1b
-   _back_jump
-3: subu t0,I,L
-   bgez t0,1b
-   _back_jump
-   
-   
+//ajuste le registe fp
+//pour les arguments
+// [IP] nombres d'arguments
+set_frame:// (  --  )
+    lw t0,0(ip)
+    _inc_ip
+    _rpush
+    move R,frame //préserve la valeur actuelle de frame
+    _tpush
+    sll T,T,2
+    addu dp,dp,T
+    move frame,dp
+    lw T,0(dp)
+    b next
+    addiu dp,dp,-CELL_SIZE
+    
 pick: // ( xu...,x1,x0,u -- xu...,x1,x0,xu ) empile une copie du Uième élément de la pile
     sll  T, T, 2
     subu w, dp,T
@@ -915,9 +954,12 @@ clr_scr: // ( -- ) efface l'écran
     b next
     nop
     
-array_bound: // ( addr -- n ) retourne l'index supérieur d'un tableau
+//retourne la grandeur d'une table
+// cette valeur précède le premier
+// élément de la table    
+array_bound: // ( adr -- size )
     b next
-    nop
+    lw T,0(T)
     
 .end StackVM
 
@@ -947,11 +989,12 @@ opcodes_table:
 .word bitxor,bitnot,ticks, delay
 .word qdup, oneplus, oneminus,plusstore, twostar, twoslash, twodrop, rot, twodup
 .word  min, max, abs, lshift, rshift, divmod, qbraz, dcnt, rcnt
-.word equal,nequal, less, greater,lteq,gteq, dodo,unloop,ifetch,jfetch,loop, ploop
+.word equal,nequal, less, greater,lteq,gteq,forsave,forrest,for,fortest,fornext
 .word sine, cos, tan, atan, acos, asin,random,trunc,num
 .word key,qrx,emit,dotq,cr,dot,lits,type,space
-.word beep,melody,clr_scr    
-
+.word beep,melody,clr_scr,array_bound    
+.word local_store,local_fetch,local_addr,set_frame 
+    
 bad_op:  
 badop_msg: .asciz "bad operating code: "    
     

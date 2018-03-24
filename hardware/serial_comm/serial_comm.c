@@ -110,15 +110,13 @@ void ser_print(const char* str){
 // read a line from serial port
 int ser_read_line(char *buffer, int buff_len){
     int count=0;
-    char c;
-    BOOL loop=TRUE;
+    char c=0;
     
     *buffer=(char)0;
-    while (loop && (count < (buff_len-1))){
+    while ((c!=CR) && (count < (buff_len-1))){
         switch((c=ser_wait_char())){
             case CR:
-                ser_put_char('\r'); 
-                loop=FALSE;
+                ser_put_char('\n'); 
                 break;
             case BS:
                 if (count){

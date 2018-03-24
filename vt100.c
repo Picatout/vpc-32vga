@@ -99,18 +99,18 @@ void vt_clear_line(unsigned line){
 // envoie une séquence ESC [ 6 n
 // attend la réponse
 text_coord_t vt_get_curpos(){
-//    char c;
     text_coord_t coord;
-//    coord.x=0;
-//    coord.y=0;
-//    send_esc_seq();
-//    ser_print("6n");
-//    if (wait_esc()){
-//        vt_col=get_param(';');
-//        vt_line=get_param('R');
-//        coord.x=vt_col-1;
-//        coord.y=vt_line-1;
-//    }
+    coord.x=0;
+    coord.y=0;
+    send_esc_seq();
+    ser_print("6n");
+    if (wait_esc()){
+        vt_col=get_param(';');
+        vt_line=get_param('R');
+        coord.x=vt_col-1;
+        coord.y=vt_line-1;
+    }
+    return coord;
 }
 
 void vt_set_curpos(int x, int y){
@@ -287,6 +287,14 @@ static bool terminal_ready(){
     }
     return result;
 }//terminal_ready()
+
+unsigned char vt_read_line(char *buffer, int size){
+    unsigned char len;
+    
+    len=ser_read_line(buffer,size);
+    vt_get_curpos();
+    return len;
+}
 
 //initialisation du terminal vt100.
 // 80 colonnes

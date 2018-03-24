@@ -82,7 +82,7 @@ unsigned char read_line(dev_t dev, unsigned char *ibuff,unsigned char max_char){
     if (dev==VGA_CONSOLE){
         return kbd_read_line(ibuff,max_char);
     }else{
-        return ser_read_line(ibuff,max_char);
+        return vt_read_line(ibuff,max_char);
     }
 }
 

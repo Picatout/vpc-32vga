@@ -75,12 +75,12 @@ unsigned char kbd_wait_key(){ // attend qu'une touche soit enfoncée et retourne 
 }//kbd_wait_key()
 
  // lit une ligne au clavier, retourne la longueur du texte.
-unsigned char kbd_read_line(unsigned char *ibuff,unsigned char max_char){
+unsigned char kbd_read_line(unsigned char *ibuff,unsigned char buf_len){
     unsigned char c=0, count=0;
-    while ((c!='\r') && (count<=max_char)){
+    while ((c!='\r') && (count<(buf_len-1))){
         c=kbd_wait_key();
         if (c==CR){
-            vga_put_char('\r');
+            vga_put_char('\n');
             break;
         }else if (c==BS){
             if (count){

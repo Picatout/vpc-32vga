@@ -1,3 +1,9 @@
+2018-03-23
+----------
+1. Travail sur interpréteur BASIC et la machine virtuelle. Les contrôle de flux.
+2. Ajout de vt_read_line(), modification de read_line(), ser_read_line() et kbd_read_line()
+3. Travail sur structure FOR...NEXT
+
 2018-03-22
 ----------
 1. Travail sur interpréteur BASIC et la machine virtuelle.
