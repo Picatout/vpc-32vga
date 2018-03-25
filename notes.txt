@@ -1,3 +1,11 @@
+2018-03-24
+----------
+1. Travail sur vpcBASIC. 
+2. renommé fix_branch_address() en fix_fore_jump()
+3. créer fix_back_jump()
+4. Travail sur SELECT CASE
+5. Modifié code VM pour IBRA
+
 2018-03-23
 ----------
 1. Travail sur interpréteur BASIC et la machine virtuelle. Les contrôle de flux.

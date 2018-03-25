@@ -33,6 +33,8 @@
 
 #define VPC_32
 
+#define DEBUG
+
 #define RAM_SEG  0xA000
 #define CODE_SEG 0x9D00
 #define SFR_SEG  0xBF80

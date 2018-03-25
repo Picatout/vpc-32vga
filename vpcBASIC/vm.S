@@ -312,9 +312,10 @@ exit:  // ';' (R: addr_ret -- ) sortie d'un mot de haut niveau
     b next
     addiu rp,rp, -CELL_SIZE
 
+    
 bra:   // 'branch' ( -- ) branchement incondionnnel (adresse relative +127,-128)
     lb t0, 0(ip)
-//    _inc_ip
+    _inc_ip
     b next
     addu ip, ip, t0  // branchement relatif à ip, intervale -128 à +127
 
@@ -325,7 +326,7 @@ qbra: // '?bra' ( t|f -- ) branche si sommet pile est vrai (tos!=0)
     _inc_ip
     lb t0, -1(ip)
     b next
-    addu ip,ip,t0
+    addu ip,ip,t0 // relatif à ip {-128,127}
 
 qbraz:  // '?braz' ( t|f -- ) branche si sommet pile est faux (tos==0)
     move t0, T
@@ -334,7 +335,7 @@ qbraz:  // '?braz' ( t|f -- ) branche si sommet pile est faux (tos==0)
     _inc_ip
     lb t0, -1(ip)
     b next
-    addu ip,ip,t0
+    addu ip,ip,t0 // relatif à ip {-128,127}
 
 exec:  // 'exec' ( addr -- ) appelle sous-routine à partir de la pile
     _rpush

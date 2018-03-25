@@ -52,11 +52,12 @@
 #define _prt_varname(v) lit_int((uint32_t)v->name);\
                       bytecode(ITYPE)
 
-#define _cpush(n)  ctrl_stack[csp++]=n
-#define _cpop()  ctrl_stack[--csp]
-#define _cdrop() csp--;
+// pile de contrôle utilisée par le compilateur
+#define CTRL_STACK_SIZE 32
+//#define cdrop() csp--;ctrl_stack_check()
 #define _ctop() ctrl_stack[csp-1]
 #define _cnext() ctrl_stack[csp-2]
+#define _cpick(n) ctrl_stack[csp-n-1]
 
 
 static bool exit_basic;
@@ -67,12 +68,8 @@ static uint8_t *progspace; // espace programme.
 static unsigned dptr; //data pointer
 extern void* endmark;
 extern volatile uint32_t pause_timer;
-//extern int dstack[DSTACK_SIZE];
-//extern int ctrl_stack[RSTACK_SIZE];
-//extern int8_t dsp;
-//extern int8_t csp;
 
-static uint32_t ctrl_stack[32];
+static uint32_t ctrl_stack[CTRL_STACK_SIZE];
 static int8_t csp;
 
 static jmp_buf failed; // utilisé par setjmp() et lngjmp()
@@ -134,8 +131,8 @@ typedef enum {eNONE,eSTOP,eCOLON,eIDENT,eNUMBER,eSTRING,ePLUS,eMINUS,eMUL,eDIV,
 typedef struct _token{
     tok_id_t id;
     union{
-        char str[MAX_LINE_LEN];
-        int n;
+        char str[MAX_LINE_LEN]; // nom d l'identifiant.
+        int n; //  identifiant mot clef
     };
 }token_t;
 
@@ -219,6 +216,19 @@ static void kw_waitkey();
 static void kw_wend();
 static void kw_while();
 static void kw_xorpixel();
+static void patch_fore_jump(int target_addr);
+static void patch_back_jump(int target_addr);
+static void ctrl_stack_nrot();
+static void ctrl_stack_rot();
+static void ctrl_stack_check();
+static void cpush(uint32_t);
+static uint32_t cpop();
+static void cdrop();
+
+#ifdef DEBUG
+static void print_prog(int start);
+static void print_cstack();
+#endif
 
 //identifiant KEYWORD doit-être dans le même ordre que
 //dans la liste KEYWORD
@@ -342,7 +352,8 @@ static int dict_search(const  dict_entry_t *dict){
 //      si leur valeur change elles doivent aussi l'être dans stackvm.h
 enum {eERROR_NONE,eERR_DSTACK,eERR_RSTACK,eERR_MISSING_ARG,eERR_EXTRA_ARG,
       eERR_BAD_ARG,eERR_SYNTAX,eERR_ALLOC,eERR_REDEF,eERR_ASSIGN,
-      eERR_NOTDIM,eERR_BOUND,eERR_PROGSPACE,eERR_OUT_RANGE
+      eERR_NOTDIM,eERR_BOUND,eERR_PROGSPACE,eERR_OUT_RANGE,
+      eERR_STACK_UNDER,eERR_STACK_OVER
       };
 
  static  const char* error_msg[]={
@@ -359,7 +370,9 @@ enum {eERROR_NONE,eERR_DSTACK,eERR_RSTACK,eERR_MISSING_ARG,eERR_EXTRA_ARG,
     "undefined array variable\n",
     "array index out of range\n",
     "program space full\n",
-    "jump out of range\n"
+    "jump out of range\n",
+    "control stack underflow\n",
+    "control stack overflow\n"
  };
  
  
@@ -398,6 +411,9 @@ static void throw(int error){
                 print(con,token.str);
     }//switch
     crlf(con);
+#ifdef DEBUG    
+    print_prog(program_end);
+#endif    
     activ_reader->eof=true;
     longjmp(failed,error);
 }
@@ -499,6 +515,73 @@ static void lit_int(unsigned int n){
         bytecode(n&0xff);
         n>>=8;
     }
+}
+
+//calcul la distance entre slot_address+1 et dptr.
+// le déplacement maximal authorizé est de 127 octets.
+// la valeur du déplacement est déposée dans la fente 'slot_address'.
+static void patch_fore_jump(int slot_addr){
+    int displacement;
+    
+    displacement=dptr-slot_addr-1;
+    if (displacement>127){throw(eERR_OUT_RANGE);}
+    progspace[slot_addr]=_byte0(displacement);
+}//f
+
+//calcul la distance entre dptr+1 et target_address
+//le déplacement maximal authorizé est de -128 octets.
+// la valeur du déplacement est déposé à la position 'dptr'
+static void patch_back_jump(int target_addr){
+    int displacement;
+    
+    displacement=target_addr-dptr-1;
+    if (displacement<-128){throw(eERR_OUT_RANGE);}
+    progspace[dptr++]=_byte0(displacement);
+}
+
+void cpush(uint32_t n){
+    if (csp==CTRL_STACK_SIZE){throw(eERR_STACK_OVER);}
+    ctrl_stack[csp++]=n;
+}
+
+uint32_t cpop(){
+    if (!csp) {throw(eERR_STACK_UNDER);}
+    return ctrl_stack[--csp];
+}
+
+static void cdrop(){
+    if (!csp){throw(eERR_STACK_UNDER);}
+    csp--;
+}
+
+// vérifie les limites de ctrl_stack
+static void ctrl_stack_check(){
+    if (csp<0){
+        throw(eERR_STACK_UNDER);
+    }else if (csp==CTRL_STACK_SIZE){
+        throw(eERR_STACK_OVER);
+    }
+}
+// rotation des 3 éléments supérieur de la pile de contrôle
+// de sorte que le sommet se retrouve en 3ième position
+static void ctrl_stack_nrot(){
+    int temp;
+    
+    temp=_cpick(2);
+    _cpick(2)=_ctop();
+    _ctop()=_cnext();
+    _cnext()=temp;
+}
+
+//rotation des 3 éléments supérieur de la pile de contrôle
+// de sorte que le 3ième élément se retrouve au sommet
+static void ctrl_stack_rot(){
+    int temp;
+    
+    temp=_cpick(2);
+    _cpick(2)=_cnext();
+    _cnext()=_ctop();
+    _ctop()=temp;
 }
 
 //caractères qui séparent les unitées lexicale
@@ -1124,7 +1207,6 @@ static void bool_factor(){
     }
 }//f
 
-static void fix_branch_address();
 
 static void bool_term(){// print(con,"bool_term()\n");
     int fix_count=0; // pour évaluation court-circuitée.
@@ -1141,7 +1223,7 @@ static void bool_term(){// print(con,"bool_term()\n");
     }
     unget_token=true;
     while (fix_count){
-        fix_branch_address();
+        patch_fore_jump(cpop());
         fix_count--;
     }
 }//f
@@ -1160,7 +1242,7 @@ static void bool_expression(){// print(con,"bool_expression()\n");
     }
     unget_token=true;
     while (fix_count){
-        fix_branch_address();
+        patch_fore_jump(cpop());
         fix_count--;
     }
 }//f
@@ -1658,30 +1740,23 @@ static void kw_rem(){
 // IF condition THEN bloc_instructions ELSE bloc_instructions END IF
 static void kw_if(){
     complevel++;
-    _cpush(eKW_IF);
+    cpush(eKW_IF);
     bool_expression();
 }//f
 
 // THEN voir kw_if
 static void kw_then(){
     bytecode(IQBRAZ);
-    _cpush(dptr);
+    cpush(dptr);
     dptr++;
 }//f
 
-static void fix_branch_address(){
-    int n,rel_jump;
-    n=_cpop();
-    rel_jump=dptr-n-1;
-    if ((rel_jump<-128) || (rel_jump>127)){throw(eERR_OUT_RANGE);}
-    progspace[n]=rel_jump;
-}//f
 
 // ELSE voir kw_if
 static void kw_else(){
     bytecode(IBRA);
     bytecode(0);
-    fix_branch_address();
+    patch_fore_jump(cpop());
     ctrl_stack[csp++]=dptr-1;
 }//f
 
@@ -1712,21 +1787,21 @@ static void kw_end(){ // IF ->(C: blockend adr -- ) |
                       //SUB et FUNC -> (C: endmark blockend &var -- )
     int blockend,fix_count;
     var_t *var;
-
+    
     expect(eKWORD);
-    blockend=token.n; 
+    blockend=token.n;
     if (_cnext()!=blockend) throw(eERR_SYNTAX);
     switch (blockend){
         case eKW_IF:
-            fix_branch_address();
-            _cdrop(); //drop eKW_IF
+            patch_fore_jump(cpop());
+            cdrop(); //drop eKW_IF
             break;
         case eKW_SELECT:
-            fix_count=_cpop();
+            fix_count=cpop();
             if (!fix_count) throw(eERR_SYNTAX);
-            _cdrop(); //drop eKW_SELECT
+            cdrop(); //drop eKW_SELECT
             while (fix_count){ //print_int(con,fix_count,0); crlf(con);
-                fix_branch_address();
+                patch_fore_jump(cpop());
                 fix_count--;
             } //print_int(con,csp,0);
             bytecode(IDROP);
@@ -1749,7 +1824,7 @@ static void kw_end(){ // IF ->(C: blockend adr -- ) |
             movecode(var);
             csp-=2; // drop eKW_xxx et endmark
             var_local=false;
-//#define DEBUG
+#undef DEBUG
 #ifdef DEBUG
     {
         uint8_t * bc;    
@@ -1761,7 +1836,7 @@ static void kw_end(){ // IF ->(C: blockend adr -- ) |
         print_int(con,con,*bc,0);put_char(' ');
     }
 #endif
-//#undef DEBUG
+#define DEBUG
             break;
         default:
             throw(eERR_SYNTAX);
@@ -1781,8 +1856,8 @@ static void kw_select(){
     expect(eKWORD);
     if (token.n!=eKW_CASE) throw(eERR_SYNTAX);
     complevel++;
-    _cpush(eKW_SELECT);
-    _cpush(0); // compteur clauses CASE
+    cpush(eKW_SELECT);
+    cpush(0); // compteur clauses CASE
     expression();
 }//f
 
@@ -1791,14 +1866,14 @@ static void compile_case_list(){
     int fix_count=0;
     next_token();
     if (token.id==eSTOP) throw(eERR_SYNTAX);
-    unget_token=true;
+    unget_token=true; 
     while (token.id != eSTOP){
-        bytecode(IDUP);
-        expression();
-        bytecode(IEQUAL);
-        bytecode(IQBRAZ);
-        _cpush(dptr);
-        dptr+=1;
+        bytecode(IDUP); 
+        expression();  
+        bytecode(IEQUAL);  
+        bytecode(IQBRA);  
+        cpush(dptr);
+        dptr++;
         fix_count++;
         next_token();
         if (token.id!=eCOMMA){
@@ -1807,40 +1882,42 @@ static void compile_case_list(){
         }
     }//while
     bytecode(IBRA);
-    dptr+=1;
+    dptr++;
     while (fix_count){
-        fix_branch_address();
+        patch_fore_jump(cpop());
         fix_count--;
     }
-    ctrl_stack[csp]=_ctop()+1; //incrémente le nombre de clause CASE
-    _ctop()=_cnext(); // blockend
-    _cnext()=dptr-2;   // bra_adr
-    csp++;
+    _ctop()++; //incrémente le nombre de clause CASE
+    cpush(dptr-1); // fente pour le IBRA de ce case (i.e. saut après le END SELECT)
+    ctrl_stack_nrot();
+    
 }//f
+
+static void patch_previous_case(){
+    uint32_t adr;
+    
+    ctrl_stack_rot();
+    adr=cpop();
+    bytecode(IBRA);  // branchement à la sortie du select case pour le case précédent
+    cpush(dptr); // (adr blockend n -- dptr blockend n )
+    ctrl_stack_nrot(); 
+    dptr++;
+    patch_fore_jump(adr); // fixe branchement vers ce case
+    
+}
 
 // compile un CASE, voir kw_select
 static void kw_case(){
-    uint32_t adr;
     next_token();
     if (token.id==eKWORD && token.n==eKW_ELSE){
         if (_ctop()){
-            adr=ctrl_stack[csp-3]; //( br_adr blockend n  -- br_adr blockend n)
-            bytecode(IBRA);  // branchement à la sortie du select case
-            ctrl_stack[csp-3]=dptr; // (adr blockend n -- dptr blockend n )
-            dptr+=1;
-            _cpush(adr);
-            fix_branch_address(); // fixe branchement vers CASE ELSE
+            patch_previous_case();
         }else
             throw(eERR_SYNTAX);
     }else{
         unget_token=true;
         if (_ctop()){//y a-t-il un case avant celui-ci?
-            adr=ctrl_stack[csp-3]; //( br_adr blockend n  -- br_adr blockend n)
-            bytecode(IBRA);  // branchement à la sortie du select case
-            ctrl_stack[csp-3]=dptr; // (adr blockend n -- dptr blockend n )
-            dptr+=1;
-            _cpush(adr);
-            fix_branch_address(); // fixe branchement vers ce case
+            patch_previous_case();
         }
         compile_case_list();
     }
@@ -2021,7 +2098,7 @@ static void kw_for(){
     }
     bytecode(IFOR); // sauvegarde limit et step qui sont sur la pile
     var=var_search(name);
-    _cpush(dptr);  // adrese début instruction de la boucle for.
+    cpush(dptr);  // adresse cible instruction FORTEST de la boucle for.
     if (var->vtype==eVAR_LOCAL){
         bytecode(ILCADR);
         bytecode(var->n);
@@ -2031,14 +2108,13 @@ static void kw_for(){
     bytecode(IFETCH);
     bytecode(IFORTEST);
     bytecode(IQBRAZ);
-    _cpush(dptr); // place offset adresse destination après NEXT ici
+    cpush(dptr); // fente déplacement après boucle FOR...NEXT
     dptr++;
 }//f
 
 // voir kw_for()
 static void kw_next(){
     var_t *var;
-    int jump_slot,jump_value;
     
     expect(eIDENT);
     var=var_search(token.str);
@@ -2051,13 +2127,9 @@ static void kw_next(){
     }
     bytecode(IFORNEXT);
     bytecode(IBRA);
-    jump_slot=_cpop(); //addresse progspace pour saut avant FORTEST
-    jump_value=dptr-jump_slot;
-    if (jump_value>127){throw(eERR_OUT_RANGE);}
-    progspace[jump_slot]=_byte0(jump_value);
-    jump_value=_cpop()-dptr;
-    if (jump_value<-128){throw(eERR_OUT_RANGE);}
-    bytecode(jump_value);
+    patch_back_jump(_cnext()); //saut arrière vers FORTEST
+    patch_fore_jump(cpop());
+    cdrop(); // jette cible de patch_back_jump() précédent
     bytecode(IFORREST); 
     complevel--;
 }//kw_next()
@@ -2067,10 +2139,10 @@ static void kw_next(){
 // WEND
 static void kw_while(){
     complevel++;
-    _cpush(dptr);
+    cpush(dptr);
     bool_expression();
     bytecode(IQBRAZ);
-    _cpush(dptr);
+    cpush(dptr);
     dptr+=1;
 }//f
 
@@ -2078,13 +2150,9 @@ static void kw_while(){
 static void kw_wend(){
     int n;
     
-    n=(_cnext()-dptr-1);
-    if (n<-128) {throw(eERR_OUT_RANGE);}
     bytecode(IBRA);
-    progspace[dptr]=n;
-    dptr+=1;
-    fix_branch_address();
-    _cdrop();
+    patch_back_jump(_cnext());
+    patch_fore_jump(cpop());
     complevel--;
 }//f
 
@@ -2093,13 +2161,12 @@ static void kw_wend(){
 // LOOP WHILE|UNTIL condition
 static void kw_do(){
     complevel++;
-    _cpush(dptr);
+    cpush(dptr);
 }//f
 
 // voir kw_do()
 static void kw_loop(){
     uint8_t bc;
-    int back_jump;
     
     expect(eKWORD);
     if (token.n==eKW_WHILE){
@@ -2111,11 +2178,7 @@ static void kw_loop(){
     }
     bool_expression();
     bytecode(bc);
-    back_jump=_ctop()-dptr-1;
-    if (back_jump<-128) {throw(eERR_OUT_RANGE);}
-    progspace[dptr]=_byte0(back_jump);
-    dptr+=1;
-    _cdrop();
+    patch_back_jump(cpop());
     complevel--;
 }//f
 
@@ -2329,14 +2392,14 @@ static void kw_len(){
 static void compile_accept_var(var_t* var){
     bytecode(IFETCH); // (var->str -- char* )
     bytecode(IQBRAZ); // si NULL accepte
-    _cpush(dptr);
+    cpush(dptr);
     dptr++;
     // variable chaîne déjà assignée on ignore cette variable
     bytecode(IDROP); // la copie ne sera pas utilisée
     bytecode(IBRA);
     dptr++;
-    fix_branch_address();
-    _cpush(dptr-1);
+    patch_fore_jump(cpop());
+    cpush(dptr-1);
 }//f
 
 // INPUT [string ','] identifier (',' identifier)
@@ -2384,7 +2447,7 @@ static void kw_input(){
                 bytecode(ISTRCPY); // ( var_adr void* src* dest* -- var_adr void* )
                 bytecode(ISWAP); // ( var_adr void* -- void* var_adr )
                 bytecode(ISTORE);   //( void* var_adr -- )
-                fix_branch_address();
+                patch_fore_jump(cpop());
                 break;
             case eVAR_STRARRAY:  // ( -- index )
                 bytecode(ILSHIFT);   // ( index -- 2*index)
@@ -2404,7 +2467,7 @@ static void kw_input(){
                 bytecode(ISTRCPY); // ( _var_adr void* src* dest* -- _var_adr void* )
                 bytecode(ISWAP);   // ( _var_adr void* -- void* _var_adr )
                 bytecode(ISTORE);   //( void* _var_adr  -- )
-                fix_branch_address();
+                patch_fore_jump(cpop());
                 break;
             case eVAR_LOCAL:
             case eVAR_INT:
@@ -2629,10 +2692,10 @@ static void subrtn_create(int var_type, int blockend){
     var->adr=(void*)&progspace[dptr];
     globals=varlist;
     var_local=true;
-    _cpush((uint32_t)endmark);
+    cpush((uint32_t)endmark);
     complevel++;
-    _cpush(blockend);
-    _cpush((uint32_t)var);
+    cpush(blockend);
+    cpush((uint32_t)var);
     create_arg_list();
 }//f
 
@@ -2714,7 +2777,6 @@ static void compile(){
 
 //efface le contenu de progspace
 static void clear(){
-    csp=-1;
     dptr=0;
     varlist=NULL;
     globals=NULL;
@@ -2730,6 +2792,25 @@ static void clear(){
     csp=0;
 }//f
 
+#ifdef DEBUG
+static void print_prog(int start){
+    int i;
+    for (i=start;i<=dptr;i++){
+        print_int(con,progspace[i],3);
+        put_char(con,' ');
+    }
+    crlf(con);
+}
+
+static void print_cstack(){
+    int i;
+    for (i=0;i<csp;i++){
+        print_int(con,ctrl_stack[i],0);
+    }
+    crlf(con);
+        
+}
+#endif
 
 int BASIC_shell(const char* file_name){
     clear_screen(con);
@@ -2760,14 +2841,10 @@ int BASIC_shell(const char* file_name){
                     vm_exit_code=StackVM(progspace);
                     run_it=false;
                 }else if (dptr>program_end){
-#define DEBUG
+
 #ifdef DEBUG
-    {
-        int i;
-        for (i=program_end;i<=dptr;i++){print_int(con,progspace[i],3);put_char(con,' ');}crlf(con);
-    }
+        print_prog(program_end);
 #endif
-//#undef DEBUG    
                     bytecode(IBYE);
                     vm_exit_code=StackVM(&progspace[program_end]);
                     if (activ_reader->device==eDEV_KBD){
