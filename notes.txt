@@ -1,3 +1,19 @@
+2018-03-27
+----------
+1. Travail sur vm.S, ajout de dots, depth et modfication de next, set_frame, leave
+2. Travail sur vpcBASIC modification compilation concernant SUB et FUNC.
+3. ***** A résoudre  problème de la valeur de retour des FUNC.
+
+2018-03-26
+----------
+1. travail sur machine virtuelle. Changer le fonctionnement des piles. Elles étaient
+pré-incémentées, maintenant elles sont post-incrémentées.
+2. Suppression des mots suivants dans la vm: wlit,docol,exit,exec,umsmod,msmod
+2018-03-24
+----------
+1. modification à la machine virtuelle vm.
+2. travail sur kw_func et kw_sub 
+
 2018-03-24
 ----------
 1. Travail sur vpcBASIC. 
