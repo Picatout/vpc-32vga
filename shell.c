@@ -229,18 +229,28 @@ static char* cmd_format(int tok_count, const char **tok_list){
     return NULL;
 }
 
+#include "vpcBASIC/BASIC.h"
+
+// basic [-h n] [fichier.bas]
+// -h -> espace réservé pour l'allocation dynamique 4096 octets par défaut.
 static char* cmd_basic(int tok_count, const char **tok_list){
-    char *code=NULL;
-    int exit_code;
+    char *code=NULL, *basic_file=NULL;
+    int i, exit_code;
+    unsigned heap=DEFAULT_HEAP;
+    
 //#define TEST_VM
 #ifdef TEST_VM    
     exit_code=test_vm();
 #else    
-    if (tok_count>1){
-        exit_code=BASIC_shell(tok_list[1]);
-    }else{
-        exit_code=BASIC_shell(NULL);
+    for (i=1;i<tok_count;i++){
+        if (!strcmp(tok_list[i],"-h")){
+            i++;
+            heap=atoi(tok_list[i]);
+        }else{
+            basic_file=(char*)tok_list[i];
+        }
     }
+    exit_code=BASIC_shell(heap,basic_file);
     code=malloc(32);
     sprintf(code,"\nBASIC exit code: %d", exit_code);
 #endif    

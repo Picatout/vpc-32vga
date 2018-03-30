@@ -12,6 +12,9 @@
     
 #include <p32xxxx.h>
 
+#include "BASIC.h"
+    
+    
 // fonctions en C    
 .extern sys_ticks
 .extern con  
@@ -37,6 +40,9 @@
 .extern set_tab_witdh
 .extern get_tab_width
 .extern alloc_var_space
+.extern string_alloc
+.extern string_free
+.extern delay_ms
     
 //math 
 .extern print_float
@@ -203,7 +209,7 @@ next:
     sll   t0, t0, 2   
     la t1,opcodes_table
     addu t1,t1,t0
-#define _CHECK_OPCODE
+
 #ifdef _CHECK_OPCODE    
     la t0, bad_op
     subu t0,t0,t1
@@ -551,14 +557,14 @@ modulo:  // 'mod' ( n1 n2 -- n1%n2 )
 min:  // min (n1 n2 -- min )  conserve le plus petit
     lw t0, -CELL_SIZE(dp)
     subu t1,t0,T
-    bltz t1, next
+    bgtz t1, next
     addiu dp,dp,-CELL_SIZE
     b next
     move T,t0
 
 max:  // max (n1 n2 -- max ) conserve le plus grand
     lw t0,-CELL_SIZE(dp)
-    subu t1,T,t0
+    subu t1,t0,T
     bltz t1, next
     addiu dp,dp,-CELL_SIZE
     b next
@@ -691,16 +697,10 @@ dot: // "." ( n -- ) imprime un entier en format libre
     
     
 delay: // 'delay' ( msec -- ) delais en millisecondes
-    la w,sys_ticks
-    lw t0, 0(w)
-    addu t0, T,t0
-    lw T,-CELL_SIZE(dp)
-1:  lw t1, 0(w)
-    bne t1, t0, 1b
-    nop
-    b next
-    addiu dp, dp, -CELL_SIZE
-
+    jal delay_ms
+    move a0,T
+    _drop_b_next
+    
 ticks:  // 'ticks'  ( -- n ) empile le compteur sys_tick
     _dpush
     la w,sys_ticks
@@ -957,22 +957,38 @@ to_int: // addr -- n )
     b next
     move T,v0
 
-// alloue de la mémoire sur le heap
-// n taile en octets
+// alloue de la mémoire dans l'espace progamme.
+// n taille en octets
 // addr adresse du bloc mémoire alloué ou 0 si manque de mémoire    
 alloc: // ( n -- addr )
     jal alloc_var_space
     move a0,T
     b next
     move T,v0
+ 
+//alloue de l'espace sur le heap pour une chaîne asciiz
+// n longueur de la chaîne en octets    
+str_alloc: // ( n -- addr )    
+    jal string_alloc
+    move a0,T
+    j next
+    move T,v0
+    
+    
+// libère une chaîne préalablement allouée sur le heap.
+str_free: // ( addr -- )
+    jal string_free
+    move a0,T
+    _drop_b_next
+    
     
 // copie une chaîne asciiz de src vers dest
 // src adresse chaîne à copier
 // dest adresse destination    
 str_cpy: // ( src dest -- dest )
-    lw a0,-CELL_SIZE(dp)
+    lw a1,-CELL_SIZE(dp)
     jal strcpy
-    move a1,T
+    move a0,T
     b next
     addiu dp,dp,-CELL_SIZE
     
@@ -1064,7 +1080,7 @@ opcodes_table:
 .word key,qrx,emit,prt_str,cr,dot,lits,type,space
 .word beep,melody,clr_scr,array_bound    
 .word local_store,local_fetch,local_addr,set_frame,sr_call,leave,lc_space
-.word trace,str_adr,str_len,readln,to_int,alloc,str_cpy
+.word trace,str_adr,str_len,readln,to_int,alloc,str_alloc,str_free,str_cpy
     
 bad_op:  
 badop_msg: .asciz "bad operating code: "    

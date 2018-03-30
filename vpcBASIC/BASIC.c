@@ -1,4 +1,22 @@
 /*
+* Copyright 2013,2014,2017,2018 Jacques Deschênes
+* This file is part of VPC-32VGA.
+*
+*     VPC-32VGA is free software: you can redistribute it and/or modify
+*     it under the terms of the GNU General Public License as published by
+*     the Free Software Foundation, either version 3 of the License, or
+*     (at your option) any later version.
+*
+*     VPC-32v is distributed in the hope that it will be useful,
+*     but WITHOUT ANY WARRANTY; without even the implied warranty of
+*     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+*     GNU General Public License for more details.
+*
+*     You should have received a copy of the GNU General Public License
+*     along with VPC-32VGA.  If not, see <http://www.gnu.org/licenses/>.
+*/
+
+/*
  * Interpréteur BASIC compilant du bytecode pour la machine à piles définie dans vm.S 
  */
 
@@ -25,6 +43,7 @@
 #include "../hardware/rtcc/rtcc.h"
 #include "../reader.h"
 #include "vm.h"
+#include "BASIC.h"
 
 enum frame_type_e {FRAME_SUB,FRAME_FUNC};
 
@@ -58,6 +77,7 @@ enum frame_type_e {FRAME_SUB,FRAME_FUNC};
 
 static bool exit_basic;
 
+
 #define PAD_SIZE CHAR_PER_LINE
 static char *pad; // tampon de travail
 
@@ -79,6 +99,7 @@ static reader_t *activ_reader=NULL; // source active
 //static void *endmark;
 static uint32_t prog_size;
 static uint32_t line_count;
+static uint32_t token_count;
 static bool program_loaded;
 static bool run_it=false;
 static uint32_t program_end;
@@ -175,7 +196,6 @@ static void kw_max();
 static void kw_mdiv();
 static void kw_min();
 static void kw_next();
-static void kw_noise();
 static void kw_pause();
 static void kw_print();
 static void kw_putc();
@@ -228,6 +248,8 @@ static void cdrop();
 static unsigned get_arg_count(void* fn_code);
 static void expression();
 static void factor();
+char* string_alloc(unsigned size);
+void string_free(char *);
 
 #ifdef DEBUG
 static void print_prog(int start);
@@ -240,7 +262,7 @@ enum {eKW_ABS,eKW_AND,eKW_BOX,eKW_BTEST,eKW_BYE,eKW_CASE,eKW_CIRCLE,eKW_CLEAR,eK
       eKW_CONST,eKW_CURCOL,eKW_CURLINE,eKW_DIM,eKW_DO,eKW_ELLIPSE,eKW_ELSE,eKW_END,eKW_EXIT,
       eKW_FOR,eKW_FUNC,eKW_GETPIXEL,eKW_IF,eKW_INPUT,eKW_KEY,eKW_LEN,
       eKW_LET,eKW_LINE,eKW_LOCAL,eKW_LOCATE,eKW_LOOP,eKW_MAX,eKW_MDIV,eKW_MIN,eKW_NEXT,
-      eKW_NOISE,eKW_NOT,eKW_OR,eKW_PAUSE,
+      eKW_NOT,eKW_OR,eKW_PAUSE,
       eKW_PRINT,eKW_PUTC,eKW_RANDOMISIZE,eKW_RECT,eKW_REF,eKW_REM,eKW_REMSPR,eKW_RESTSCR,
       eKW_RETURN,eKW_RND,eKW_SAVESCR,eKW_SCRLUP,eKW_SCRLDN,
       eKW_SCRLRT,eKW_SCRLFT,eKW_SELECT,eKW_SETPIXEL,eKW_SETTMR,eKW_SHL,eKW_SHR,
@@ -251,7 +273,6 @@ enum {eKW_ABS,eKW_AND,eKW_BOX,eKW_BTEST,eKW_BYE,eKW_CASE,eKW_CIRCLE,eKW_CLEAR,eK
 
 //mots réservés BASIC
 static const dict_entry_t KEYWORD[]={
-    {clear,5,"CLEAR"},
     {kw_abs,3+FUNCTION,"ABS"},
     {bad_syntax,3,"AND"},
     {kw_box,3,"BOX"},
@@ -259,6 +280,7 @@ static const dict_entry_t KEYWORD[]={
     {kw_bye,3,"BYE"},
     {kw_case,4,"CASE"},
     {kw_circle,6,"CIRCLE"},
+    {clear,5,"CLEAR"},
     {kw_cls,3+AS_HELP,"CLS"},
     {kw_const,5,"CONST"},
     {kw_curcol,6+FUNCTION,"CURCOL"},
@@ -285,7 +307,6 @@ static const dict_entry_t KEYWORD[]={
     {kw_mdiv,4+FUNCTION,"MDIV"},
     {kw_min,3+FUNCTION,"MIN"},
     {kw_next,4,"NEXT"},
-    {kw_noise,5,"NOISE"},
     {bad_syntax,3,"NOT"},
     {bad_syntax,2,"OR"},
     {kw_pause,5,"PAUSE"},
@@ -358,7 +379,7 @@ static int dict_search(const  dict_entry_t *dict){
 enum {eERROR_NONE,eERR_DSTACK,eERR_RSTACK,eERR_MISSING_ARG,eERR_EXTRA_ARG,
       eERR_BAD_ARG,eERR_SYNTAX,eERR_ALLOC,eERR_REDEF,eERR_ASSIGN,
       eERR_NOTDIM,eERR_BOUND,eERR_PROGSPACE,eERR_OUT_RANGE,
-      eERR_STACK_UNDER,eERR_STACK_OVER
+      eERR_STACK_UNDER,eERR_STACK_OVER,eERR_NO_STR
       };
 
  static  const char* error_msg[]={
@@ -377,7 +398,8 @@ enum {eERROR_NONE,eERR_DSTACK,eERR_RSTACK,eERR_MISSING_ARG,eERR_EXTRA_ARG,
     "program space full\n",
     "jump out of range\n",
     "control stack underflow\n",
-    "control stack overflow\n"
+    "control stack overflow\n",
+    "no more string space available\n"
  };
  
  
@@ -389,6 +411,10 @@ static void throw(int error){
     if (activ_reader->device==eDEV_SDCARD){
         print(con,"line: ");
         print_int(con,line_count,0);
+        crlf(con);
+    }else{
+        print(con,"token#: ");
+        print_int(con,token_count,0);
         crlf(con);
     }
     strcpy(message,error_msg[error]);
@@ -428,6 +454,47 @@ static var_t *varlist=NULL;
 static var_t *globals=NULL;
 static bool var_local=false;
 
+// allocation de l'espace pour une chaîne asciiz sur le heap;
+// length est la longueur de la chaine.
+char* string_alloc(unsigned length){
+    char *str;
+    str=malloc(++length);
+    if (!str){
+        throw(eERR_NO_STR);
+    }
+    return str;
+}
+
+
+// libération de l'espace réservée pour une chaîne asciiz.
+void string_free(char *str){
+    if (str) free(str);
+}
+
+
+
+void free_string_vars(){
+    var_t *var;
+    void *limit;
+    char **str_array;
+    int i,count;
+    
+    
+    limit=progspace+prog_size;
+    var=varlist;
+    while (var){
+        if (var->vtype==eVAR_STR){
+            string_free(var->str);
+        }else if (var->vtype==eVAR_STRARRAY){
+            str_array=(char**)var->adr;
+            count=*(unsigned*)str_array;
+            for (i=1;i<=count;i++){
+                string_free(str_array[i]);
+            }
+        }
+        var=var->next;
+    }
+}
 
 // déclenche une exeption en cas d'échec.
 void *alloc_var_space(int size){
@@ -713,6 +780,9 @@ static void next_token(){
     c=reader_getc(activ_reader);
     if (c==-1){
         token.id=eNONE;
+        token_count=0;
+    }else{
+        token_count++;
     }
     if (isalpha(c)){
         token.str[0]=toupper(c);
@@ -842,6 +912,7 @@ static void next_token(){
                 token.id=eSTOP;
                 token.str[0]='\n';
                 token.str[1]=0;
+                token_count=0;
                 break;
         }//switch(c)
     }//if
@@ -1335,7 +1406,7 @@ static void init_str_array(var_t *var){
         switch (token.id){
             case eSTRING: 
                 if (state) throw(eERR_SYNTAX);
-                newstr=alloc_var_space(strlen(token.str)+1);
+                newstr=string_alloc(strlen(token.str));
                 strcpy(newstr,token.str);
                 array[count++]=(uint32_t)newstr;
                 state=1;
@@ -1640,7 +1711,7 @@ static void kw_tune(){
 // argument en millisecondes
 static void kw_pause(){
     parse_arg_list(1);
-    bytecode(IIDLE);
+    bytecode(IDELAY);
 }//f
 
 //TICKS()
@@ -1664,14 +1735,6 @@ static void kw_timeout(){
     expect(eLPAREN);
     expect(eRPAREN);
     bytecode(ITIMEOUT);
-}//f
-
-//NOISE(msec)
-// génère un bruit blanc
-// durée en millisecondes
-static void kw_noise(){
-    parse_arg_list(1);
-    bytecode(INOISE);
 }//f
 
 //COMMANDE BASIC: BYE
@@ -2275,7 +2338,7 @@ static void array_let(char * name){
     switch (var->vtype){
         case eVAR_STRARRAY:
             expect(eSTRING);
-            adr=(char*)alloc_var_space(strlen(token.str)+1);
+            adr=string_alloc(strlen(token.str));
             strcpy(adr,token.str);
             lit((uint32_t)adr);
             bytecode(ISWAP);
@@ -2372,45 +2435,17 @@ static void compile_input(var_t *var){
     lit((uint32_t)pad); // ( var_addr -- var_addr pad* )
     _litc(CHAR_PER_LINE-1); // ( var_addr pad* -- var_addr pad* buf_size )
     bytecode(IREADLN); // ( var_addr pad* buf_size  -- var_adr pad* str_size )
-    bytecode(IDROP);
-    bytecode(I2INT);
-}
-
-// compile lecture et enregistrement
-// pour variables chaîne.
-// en entrée  var->str compilé.
-static void compile_read_store(var_t *var){
-    bytecode(IDUP); //conserve une copie ( char* -- char* char* )
-    bytecode(IQBRAZ); // si NULL accepte
-    cpush(dptr);
-    dptr++;
-    // variable chaîne déjà assignée on ignore cette variable
-    bytecode(IDROP); // la copie ne sera pas utilisée
-    bytecode(IBRA);
-    dptr++;
-    patch_fore_jump(cpop());
-    cpush(dptr-1);
-    // var accepté, lecture de la  chaîne au clavier
-    compile_input(var);
-    _litc(1);
-    bytecode(IPLUS);
-    bytecode(IALLOC);  //( var_adr pad* alloc_size -- var_adr pad* void* )
-    bytecode(ISTRCPY); // ( var_adr src* dest* -- var_adr void* )
-    bytecode(ISWAP); // ( var_adr void* -- void* var_adr )
-    bytecode(ISTORE);   //( void* var_adr -- )
-    patch_fore_jump(cpop());
 }
 
 // critères d'acceptation pour INPUT:
-// si c'est une variable chaîne, elle doit déjà existé et ne doit-pas être déjà assignée.
 // Seule les variables tableaux existantes peuvent-être utilisées par input.
-// Dans un contexte var_local seules les variables préexistante
+// Dans un contexte var_local seules les variables préexistantes
 //  peuvent-être utilisées.
 static var_t  *var_accept(char *name){
     var_t *var;
     
     var=var_search(name);
-    if (!var && (var_local || (name[strlen(name)]=='$'))) throw(eERR_BAD_ARG);
+    if (!var && var_local) throw(eERR_BAD_ARG);
     next_token();
     //seules les variables vecteur préexistantes peuvent-être utilisées
     if (!var && (token.id==eLPAREN)) throw(eERR_BAD_ARG);
@@ -2418,8 +2453,10 @@ static var_t  *var_accept(char *name){
     if (!var) var=var_create(name,NULL);
     if (var->vtype>=eVAR_INTARRAY && var->vtype<=eVAR_STRARRAY){
         code_array_address(var);
+    }else if (var->vtype==eVAR_STR){
+        lit((uint32_t)&var->adr);
     }else{
-        lit((uint32_t)var->adr);
+        lit((uint32_t)&var->n);
     }
     return var;
 }
@@ -2438,24 +2475,37 @@ static void kw_input(){
         bytecode(ICR);
         expect(eCOMMA);
         expect(eIDENT);
-    }else if(token.id!=eIDENT) throw(eERR_BAD_ARG); 
+    }else if (token.id!=eIDENT){
+        throw(eERR_BAD_ARG); 
+    }
     while (token.id==eIDENT){
         strcpy(name,token.str);
-        var=var_accept(name); // ( -- addr )
+        var=var_accept(name); // ( -- var_addr )
         switch (var->vtype){ 
             case eVAR_STR:
-            case eVAR_STRARRAY:
-                compile_read_store(var);
+            case eVAR_STRARRAY: // ( var_addr -- )
+                bytecode(IDUP);
+                bytecode(IFETCH);
+                bytecode(ISTRFREE); 
+                compile_input(var); // (var_addr -- var_addr pad_addr)
+                bytecode(ISTRALLOC);// ( var_addr pad_addr n -- var_addr pad_addr str_addr)  
+                bytecode(ISTRCPY); // ( var_addr pad_addr str_addr -- var_addr )
+                bytecode(ISWAP);
+                bytecode(ISTORE);
                 break;
             case eVAR_LOCAL:
             case eVAR_INT:
             case eVAR_BYTE:
                 compile_input(var);
+                bytecode(IDROP);
+                bytecode(I2INT);
                 store_integer(var);
                 break;
             case eVAR_INTARRAY:
             case eVAR_BYTEARRAY:
                 compile_input(var);
+                bytecode(IDROP);
+                bytecode(I2INT);
                 bytecode(ISWAP);
                 bytecode(ICSTORE);
                 break;
@@ -2509,10 +2559,10 @@ static void kw_let(){
             if (!var) var=var_create(name,NULL);
             unget_token=true;
             expect(eEQUAL);
-            if (name[len-1]=='$'){
-                if (var->str) throw(eERR_ASSIGN);
+            if (var->vtype==eVAR_STR){
+                string_free(var->str);
                 expect(eSTRING);
-                var->str=alloc_var_space(strlen(token.str)+1);
+                var->str=string_alloc(strlen(token.str));
                 strcpy(var->str,token.str);
             }else{
                 expression();
@@ -2740,6 +2790,7 @@ static void compile(){
 
 //efface le contenu de progspace
 static void clear(){
+    free_string_vars();
     dptr=0;
     varlist=NULL;
     globals=NULL;
@@ -2748,6 +2799,7 @@ static void clear(){
     endmark=(void*)progspace+prog_size;
     memset((void*)progspace,0,prog_size);
     line_count=0;
+    token_count=0;
     program_loaded=false;
     run_it=false;
     program_end=0;
@@ -2776,16 +2828,16 @@ static void print_cstack(){
 }
 #endif
 
-int BASIC_shell(const char* file_name){
+int BASIC_shell(unsigned basic_heap, const char* file_name){
     clear_screen(con);
     FIL *fh;
     FRESULT result;
     int vm_exit_code;
     
     pad=malloc(PAD_SIZE);
-    prog_size=(biggest_chunk()-4096)&0xfffffff0;
+    prog_size=(biggest_chunk()-basic_heap)&0xfffffff0;
     progspace=malloc(prog_size);
-    sprintf((char*)progspace,"vpcBASIC v1.0\nRAM available: %d bytes\n",prog_size);
+    sprintf((char*)progspace,"vpcBASIC v1.0\nRAM available: %d bytes\nstrings space: %d bytes\n",prog_size,basic_heap);
     print(con,progspace);
     clear();
 //  initialisation lecteur source.
@@ -2829,6 +2881,7 @@ int BASIC_shell(const char* file_name){
     if (fh){
         result=f_close(fh);
     }
+    free_string_vars();
     free(progspace);
     free(pad);
     return vm_exit_code;

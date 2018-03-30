@@ -1,5 +1,15 @@
 2018-03-29
 ----------
+1. Travail sur vpcBASIC
+2. Travail bogue commande INPUT. INPUT maintenant fonctionnel
+3. modification à allocation des chaînes, maintenant allouée dyanmiquement sur le heap.
+4. correcion bogue fonction MIN et MAX.
+5: tests de vitesse:
+    boucle FOR ... NEXT vide: 100 000 boucles prend 521msec.
+    boucle WHILE ... WEND avec incrément de comtpeur sur 1 seconde: 112366 itérations 
+
+2018-03-29
+----------
 1. Travail sur vpcBASIC et vm.S
 2. Travail sur INPUT
 
