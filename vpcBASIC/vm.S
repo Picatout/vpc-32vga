@@ -36,8 +36,11 @@
 .extern scroll_up
 .extern set_tab_witdh
 .extern get_tab_width
+.extern alloc_var_space
+    
 //math 
 .extern print_float
+.extern srand    
 .extern rnd
 .extern sinf
 .extern cosf
@@ -186,6 +189,7 @@ StackVM:  // VM initialization
     la frame,dstack0
     lw frame,0(frame)
     sw zero,0(dp)
+    sw zero,CELL_SIZE(dp)
     
 // VM instruction loop
 next:
@@ -657,16 +661,17 @@ key:  // ( -- char ) attend réception caractère de la console
     move T, v0  // T=v0
 
 
-dotq: // '."' ( -- ) ip pointe vers le texte, le premier octet est le compte.
-    lbu w, 0(ip)
-1:  _inc_ip
-    beqz w, next
-    addiu w,w,-1
-    la a0,con
-    lbu a0,0(a0)
-    jal put_char
+// imprime une chaîne litérale imbriquée dans le code.    
+//  ip pointe vers le texte.    
+prt_str: // IPSTR ( -- )
     lbu a1, 0(ip)
-    b 1b
+    _inc_ip
+    beqz a1, next
+    nop
+    la a0,con
+    jal put_char
+    lbu a0,0(a0)
+    b prt_str
     nop
 
 type: // ( addr -- ) // imprime la chaîne ascciz
@@ -783,6 +788,10 @@ local_addr: //( -- addr )
 set_frame:// (R:  -- old_frame )
     _rpush
     move R,frame //préserve la valeur actuelle de frame
+    lbu t0,0(ip)
+    _inc_ip
+    sll t0,t0,2
+    addu dp,dp,t0
     b next
     addiu frame,dp,CELL_SIZE
     
@@ -841,7 +850,17 @@ asin: // (sine -- angle)
     b next
     move T, v0
 
-random: //
+// initialize le générateur pseudo-hasard
+// en utilisant sys_ticks    
+randomize: // ( -- )
+    la a0,sys_ticks
+    jal srand
+    lw a0,0(a0)
+    b next
+    nop
+
+// retourne un entier pseudo aléatoire    
+random: // ( -- n )
     jal rand
     _dpush
     b next
@@ -894,9 +913,73 @@ trace: // ( f -- )
     la t0,f_trace
     sw T,0(t0)
     _drop_b_next
+  
+// retourne l'adresse de la chaîne imbriquée dans le code
+// ip pointe la chaîne
+str_adr: // ( -- addr )    
+    _dpush
+    move T, ip
+    lbu t0,0(ip)
+1:  beqz t0,next
+    _inc_ip
+    b 1b
+    lbu t0,0(ip)
+    
+// retourne la longueur de la chaîne dont l'adresse est sur dstack
+str_len: // ( adr -- length )    
+    move t0,T
+    move T,zero
+1:  lbu t1,0(t0)
+    beqz t1,next
+    addiu t0,t0,1
+    b 1b
+    addiu T,T,1
+    
+// lecture d'une ligne de text à partir de la consoel
+// addr  adresse du tampon de réception
+// n1  longueur du tampon
+// n2  longueur de la chaîne lue.    
+readln: // ( addr n1 -- addr n2 )
+    la a0,con
+    lbu a0,0(a0)
+    lw a1,-CELL_SIZE(dp)
+    jal read_line
+    move a2,T
+    b next
+    move T,v0
+    
+// convertie la chaîne en entier    
+// addr adresse de la châine asciiz
+// n valeur entière extraite de la chaîne    
+to_int: // addr -- n )
+    jal atoi
+    move a0,T
+    b next
+    move T,v0
+
+// alloue de la mémoire sur le heap
+// n taile en octets
+// addr adresse du bloc mémoire alloué ou 0 si manque de mémoire    
+alloc: // ( n -- addr )
+    jal alloc_var_space
+    move a0,T
+    b next
+    move T,v0
+    
+// copie une chaîne asciiz de src vers dest
+// src adresse chaîne à copier
+// dest adresse destination    
+str_cpy: // ( src dest -- dest )
+    lw a0,-CELL_SIZE(dp)
+    jal strcpy
+    move a1,T
+    b next
+    addiu dp,dp,-CELL_SIZE
     
 .end StackVM
-
+    
+    
+//*************************************************
 depth: // retourne le nombre d'éléments sur dstack
     la v0,dstack0
     lw v0,0(v0)
@@ -914,6 +997,7 @@ dots:
     sw ra,8(sp)
     la s7,con
     lbu s7,0(s7)
+    // imprime "trace: "
     la a1,trace_msg
     jal print
     move a0,s7
@@ -921,23 +1005,20 @@ dots:
     move a0,s7
     move a1,v0
     move s6,a1
+    // imprime nombre d'éléments sur dstack
     move a0,s7
     jal print_int
     move a2,zero
-    la a1,opcode_msg
-    jal print
-    move a0,s7
-    lbu a1,0(ip)
-    addu a2,zero,zero
-    jal print_int
-    move a0,s7
+    // imprime "s: "
     la a1,s_msg
     jal print
     move a0,s7
+    // si dstack vide va à 3f
     beqz s6,3f
     nop
     la s6,dstack0
     lw s6,0(s6)
+    // boucle d'impression des éléments de dstack
 1:  subu t0,s6,dp
     bgez t0,2f
     lw a1,0(s6)
@@ -946,11 +1027,20 @@ dots:
     move a0,s7
     b 1b
     addiu s6,s6,CELL_SIZE
+    // imprime T
 2:  move a1,T
     move a0,s7
     jal print_hex
     move a2,zero
-3:  jal crlf
+    // imprime "next opcode: "
+3:  la a1,opcode_msg
+    jal print
+    move a0,s7
+    lbu a1,0(ip)
+    addu a2,zero,zero
+    jal print_int
+    move a0,s7
+    jal crlf
     move a0,s7
     lw s6,0(sp)
     lw s7,4(sp)
@@ -970,16 +1060,16 @@ opcodes_table:
 .word qdup, oneplus, oneminus,plusstore, twostar, twoslash, twodrop, rot, twodup
 .word  min, max, abs, lshift, rshift, divmod, qbraz, dcnt, rcnt
 .word equal,nequal, less, greater,lteq,gteq,forsave,forrest,for,fortest,fornext
-.word sine, cos, tan, atan, acos, asin,random,trunc,num
-.word key,qrx,emit,dotq,cr,dot,lits,type,space
+.word sine, cos, tan, atan, acos, asin,randomize,random,trunc,num
+.word key,qrx,emit,prt_str,cr,dot,lits,type,space
 .word beep,melody,clr_scr,array_bound    
 .word local_store,local_fetch,local_addr,set_frame,sr_call,leave,lc_space
-.word trace
+.word trace,str_adr,str_len,readln,to_int,alloc,str_cpy
     
 bad_op:  
 badop_msg: .asciz "bad operating code: "    
-trace_msg: .asciz "trace: "
-opcode_msg: .asciz "next opcode: "
-s_msg: .asciz "\ns: "
+trace_msg: .asciz "\ntrace: "
+opcode_msg: .asciz "\nnext opcode: "
+s_msg: .asciz "s: "
     
 #undef _ASM_CODE_

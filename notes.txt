@@ -1,3 +1,17 @@
+2018-03-29
+----------
+1. Travail sur vpcBASIC et vm.S
+2. Travail sur INPUT
+
+2018-03-28
+----------
+1. Travail sur vpcBASIC et vm.S
+2. Problème avec SUB et FUNC résolue.
+3. Modification impression chaîne litérale. Remplacement de chaîne comptée par ASCIIZ.
+   Renommé dotq par prt_str dans vm.S.
+4. Travail sur INPUT
+
+
 2018-03-27
 ----------
 1. Travail sur vm.S, ajout de dots, depth et modfication de next, set_frame, leave

@@ -26,7 +26,13 @@
 #include "../reader.h"
 #include "vm.h"
 
+enum frame_type_e {FRAME_SUB,FRAME_FUNC};
+
 /* macros utilisées par le compilateur BASIC*/
+
+// n=frame_type_e
+#define _arg_frame(n) bytecode(IFRAME);\
+                     bytecode(n)
 
 #define _byte0(n) ((uint32_t)(n)&0xff)
 #define _byte1(n)((uint32_t)(n>>8)&0xff)
@@ -51,6 +57,9 @@
 
 
 static bool exit_basic;
+
+#define PAD_SIZE CHAR_PER_LINE
+static char *pad; // tampon de travail
 
 extern int complevel;
 
@@ -80,6 +89,8 @@ static uint32_t program_end;
 #define FUNCTION 0x40 // ce mot est une fonction
 #define AS_HELP 0x80 //commande avec aide
 #define ADR  (void *)
+
+
 
 typedef void (*fnptr)();
 
@@ -215,6 +226,8 @@ static void cpush(uint32_t);
 static uint32_t cpop();
 static void cdrop();
 static unsigned get_arg_count(void* fn_code);
+static void expression();
+static void factor();
 
 #ifdef DEBUG
 static void print_prog(int start);
@@ -417,7 +430,7 @@ static bool var_local=false;
 
 
 // déclenche une exeption en cas d'échec.
-static void *alloc_var_space(int size){
+void *alloc_var_space(int size){
     void *newmark;
     
     newmark=endmark-size;
@@ -969,13 +982,13 @@ static bool filter_accept(filter_t *filter, const char* text){
     return result;
 }//f()
 
-//static void checkbound(var_t* var, int index);
-static void expression();
+
+
 
 // compile le calcul d'indice dans les variables vecteur
 static void code_array_address(var_t *var){
-    expression();// empile la valeur de l'index.
-    expect(eRPAREN);
+    factor();// compile la valeur de l'index.
+//    expect(eRPAREN);
     if (var->vtype==eVAR_INTARRAY || var->vtype==eVAR_STRARRAY){
         _litc(2);
         bytecode(ILSHIFT);//4*index
@@ -1030,8 +1043,7 @@ static void factor(){
             if ((var=var_search(token.str))){
                 switch(var->vtype){
                     case eVAR_FUNC:
-                        bytecode(IFRAME);
-                        if (var->vtype==eVAR_FUNC){_litc(0);}
+                        _arg_frame(FRAME_FUNC);
                         parse_arg_list(get_arg_count((void*)(var->adr)));
                         lit(((uint32_t)var->adr)+1);
                         bytecode(ICALL);
@@ -1052,22 +1064,11 @@ static void factor(){
                         bytecode(IFETCH);
                         break;
                     case eVAR_BYTEARRAY:
-                        expect(eLPAREN);
                         code_array_address(var);
-//                        expression();
-//                        expect(eRPAREN);
-//                        lit((uint32_t)var->adr);
-//                        bytecode(ADD);
                         bytecode(ICFETCH);
                         break;
-                    case eVAR_INTARRAY:
-                        expect(eLPAREN);
+                    case eVAR_INTARRAY: 
                         code_array_address(var);
-//                        expression();
-//                        expect(eRPAREN);
-//                        bytecode(SHL);
-//                        lit((uint32_t)var->adr);
-//                        bytecode(ADD);
                         bytecode(IFETCH);
                         break;
                     default:
@@ -2159,16 +2160,13 @@ static void kw_loop(){
 }//f
 
 // compile une chaîne litérale
-// de longueur maximale de 255 caractères
 static void literal_string(char *lit_str){
     int size;
 
-    size=strlen(lit_str)&0xff;
-    if ((void*)&progspace[dptr+size+2]>endmark) throw(eERR_PROGSPACE);
-    bytecode(IDOTQ);
-    bytecode(size);
-    memmove((void*)&progspace[dptr],lit_str,size);
-    dptr+=size;
+    size=strlen(lit_str);
+    if ((void*)&progspace[dptr+size+1]>endmark) throw(eERR_PROGSPACE);
+    strcpy((void*)&progspace[dptr],lit_str);
+    dptr+=size+1;
 }//f
 
 
@@ -2180,6 +2178,7 @@ static void kw_srload(){
     
     next_token();
     if (token.id==eSTRING){
+        bytecode(ISTRADR);
         literal_string(token.str);
     }else if (token.id==eIDENT){
         var=var_search(token.str);
@@ -2204,6 +2203,7 @@ static void kw_srsave(){
     
     next_token();
     if (token.id==eSTRING){
+        bytecode(ISTRADR);
         literal_string(token.str);
     }else if (token.id==eIDENT){
         var=var_search(token.str);
@@ -2335,6 +2335,7 @@ static void kw_len(){
     expect(eLPAREN);
     next_token();
     if (token.id==eSTRING){
+        bytecode(ISTRADR);
         literal_string(token.str);
     }else if (token.id==eIDENT){
         var=var_search(token.str);
@@ -2350,6 +2351,7 @@ static void kw_len(){
                 expect(eRPAREN);
                 _litc(1);
                 bytecode(IPLUS);
+                _litc(2);
                 bytecode(ILSHIFT);
                 bytecode(IPLUS);
                 break;
@@ -2363,10 +2365,22 @@ static void kw_len(){
     expect(eRPAREN);
 }//f
 
-//compile le code qui vérifie si une
-// chaine est déjà assignée à cette variable
-static void compile_accept_var(var_t* var){
-    bytecode(IFETCH); // (var->str -- char* )
+// compile le code pour la saisie d'un entier
+static void compile_input(var_t *var){
+    _litc('?');
+    bytecode(IEMIT);
+    lit((uint32_t)pad); // ( var_addr -- var_addr pad* )
+    _litc(CHAR_PER_LINE-1); // ( var_addr pad* -- var_addr pad* buf_size )
+    bytecode(IREADLN); // ( var_addr pad* buf_size  -- var_adr pad* str_size )
+    bytecode(IDROP);
+    bytecode(I2INT);
+}
+
+// compile lecture et enregistrement
+// pour variables chaîne.
+// en entrée  var->str compilé.
+static void compile_read_store(var_t *var){
+    bytecode(IDUP); //conserve une copie ( char* -- char* char* )
     bytecode(IQBRAZ); // si NULL accepte
     cpush(dptr);
     dptr++;
@@ -2376,7 +2390,39 @@ static void compile_accept_var(var_t* var){
     dptr++;
     patch_fore_jump(cpop());
     cpush(dptr-1);
-}//f
+    // var accepté, lecture de la  chaîne au clavier
+    compile_input(var);
+    _litc(1);
+    bytecode(IPLUS);
+    bytecode(IALLOC);  //( var_adr pad* alloc_size -- var_adr pad* void* )
+    bytecode(ISTRCPY); // ( var_adr src* dest* -- var_adr void* )
+    bytecode(ISWAP); // ( var_adr void* -- void* var_adr )
+    bytecode(ISTORE);   //( void* var_adr -- )
+    patch_fore_jump(cpop());
+}
+
+// critères d'acceptation pour INPUT:
+// si c'est une variable chaîne, elle doit déjà existé et ne doit-pas être déjà assignée.
+// Seule les variables tableaux existantes peuvent-être utilisées par input.
+// Dans un contexte var_local seules les variables préexistante
+//  peuvent-être utilisées.
+static var_t  *var_accept(char *name){
+    var_t *var;
+    
+    var=var_search(name);
+    if (!var && (var_local || (name[strlen(name)]=='$'))) throw(eERR_BAD_ARG);
+    next_token();
+    //seules les variables vecteur préexistantes peuvent-être utilisées
+    if (!var && (token.id==eLPAREN)) throw(eERR_BAD_ARG);
+    unget_token=true;
+    if (!var) var=var_create(name,NULL);
+    if (var->vtype>=eVAR_INTARRAY && var->vtype<=eVAR_STRARRAY){
+        code_array_address(var);
+    }else{
+        lit((uint32_t)var->adr);
+    }
+    return var;
+}
 
 // INPUT [string ','] identifier (',' identifier)
 // saisie au clavier de
@@ -2387,6 +2433,7 @@ static void kw_input(){
     
     next_token();
     if (token.id==eSTRING){
+        bytecode(IPSTR);
         literal_string(token.str);
         bytecode(ICR);
         expect(eCOMMA);
@@ -2394,86 +2441,21 @@ static void kw_input(){
     }else if(token.id!=eIDENT) throw(eERR_BAD_ARG); 
     while (token.id==eIDENT){
         strcpy(name,token.str);
-        var=var_search(name);
-        //dans contexte SUB|FUNC seule les variables préexistante
-        //peuvent-être utilisées
-        if (!var && var_local) throw(eERR_BAD_ARG);
-        next_token();
-        //seules les variables vecteur préexistantes peuvent-être utilisées
-        if (token.id==eLPAREN && !var) throw(eERR_BAD_ARG);
-        unget_token=true;
-        if (!var) var=var_create(name,NULL);
-        if (var->vtype>=eVAR_INTARRAY && var->vtype<=eVAR_STRARRAY){
-            parse_arg_list(1);
-        }
+        var=var_accept(name); // ( -- addr )
         switch (var->vtype){ 
             case eVAR_STR:
-                lit((uint32_t)&var->str);
-                bytecode(IDUP); //conserve une copie
-                compile_accept_var(var);
-                // var accepté, lecture de la  chaîne au clavier
-                _prt_varname(var);
-                _litc(CHAR_PER_LINE-2);
-                bytecode(IACCEPT); // ( var_adr buffsize -- var_adr _pad n )
-                _litc(1);
-                bytecode(IPLUS);
-                bytecode(IALLOC);  //( var_adr _pad alloc_size -- var_adr _pad void* )
-                bytecode(ISWAP);  //( var_adr _pad void* -- var_adr void* _pad )
-                bytecode(IOVER);  //( var_adr void* _pad -- var_adr void* _pad void* )
-                bytecode(ISTRCPY); // ( var_adr void* src* dest* -- var_adr void* )
-                bytecode(ISWAP); // ( var_adr void* -- void* var_adr )
-                bytecode(ISTORE);   //( void* var_adr -- )
-                patch_fore_jump(cpop());
-                break;
-            case eVAR_STRARRAY:  // ( -- index )
-                bytecode(ILSHIFT);   // ( index -- 2*index)
-                lit((uint32_t)var->adr);
-                bytecode(IPLUS);  // ( -- &var(index) )
-                bytecode(IDUP);  // garde une copie
-                compile_accept_var(var);
-                //var acceptée, lecture de la chaîne au clavier 
-                _prt_varname(var);  // ( var_adr -- var_adr )
-                _litc(CHAR_PER_LINE-2); //( var_adr -- var_adr buffsize )
-                bytecode(IACCEPT); // ( var_adr buffsize -- var_adr _pad strlen )
-                _litc(1);
-                bytecode(IPLUS);   // incrémente strlen
-                bytecode(IALLOC);  //( var_adr _pad alloc_size -- var_adr _pad void* )
-                bytecode(ISWAP);   // ( var_adr _pad void* -- var_adr void* _pad  )
-                bytecode(IOVER);  // ( _var_adr void* _pad -- _var_adr void* _pad void*  )
-                bytecode(ISTRCPY); // ( _var_adr void* src* dest* -- _var_adr void* )
-                bytecode(ISWAP);   // ( _var_adr void* -- void* _var_adr )
-                bytecode(ISTORE);   //( void* _var_adr  -- )
-                patch_fore_jump(cpop());
+            case eVAR_STRARRAY:
+                compile_read_store(var);
                 break;
             case eVAR_LOCAL:
             case eVAR_INT:
             case eVAR_BYTE:
-                _litc(17);
-                bytecode(IACCEPT);
-                bytecode(IDROP);
-                bytecode(IINT);
+                compile_input(var);
                 store_integer(var);
                 break;
             case eVAR_INTARRAY:
-                bytecode(ILSHIFT);
-                lit((uint32_t)var->adr);
-                bytecode(IPLUS);
-                _litc(17);
-                bytecode(IACCEPT);
-                bytecode(IDROP);
-                bytecode(IINT);
-                bytecode(ISWAP);
-                bytecode(ISTORE);
-                break;
             case eVAR_BYTEARRAY:
-                _litc(1);
-                bytecode(IPLUS);
-                lit((uint32_t)var->adr);
-                bytecode(IPLUS);
-                _litc(9);
-                bytecode(IACCEPT);
-                bytecode(IDROP);
-                bytecode(IINT);
+                compile_input(var);
                 bytecode(ISWAP);
                 bytecode(ICSTORE);
                 break;
@@ -2520,6 +2502,7 @@ static void kw_let(){
         }else throw(eERR_SYNTAX);
     }else{
         if (token.id==eLPAREN){
+            unget_token=true;
             array_let(name);
         }else{
             var=var_search(name);
@@ -2574,6 +2557,7 @@ static void kw_print(){
     while (!activ_reader->eof){
         switch (token.id){
             case eSTRING:
+                bytecode(IPSTR);
                 literal_string(token.str);
                 bytecode(ISPACE);
                 break;
@@ -2581,7 +2565,6 @@ static void kw_print(){
                 if(token.str[strlen(token.str)-1]=='$'){
                     if ((var=var_search(token.str))){
                         if (var->vtype==eVAR_STRARRAY){
-                            expect(eLPAREN);
                             code_array_address(var);
                             bytecode(IFETCH);
                         }else{
@@ -2701,7 +2684,8 @@ static void kw_trace(){
 }//f
 
 //retourne le nombre d'arguments inscris dans le
-// code programme après IFRAME
+// code programme
+// 1ier octet avant le code de la fonction.
 static unsigned get_arg_count(void *fn_code){
     (uint8_t*)fn_code;
     return *(uint8_t*)fn_code;
@@ -2726,8 +2710,7 @@ static void compile(){
                 if ((var=var_search(token.str))){
                     if ((var->vtype==eVAR_SUB)||(var->vtype==eVAR_FUNC)){
                         adr=(uint32_t)var->adr;
-                        bytecode(IFRAME);
-                        if (var->vtype==eVAR_FUNC){_litc(0);}
+                        if (var->vtype==eVAR_SUB){_arg_frame(FRAME_SUB);}else{_arg_frame(FRAME_FUNC);} 
                         parse_arg_list(get_arg_count((void*)adr));
                         lit(adr+1);
                         bytecode(ICALL);
@@ -2735,6 +2718,8 @@ static void compile(){
                             bytecode(IDROP); //jette la valeur de retour
                         }
                     }else{
+                        unget_token=true;
+                        kw_let();
                     }
                 }else{
                     unget_token=true;
@@ -2797,6 +2782,7 @@ int BASIC_shell(const char* file_name){
     FRESULT result;
     int vm_exit_code;
     
+    pad=malloc(PAD_SIZE);
     prog_size=(biggest_chunk()-4096)&0xfffffff0;
     progspace=malloc(prog_size);
     sprintf((char*)progspace,"vpcBASIC v1.0\nRAM available: %d bytes\n",prog_size);
@@ -2844,5 +2830,6 @@ int BASIC_shell(const char* file_name){
         result=f_close(fh);
     }
     free(progspace);
+    free(pad);
     return vm_exit_code;
 }//BASIC_shell()
