@@ -1,4 +1,9 @@
-2018-03-29
+2018-03-30
+----------
+1. Travail sur vpcBASIC.
+
+
+2018-03-30
 ----------
 1. Travail sur vpcBASIC
 2. Travail bogue commande INPUT. INPUT maintenant fonctionnel
