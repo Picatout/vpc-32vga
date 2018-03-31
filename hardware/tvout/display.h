@@ -43,9 +43,12 @@ extern "C" {
 #define LINE_PER_SCREEN ((int)VRES/CHAR_HEIGHT)
 #define CHAR_PER_LINE ((int)(HRES/CHAR_WIDTH))
 
-typedef struct{
-    unsigned short x;
-    unsigned short y;
+typedef union{
+    unsigned xy;
+    struct{
+        unsigned x : 16;
+        unsigned y : 16;
+    };
 } text_coord_t;
 
 typedef enum _CURSOR_SHAPE {CR_UNDER=0,CR_BLOCK} cursor_t;

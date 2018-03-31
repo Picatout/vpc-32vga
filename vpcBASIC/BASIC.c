@@ -125,12 +125,16 @@ typedef struct{
 
 
 typedef enum {eVAR_INT,eVAR_STR,eVAR_INTARRAY,eVAR_BYTEARRAY,eVAR_STRARRAY,
-              eVAR_SUB,eVAR_FUNC,eVAR_LOCAL,eVAR_CONST,eVAR_BYTE}var_type_e;
+              eVAR_SUB,eVAR_FUNC,eVAR_LOCAL,eVAR_CONST,eVAR_BYTE,eVAR_CONST_STR
+             }var_type_e;
 
 typedef struct _var{
-    struct _var* next;
-    uint8_t len;
-    uint8_t vtype;
+    struct _var* next; // prochaine variable dans la liste
+    uint16_t len:5; // longueur du nom
+    uint16_t ro:1; // constante
+    uint16_t array:1; // c'est un tableau
+    uint16_t vtype:4; // var_type_e
+    uint16_t dim:5; // nombre de dimension du tableau
     char *name;
     union{
         uint8_t byte; // variable octet
@@ -161,7 +165,7 @@ typedef struct _token{
 
 static token_t token;
 static bool unget_token=false;
-
+// prototypes des fonctions
 static void clear();
 static void kw_abs();
 static void bad_syntax();
@@ -232,7 +236,6 @@ static void kw_trace();
 static void kw_tune();
 static void kw_ubound();
 static void kw_use();
-static void kw_video();
 static void kw_waitkey();
 static void kw_wend();
 static void kw_while();
@@ -250,6 +253,9 @@ static void expression();
 static void factor();
 char* string_alloc(unsigned size);
 void string_free(char *);
+static void compile();
+static void bool_expression();
+
 
 #ifdef DEBUG
 static void print_prog(int start);
@@ -267,7 +273,7 @@ enum {eKW_ABS,eKW_AND,eKW_BOX,eKW_BTEST,eKW_BYE,eKW_CASE,eKW_CIRCLE,eKW_CLEAR,eK
       eKW_RETURN,eKW_RND,eKW_SAVESCR,eKW_SCRLUP,eKW_SCRLDN,
       eKW_SCRLRT,eKW_SCRLFT,eKW_SELECT,eKW_SETPIXEL,eKW_SETTMR,eKW_SHL,eKW_SHR,
       eKW_SPRITE,eKW_SRCLEAR,eKW_SRLOAD,eKW_SRREAD,eKW_SRSSAVE,eKW_SRWRITE,eKW_SUB,eKW_THEN,eKW_TICKS,
-      eKW_TIMEOUT,eKW_TONE,eKW_TRACE,eKW_TUNE,eKW_UBOUND,eKW_UNTIL,eKW_USE,eKW_VIDEO,
+      eKW_TIMEOUT,eKW_TONE,eKW_TRACE,eKW_TUNE,eKW_UBOUND,eKW_UNTIL,eKW_USE,
       eKW_WAITKEY,eKW_WEND,eKW_WHILE,eKW_XORPIXEL
 };
 
@@ -346,7 +352,6 @@ static const dict_entry_t KEYWORD[]={
     {kw_ubound,6+FUNCTION,"UBOUND"},
     {bad_syntax,5,"UNTIL"},
     {kw_use,3,"USE"},
-    {kw_video,5,"VIDEO"},
     {kw_waitkey,7+FUNCTION,"WAITKEY"},
     {kw_wend,4,"WEND"},
     {kw_while,5,"WHILE"},
@@ -377,9 +382,9 @@ static int dict_search(const  dict_entry_t *dict){
 //NOTE: eERR_DSTACK et eERR_RSTACK sont redéfinie dans stackvm.h
 //      si leur valeur change elles doivent aussi l'être dans stackvm.h
 enum {eERROR_NONE,eERR_DSTACK,eERR_RSTACK,eERR_MISSING_ARG,eERR_EXTRA_ARG,
-      eERR_BAD_ARG,eERR_SYNTAX,eERR_ALLOC,eERR_REDEF,eERR_ASSIGN,
+      eERR_BAD_ARG,eERR_SYNTAX,eERR_ALLOC,eERR_REDEF,
       eERR_NOTDIM,eERR_BOUND,eERR_PROGSPACE,eERR_OUT_RANGE,
-      eERR_STACK_UNDER,eERR_STACK_OVER,eERR_NO_STR
+      eERR_STACK_UNDER,eERR_STACK_OVER,eERR_NO_STR,eERR_NO_DIM,eERR_NO_CONST
       };
 
  static  const char* error_msg[]={
@@ -391,15 +396,16 @@ enum {eERROR_NONE,eERR_DSTACK,eERR_RSTACK,eERR_MISSING_ARG,eERR_EXTRA_ARG,
     "bad argument\n",
     "syntax error\n",
     "memory allocation error\n",
-    "can't be redefined\n",
-    "can't be reassigned\n",
+    "Constant can't be redefined\n",
     "undefined array variable\n",
     "array index out of range\n",
     "program space full\n",
     "jump out of range\n",
     "control stack underflow\n",
     "control stack overflow\n",
-    "no more string space available\n"
+    "no more string space available\n",
+    "Can't use DIM inside sub-routine\n",
+    "Can't use CONST inside sub-routine\n",
  };
  
  
@@ -949,13 +955,6 @@ static void expect(tok_id_t t){
     if (token.id!=t) throw(eERR_SYNTAX);
 }
 
-//static bool try_string(){
-//    next_token();
-//    if (token.id==eSTRING) return true;
-//    unget_token=true;
-//    return false;
-//}//f
-
 static bool try_addop(){
     next_token();
     if ((token.id==ePLUS) || (token.id==eMINUS)) return true;
@@ -970,88 +969,89 @@ static bool try_mulop(){
     return false;
 }//f
 
-typedef enum {eNO_FILTER,eACCEPT_ALL,eACCEPT_END_WITH,eACCEPT_ANY_POS,
-        eACCEPT_SAME,eACCEPT_START_WITH} filter_enum;
 
-typedef struct{
-    char *subs; // sous-chaïne filtre.
-    filter_enum criteria; // critère
-}filter_t;
-
-static void parse_filter(){
-    char c;
-    int i=0;
-    skip_space();
-    while (!activ_reader->eof && 
-            (isalnum((c=reader_getc(activ_reader))) || c=='*' || c=='_' || c=='.')){
-        token.str[i++]=toupper(c);
-    }
-    reader_ungetc(activ_reader);
-    token.str[i]=0;
-    if (!i) token.id=eNONE; else token.id=eSTRING;
-}//f
-
-static void set_filter(filter_t *filter){
-    filter->criteria=eACCEPT_ALL;
-    parse_filter();
-    if (token.id==eNONE){
-        filter->criteria=eNO_FILTER;
-        return;
-    }
-    if (token.str[0]=='*' && token.str[1]==0){
-        return;
-    }
-    if (token.str[0]=='*'){
-        filter->criteria++;
-    }else{
-        filter->criteria=eACCEPT_SAME;
-    }
-    if (token.str[strlen(token.str)-1]=='*'){
-        token.str[strlen(token.str)-1]=0;
-        filter->criteria++;
-    }
-    switch(filter->criteria){
-        case eACCEPT_START_WITH:
-        case eACCEPT_SAME:
-            strcpy(filter->subs,token.str);
-            break;
-        case eACCEPT_END_WITH:
-        case eACCEPT_ANY_POS:
-            strcpy(filter->subs,&token.str[1]);
-            break;
-        case eNO_FILTER:
-        case eACCEPT_ALL:
-            break;
-    }//switch
-}//f()
-
-
-static bool filter_accept(filter_t *filter, const char* text){
-    bool result=false;
-    char temp[32];
-    
-    strcpy(temp,text);
-    uppercase(temp);
-    switch (filter->criteria){
-        case eACCEPT_SAME:
-            if (!strcmp(filter->subs,temp)) result=true;
-            break;
-        case eACCEPT_START_WITH:
-            if (strstr(temp,filter->subs)==temp) result=true;
-            break;
-        case eACCEPT_END_WITH:
-            if (strstr(temp,filter->subs)==temp+strlen(temp)-strlen(filter->subs)) result=true;
-            break;
-        case eACCEPT_ANY_POS:
-            if (strstr(temp,filter->subs)) result=true;
-            break;
-        case eACCEPT_ALL:
-        case eNO_FILTER:
-            result=true;
-            break;
-    }
-    return result;
-}//f()
+//typedef enum {eNO_FILTER,eACCEPT_ALL,eACCEPT_END_WITH,eACCEPT_ANY_POS,
+//        eACCEPT_SAME,eACCEPT_START_WITH} filter_enum;
+//
+//typedef struct{
+//    char *subs; // sous-chaïne filtre.
+//    filter_enum criteria; // critère
+//}filter_t;
+//
+//static void parse_filter(){
+//    char c;
+//    int i=0;
+//    skip_space();
+//    while (!activ_reader->eof && 
+//            (isalnum((c=reader_getc(activ_reader))) || c=='*' || c=='_' || c=='.')){
+//        token.str[i++]=toupper(c);
+//    }
+//    reader_ungetc(activ_reader);
+//    token.str[i]=0;
+//    if (!i) token.id=eNONE; else token.id=eSTRING;
+//}//f
+//
+//static void set_filter(filter_t *filter){
+//    filter->criteria=eACCEPT_ALL;
+//    parse_filter();
+//    if (token.id==eNONE){
+//        filter->criteria=eNO_FILTER;
+//        return;
+//    }
+//    if (token.str[0]=='*' && token.str[1]==0){
+//        return;
+//    }
+//    if (token.str[0]=='*'){
+//        filter->criteria++;
+//    }else{
+//        filter->criteria=eACCEPT_SAME;
+//    }
+//    if (token.str[strlen(token.str)-1]=='*'){
+//        token.str[strlen(token.str)-1]=0;
+//        filter->criteria++;
+//    }
+//    switch(filter->criteria){
+//        case eACCEPT_START_WITH:
+//        case eACCEPT_SAME:
+//            strcpy(filter->subs,token.str);
+//            break;
+//        case eACCEPT_END_WITH:
+//        case eACCEPT_ANY_POS:
+//            strcpy(filter->subs,&token.str[1]);
+//            break;
+//        case eNO_FILTER:
+//        case eACCEPT_ALL:
+//            break;
+//    }//switch
+//}//f()
+//
+//
+//static bool filter_accept(filter_t *filter, const char* text){
+//    bool result=false;
+//    char temp[32];
+//    
+//    strcpy(temp,text);
+//    uppercase(temp);
+//    switch (filter->criteria){
+//        case eACCEPT_SAME:
+//            if (!strcmp(filter->subs,temp)) result=true;
+//            break;
+//        case eACCEPT_START_WITH:
+//            if (strstr(temp,filter->subs)==temp) result=true;
+//            break;
+//        case eACCEPT_END_WITH:
+//            if (strstr(temp,filter->subs)==temp+strlen(temp)-strlen(filter->subs)) result=true;
+//            break;
+//        case eACCEPT_ANY_POS:
+//            if (strstr(temp,filter->subs)) result=true;
+//            break;
+//        case eACCEPT_ALL:
+//        case eNO_FILTER:
+//            result=true;
+//            break;
+//    }
+//    return result;
+//}//f()
 
 
 
@@ -1258,8 +1258,6 @@ static void condition(){
     }//switch
 }//f
 
-static void bool_expression();
-
 static void bool_factor(){
     int boolop=0;
     //print(con,"bool_factor\n");
@@ -1316,8 +1314,6 @@ static void bool_expression(){// print(con,"bool_expression()\n");
 static void bad_syntax(){
     throw(eERR_SYNTAX);
 }//f
-
-static void compile();
 
 static  const char* compile_msg[]={
     "compiling ",
@@ -1497,6 +1493,7 @@ static void kw_dim(){
     char var_name[32];
     var_t *new_var;
     
+    if (var_local) throw(eERR_NO_DIM);
     expect(eIDENT);
     while (token.id==eIDENT){
         if (var_search(token.str)) throw(eERR_REDEF);
@@ -1579,6 +1576,8 @@ static void kw_ubound(){
     bytecode(IFETCH);
 }//f
 
+//USE fichier
+// compilation d'un fichier source inclut dans un autre fichier source.
 static void kw_use(){
     reader_t *old_reader, freader;
     FIL *fh;
@@ -1604,13 +1603,6 @@ static void kw_use(){
         compiler_msg(COMP_FILE_ERROR,NULL);
         throw(eERR_BAD_ARG);
     }
-}//f
-
-//VIDEO(0|1)
-// déactive|active la sortie vidéo
-static void kw_video(){
-    parse_arg_list(1);
-    bytecode(IVIDEOCTRL);
 }//f
 
 //CURLINE()
@@ -1639,6 +1631,7 @@ static void kw_const(){
     char name[32];
     var_t *var;
     
+    if (var_local) throw(eERR_NO_CONST);
     expect(eIDENT);
     while (token.id==eIDENT){
         strcpy(name,token.str);
@@ -1649,6 +1642,7 @@ static void kw_const(){
             expect(eSTRING);
             var->str=alloc_var_space(strlen(token.str)+1);
             strcpy(var->str,token.str);
+            var->vtype=eVAR_CONST_STR;
         }else{
             var->vtype=eVAR_CONST;
             expect(eNUMBER);
@@ -2531,11 +2525,14 @@ static void kw_let(){
     expect(eIDENT);
     strcpy(name,token.str);
     len=strlen(name);
+    var=var_search(name);
+    if (var && ((var->vtype==eVAR_CONST)||(var->vtype==eVAR_CONST_STR))) throw(eERR_REDEF);
     next_token();
-    if (var_local){ // on ne peut pas allouer de chaîne dans les sous-routine
+    if (var_local){
+        // on ne peut pas allouer de chaîne dans les sous-routines
         if (name[len-1]=='$') throw(eERR_SYNTAX);
-        var=var_search(name);
-        if (!var) throw(eERR_BAD_ARG); // pas d'auto création à l'intérieur des sous-routines
+         // pas d'auto création à l'intérieur des sous-routines
+        if (!var) throw(eERR_BAD_ARG);
         if (token.id==eLPAREN && (var->vtype==eVAR_INTARRAY || var->vtype==eVAR_BYTEARRAY)){
             code_array_address(var);
             expect(eEQUAL);
@@ -2555,7 +2552,6 @@ static void kw_let(){
             unget_token=true;
             array_let(name);
         }else{
-            var=var_search(name);
             if (!var) var=var_create(name,NULL);
             unget_token=true;
             expect(eEQUAL);

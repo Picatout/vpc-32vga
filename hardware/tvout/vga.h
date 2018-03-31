@@ -57,7 +57,7 @@ void vga_clear_line(unsigned line);//efface ligne, laisse le curseur au début.
 void vga_clear_eol(); // efface la fin de la ligne à partir du curseur.
 void vga_scroll_up(); // fait glissé le texte une ligne vers le haut.
 void vga_scroll_down(); // fait glissé le texte une ligne vers le bas.
-text_coord_t vga_get_curpos(); // retourne position curseur texte.
+unsigned vga_get_curpos(); // retourne position curseur texte.
 void vga_set_curpos(unsigned short x, unsigned short y); // positionne le curseur
 void vga_put_char( char c); //affiche le caractère à la position courante
 void vga_print( const char *str); // imprime un chaîne à la position courante

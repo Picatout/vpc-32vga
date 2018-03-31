@@ -159,7 +159,7 @@ static char* cmd_help(int tok_count, const char **tok_list){
     int i;
     text_coord_t pos;
     for(i=0;i<nbr_cmd;i++){
-        pos=get_curpos(con);
+        pos.xy=get_curpos(con);
         if (pos.x>(CHAR_PER_LINE-strlen(commands[i].name)-2)){
             put_char(con,'\n');
         }
@@ -532,7 +532,7 @@ static char* cmd_more(int tok_count, const char **tok_list){
                         c=*rbuff++;
                         if ((c!=TAB && c!=CR && c!=LF) && (c<32 || c>126)) {c=32;}
                         put_char(con,c);
-                        cpos=get_curpos(con);
+                        cpos.xy=get_curpos(con);
                         if (cpos.x==0){
                             if (cpos.y>=(LINE_PER_SCREEN-1)){
                                 cpos.y=LINE_PER_SCREEN-1;

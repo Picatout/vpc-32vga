@@ -309,11 +309,11 @@ void vga_clear_eol(void){
     }
 }// vga_clear_eol()
 
-text_coord_t vga_get_curpos(){
+unsigned vga_get_curpos(){
     text_coord_t cpos;
     cpos.x = cx/CHAR_WIDTH;
     cpos.y = cy/CHAR_HEIGHT;
-    return cpos;
+    return cpos.xy;
 } // vga_get_cursor_pos()
 
 void vga_set_curpos(unsigned short x, unsigned short y){// {x,y} coordonnée caractère

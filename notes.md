@@ -1,7 +1,9 @@
 2018-03-30
 ----------
 1. Travail sur vpcBASIC.
-
+2. Modification du type **var_t** pour besoins futur.
+3. ajout eVAR_CONST_STR dans dans l'énumération var_type_e
+4. Modifications pour tenir compte de eVAR_CONST_STR
 
 2018-03-30
 ----------

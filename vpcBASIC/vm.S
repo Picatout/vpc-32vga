@@ -123,6 +123,12 @@ addiu ip,ip,1
     add ip,ip,t0
 .endm
     
+.macro _console
+    la a0,con
+    lbu a0,0(a0)
+.endm
+    
+    
 /* utilisation des regitres MIPS */
 ip=s0  /* pointeur d'instruction VM */
 dp=s1  /* pointeur pile de données */
@@ -221,13 +227,11 @@ next:
 
 #ifdef _CHECK_OPCODE    
 vm_bad_op:
-    la a0, con
-    lbu a0,0(a0)
+    _console
     la a1,badop_msg
     jal print
     nop
-    la a0, con
-    lbu a0, 0(a0)
+    _console
     lbu a1,0(ip)
     jal print_int
     addu a2,zero,zero
@@ -265,8 +269,7 @@ space: // ( -- ) émet un caractère ascii 32
     _dpush
     addiu T,zero,32
 emit:   // 'emit' ( ch -- ) transmet charactère au terminal
-    la a0,con
-    lbu a0,0(a0)
+    _console
     jal put_char
     move  a1, T
     _drop_b_next
@@ -681,15 +684,13 @@ prt_str: // IPSTR ( -- )
     nop
 
 type: // ( addr -- ) // imprime la chaîne ascciz
-    la a0,con
-    lbu a0,0(a0)
+    _console
     jal print
     move a1,T
     _drop_b_next
     
 dot: // "." ( n -- ) imprime un entier en format libre
-    la a0,con
-    lbu a0,0(a0)
+    _console
     move a1,T
     jal print_int
     move a2,zero
@@ -940,8 +941,7 @@ str_len: // ( adr -- length )
 // n1  longueur du tampon
 // n2  longueur de la chaîne lue.    
 readln: // ( addr n1 -- addr n2 )
-    la a0,con
-    lbu a0,0(a0)
+    _console
     lw a1,-CELL_SIZE(dp)
     jal read_line
     move a2,T
@@ -991,6 +991,22 @@ str_cpy: // ( src dest -- dest )
     move a0,T
     b next
     addiu dp,dp,-CELL_SIZE
+    
+// retourne la ligne du curseur texte {0..29}    
+curline: // ( -- line )
+    _console
+    jal vga_get_curpos
+    _dpush
+    b next
+    srl T,v0,16
+    
+// retourne la colonne du curseur texte {0..79}    
+curcolon: // ( -- colon )
+    _console
+    jal get_curpos
+    _dpush
+    b next
+    andi T,v0,0xff
     
 .end StackVM
     
@@ -1081,6 +1097,8 @@ opcodes_table:
 .word beep,melody,clr_scr,array_bound    
 .word local_store,local_fetch,local_addr,set_frame,sr_call,leave,lc_space
 .word trace,str_adr,str_len,readln,to_int,alloc,str_alloc,str_free,str_cpy
+.word curline,curcolon
+    
     
 bad_op:  
 badop_msg: .asciz "bad operating code: "    

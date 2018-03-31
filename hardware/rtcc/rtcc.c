@@ -504,7 +504,7 @@ static  const unsigned int ring_tone[8]={329,250,523,250,329,250,0,0};
     tune(ring_tone);
     msg[31]=0;
     memcpy((void*)scr_save,video_bmp,HRES);
-    cpos=vga_get_curpos();
+    cpos.xy=vga_get_curpos();
     vga_set_curpos(0,0);
     vga_clear_eol();
     print_msg("ALARM: ");

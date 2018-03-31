@@ -87,7 +87,7 @@ unsigned char read_line(dev_t dev, unsigned char *ibuff,unsigned char max_char){
 }
 
 // retourne les coordonnées du curseur texte.
-text_coord_t get_curpos(dev_t dev){
+unsigned get_curpos(dev_t dev){
     if (dev==VGA_CONSOLE){
         return vga_get_curpos();
     }else{

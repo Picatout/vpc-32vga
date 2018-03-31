@@ -98,7 +98,7 @@ void vt_clear_line(unsigned line){
 
 // envoie une séquence ESC [ 6 n
 // attend la réponse
-text_coord_t vt_get_curpos(){
+unsigned vt_get_curpos(){
     text_coord_t coord;
     coord.x=0;
     coord.y=0;
@@ -110,7 +110,7 @@ text_coord_t vt_get_curpos(){
         coord.x=vt_col-1;
         coord.y=vt_line-1;
     }
-    return coord;
+    return coord.xy;
 }
 
 void vt_set_curpos(int x, int y){

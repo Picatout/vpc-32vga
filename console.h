@@ -57,7 +57,7 @@ void clear_eol(dev_t dev); // efface la fin de la ligne à partir du curseur.
 unsigned char get_key(dev_t dev); // lecture touches clavier
 unsigned char wait_key(dev_t dev); // attend qu'une touche soit enfoncée.
 unsigned char read_line(dev_t dev, unsigned char *ibuff,unsigned char max_char); // lit une ligne au clavier, retourne la longueur de texte.
-text_coord_t get_curpos(dev_t dev);
+unsigned get_curpos(dev_t dev);
 void set_curpos(dev_t dev,int x, int y);
 void put_char(dev_t dev, char c);
 void print(dev_t dev, const char *str);
