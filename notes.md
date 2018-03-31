@@ -292,8 +292,8 @@ expérimentation avec syscall, rien de concluant.
 2018-01-23
 ----------
 modification à keyboard.c et edit.c
-modification au projet ps2_rs232 pour ajouter touches virtuelles <CTRL>-<DEL> 
-et changer la valeur de <CTRL>-<BACKSPACE>
+modification au projet ps2_rs232 pour ajouter touches virtuelles &lt;CTRL&gt;-&lt;DEL&gt; 
+et changer la valeur de &lt;CTRL&gt;-&lt;BACKSPACE&gt;
 Dans vm.h remplacé les '#define' des opcodes par une énumération.
 Retiré vpcBasic du projet.
 Modification à la schématique pour ajouter l'ampli audio LM386.
