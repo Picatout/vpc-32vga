@@ -189,6 +189,8 @@ static void kw_func();
 static void kw_getpixel();
 static void kw_if();
 static void kw_input();
+static void kw_insert_line();
+static void kw_invert_video();
 static void kw_key();
 static void kw_len();
 static void kw_let();
@@ -197,7 +199,6 @@ static void kw_local();
 static void kw_locate();
 static void kw_loop();
 static void kw_max();
-static void kw_mdiv();
 static void kw_min();
 static void kw_next();
 static void kw_pause();
@@ -214,8 +215,6 @@ static void kw_rnd();
 static void kw_save_screen();
 static void kw_scrlup();
 static void kw_scrldown();
-static void kw_scrlright();
-static void kw_scrlleft();
 static void kw_select();
 static void kw_setpixel();
 static void kw_set_timer();
@@ -232,6 +231,7 @@ static void kw_then();
 static void kw_ticks();
 static void kw_timeout();
 static void kw_tone();
+static void kw_tkey();
 static void kw_trace();
 static void kw_tune();
 static void kw_ubound();
@@ -266,14 +266,14 @@ static void print_cstack();
 //dans la liste KEYWORD
 enum {eKW_ABS,eKW_AND,eKW_BOX,eKW_BTEST,eKW_BYE,eKW_CASE,eKW_CIRCLE,eKW_CLEAR,eKW_CLS,
       eKW_CONST,eKW_CURCOL,eKW_CURLINE,eKW_DIM,eKW_DO,eKW_ELLIPSE,eKW_ELSE,eKW_END,eKW_EXIT,
-      eKW_FOR,eKW_FUNC,eKW_GETPIXEL,eKW_IF,eKW_INPUT,eKW_KEY,eKW_LEN,
-      eKW_LET,eKW_LINE,eKW_LOCAL,eKW_LOCATE,eKW_LOOP,eKW_MAX,eKW_MDIV,eKW_MIN,eKW_NEXT,
+      eKW_FOR,eKW_FUNC,eKW_GETPIXEL,eKW_IF,eKW_INPUT,eKW_INSERTLN,eKW_INVVID,eKW_KEY,eKW_LEN,
+      eKW_LET,eKW_LINE,eKW_LOCAL,eKW_LOCATE,eKW_LOOP,eKW_MAX,eKW_MIN,eKW_NEXT,
       eKW_NOT,eKW_OR,eKW_PAUSE,
       eKW_PRINT,eKW_PUTC,eKW_RANDOMISIZE,eKW_RECT,eKW_REF,eKW_REM,eKW_REMSPR,eKW_RESTSCR,
       eKW_RETURN,eKW_RND,eKW_SAVESCR,eKW_SCRLUP,eKW_SCRLDN,
-      eKW_SCRLRT,eKW_SCRLFT,eKW_SELECT,eKW_SETPIXEL,eKW_SETTMR,eKW_SHL,eKW_SHR,
+      eKW_SELECT,eKW_SETPIXEL,eKW_SETTMR,eKW_SHL,eKW_SHR,
       eKW_SPRITE,eKW_SRCLEAR,eKW_SRLOAD,eKW_SRREAD,eKW_SRSSAVE,eKW_SRWRITE,eKW_SUB,eKW_THEN,eKW_TICKS,
-      eKW_TIMEOUT,eKW_TONE,eKW_TRACE,eKW_TUNE,eKW_UBOUND,eKW_UNTIL,eKW_USE,
+      eKW_TIMEOUT,eKW_TONE,eKW_TKEY,eKW_TRACE,eKW_TUNE,eKW_UBOUND,eKW_UNTIL,eKW_USE,
       eKW_WAITKEY,eKW_WEND,eKW_WHILE,eKW_XORPIXEL
 };
 
@@ -302,6 +302,8 @@ static const dict_entry_t KEYWORD[]={
     {kw_getpixel,8+FUNCTION,"GETPIXEL"},
     {kw_if,2,"IF"},
     {kw_input,5,"INPUT"},
+    {kw_insert_line,8,"INSERTLN"},
+    {kw_invert_video,9,"INVERTVID"},
     {kw_key,3+FUNCTION,"KEY"},
     {kw_len,3+FUNCTION,"LEN"},
     {kw_let,3,"LET"},
@@ -310,7 +312,6 @@ static const dict_entry_t KEYWORD[]={
     {kw_locate,6,"LOCATE"},
     {kw_loop,4,"LOOP"},
     {kw_max,3+FUNCTION,"MAX"},
-    {kw_mdiv,4+FUNCTION,"MDIV"},
     {kw_min,3+FUNCTION,"MIN"},
     {kw_next,4,"NEXT"},
     {bad_syntax,3,"NOT"},
@@ -329,8 +330,6 @@ static const dict_entry_t KEYWORD[]={
     {kw_save_screen,7,"SAVESCR"},
     {kw_scrlup,6,"SCRLUP"},
     {kw_scrldown,6,"SCRLDN"},
-    {kw_scrlright,6,"SCRLRT"},
-    {kw_scrlleft,6,"SCRLLT"},
     {kw_select,6,"SELECT"},
     {kw_setpixel,8,"SETPIXEL"},
     {kw_set_timer,6,"SETTMR"},
@@ -347,6 +346,7 @@ static const dict_entry_t KEYWORD[]={
     {kw_ticks,5+FUNCTION,"TICKS"},
     {kw_timeout,7+FUNCTION,"TIMEOUT"},
     {kw_tone,4,"TONE"},
+    {kw_tkey,4+FUNCTION,"TKEY"},
     {kw_trace,5,"TRACE"},
     {kw_tune,4,"TUNE"},
     {kw_ubound,6+FUNCTION,"UBOUND"},
@@ -1678,7 +1678,7 @@ static void kw_shr(){
     bytecode(IRSHIFT);
 }//f
 
-// BTEST(expression1,expression2{0-15})
+// BTEST(expression1,expression2{0-31})
 // fonction test bit de expression1
 // retourne vrai si 1
 static void kw_btest(){
@@ -1717,14 +1717,14 @@ static void kw_ticks(){
 }//f
 
 // SETTMR(msec)
-// initialise _pause_timer
+// initialise la variable système timer
 static void kw_set_timer(){
     parse_arg_list(1);
     bytecode(ISETTMR);
 }//f
 
 // TIMEOUT()
-// retourne vrai si _pause_timer==0
+// retourne vrai si la varialbe système timer==0
 static void kw_timeout(){
     expect(eLPAREN);
     expect(eRPAREN);
@@ -1983,16 +1983,6 @@ static void kw_min(){
     bytecode(IMIN);
 }//f
 
-//MDIV(expr1,expr2,expr3)
-//multiplie expr1*expr2
-//garde résultat sur 32 bits
-//divise résultat 32 bits par
-// epxr3
-static void kw_mdiv(){
-    parse_arg_list(3);
-    bytecode(IMDIV);
-}//f
-
 // GETPIXEL(x,y)
 // retourne la couleur du pixel
 // en position {x,y}
@@ -2017,37 +2007,28 @@ static void kw_xorpixel(){
     bytecode(IXORPIXEL);
 }//f
 
-// SCRLUP(n)
-// glisse l'écran vers le haut de n lignes
+// SCRLUP()
+// glisse l'écran vers le haut d'une ligne
 static void kw_scrlup(){
-    parse_arg_list(1);
+    parse_arg_list(0);
     bytecode(ISCRLUP);
 }//f
 
-// SCRLDN(n)
-// glisse l'écran vers le bas de n lignes
+// SCRLDN()
+// glisse l'écran vers le bas d'une lignes
 static void kw_scrldown(){
-    parse_arg_list(1);
+    parse_arg_list(0);
     bytecode(ISCRLDN);
     
 }//f
 
-// SRCLRT(n)
-// glisse l'écran vers la droite de n pixel
-// n doit-être pair
-static void kw_scrlright(){
-    parse_arg_list(1);
-    bytecode(ISCRLRT);
-    
-}//f
+//INSERTLN()
+static void kw_insert_line(){
+    parse_arg_list(0);
+    bytecode(IINSERTLN);
+}
 
-// SCRLLT(n)
-// glisse l'afficage de n pixel vers la gauche
-static void kw_scrlleft(){
-    parse_arg_list(1);
-    bytecode(ISCRLLT);
-    
-}//f
+
 
 // LINE(x1,y,x2,y2,color)
 // trace une ligne droite
@@ -2386,6 +2367,14 @@ static void kw_waitkey(){
     bytecode(IKEY);
 }//f
 
+// TKEY()
+// vérifie si une touche clavier est disponible
+static void kw_tkey(){
+    expect(eLPAREN);
+    expect(eRPAREN);
+    bytecode(IQRX);
+}
+
 //LEN(var$|string)
 static void kw_len(){
     var_t *var;
@@ -2605,7 +2594,8 @@ static void kw_print(){
             case eSTRING:
                 bytecode(IPSTR);
                 literal_string(token.str);
-                bytecode(ISPACE);
+                _litc(1);
+                bytecode(ISPACES);
                 break;
             case eIDENT:
                 if(token.str[strlen(token.str)-1]=='$'){
@@ -2617,7 +2607,8 @@ static void kw_print(){
                             lit((uint32_t)var->str);
                         }
                         bytecode(ITYPE);
-                        bytecode(ISPACE);
+                        _litc(1);
+                        bytecode(ISPACES);
                     }
                 }else{ 
                     unget_token=true;
@@ -2663,6 +2654,14 @@ static void kw_key(){
     expect(eRPAREN);
     bytecode(IKEY);
 }//f
+
+// INVERTVID()
+// inverse la sortie vidéo
+// noir/blanc
+static void kw_invert_video(){
+    parse_arg_list(1);
+    bytecode(IINV_VID);
+}
 
 // cré la liste des arguments pour
 // la compilation des SUB|FUNC

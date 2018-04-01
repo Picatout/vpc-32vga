@@ -1,9 +1,20 @@
-2018-03-30
+2018-04-01
+----------
+1. Travail sur vpcBASIC.
+2. Ajout dans vm.S, **extbit**,**setcursor**,**extbit**,**settimer**,**qtimeout**
+3. travail sur LOCAL, correction bogue dans **vm:lc_space**
+4. Ajout de **vm:inv_vid**
+5. Ajout de la fonction insert_line() à la console.
+6. Nettoyage vms
+
+2018-03-31
 ----------
 1. Travail sur vpcBASIC.
 2. Modification du type **var_t** pour besoins futur.
 3. ajout eVAR_CONST_STR dans dans l'énumération var_type_e
-4. Modifications pour tenir compte de eVAR_CONST_STR
+4. Modifications dans kw_const() et kw_let() pour tenir compte de eVAR_CONST_STR
+5. Ajouté  **curline** et **curpos** dans vm.S ainsi que macro **_console**
+
 
 2018-03-30
 ----------

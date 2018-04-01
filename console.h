@@ -71,6 +71,7 @@ void scroll_down(dev_t dev);
 void scroll_up(dev_t dev);
 void set_tab_witdh(dev_t dev, int width);
 int get_tab_width(dev_t dev);
+void insert_line(dev_t dev);
 
 #ifdef	__cplusplus
 }

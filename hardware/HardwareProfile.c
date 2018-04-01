@@ -24,14 +24,14 @@
  * rev: 2017-07-31
  */
 
+
 #include "HardwareProfile.h"
 #include "rtcc/rtcc.h"
 #include <plib.h>
 #include "sound/sound.h"
 
-#define TMR_COUNT 4
 volatile unsigned int  sys_ticks; // milliseconds counter.
-static volatile unsigned int timers[TMR_COUNT]; // count down timer
+static volatile unsigned int timer; // count down timer
 
 // initialisation matérielle au démarrage.
 void cold_start_init(){
@@ -114,21 +114,17 @@ void delay_ms(unsigned int msec){
     while (sys_ticks!=t0);
 } // delay_ms()
 
-// get_timer())
-//  initialize a timer and return a pointer to it.
+// set_timer(msec)
+//  initialize la minuterie
 // input:
-//      msec  duration in milliseconds
-// output:
-//      tmr*   Pointer to countdown variable, return NULL if none available
-volatile unsigned int* get_timer(unsigned int msec){
-    int i;
-    for (i=0;i<TMR_COUNT;i++){
-        if (!timers[i]){
-            timers[i]=msec;
-            return &timers[i];
-        }
-    }
-    return NULL;
+//      msec  durée milliseconds
+void set_timer(unsigned int msec){
+    timer=msec;
+}
+
+// retourne vrai si timer=0
+bool timeout(){
+    return !timer;
 }
 
 // essaie d'obtenir le plus morceau de mémoire RAM disponible.
@@ -190,10 +186,7 @@ void __ISR(_CORE_TIMER_VECTOR, IPL2SOFT) CoreTimerHandler(void){
          fSound&=~TONE_ON;
          mTone_off();
      }
-     int i;
-     for (i=0;i<TMR_COUNT;i++){
-        if (timers[i]) timers[i]--;
-     }
+     if (timer) timer--;
 }
 
 

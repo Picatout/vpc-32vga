@@ -263,8 +263,16 @@ void vt_scroll_up(){
     vt_set_curpos(vt_col+1,vt_line+1);
 }
 
+void vt_insert_line(){
+    send_esc_seq();
+    ser_print("H");
+    send_esc_seq();
+    ser_print("1L");
+}
+
 void vt_scroll_down(){
-    
+    vt_set_curpos(0,0);
+    vt_insert_line();
 }
 
 void vt_set_tab_width(int width){

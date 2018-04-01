@@ -28,6 +28,7 @@
 #define	HARDWAREPROFILE_H
 
 #include <stdint.h>
+#include <stdbool.h>
 #include <p32xxxx.h>
 #include <plib.h>
 
@@ -233,8 +234,10 @@ unsigned free_heap();
 // retourne la grandeur du plus gros morceau
 // de mémoire RAM allouable
 unsigned biggest_chunk();
-// obtention d'une minuterie.
-volatile unsigned int* get_timer(unsigned int msec);
+// démarre la minuterie.
+void set_timer(unsigned int msec);
+// vérifie si la minuterie a expirée
+bool timeout();
 // compteur système incrémenté à la milliseconde.
 // mis à zéro au démarrage.
 unsigned int ticks(void);

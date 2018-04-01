@@ -70,9 +70,9 @@ static const char _nil[]="";
 dev_t con=VGA_CONSOLE;
 
 static const env_var_t shell_version={NULL,"SHELL_VERSION",(char*)_version};
-static const env_var_t true={(env_var_t*)&shell_version,"TRUE",(char*)_true};
-static const env_var_t false={(env_var_t*)&true,"FALSE",(char*)_false};
-static const env_var_t nil={(env_var_t*)&false,"NIL",(char*)_nil};
+static const env_var_t T={(env_var_t*)&shell_version,"TRUE",(char*)_true};
+static const env_var_t F={(env_var_t*)&T,"FALSE",(char*)_false};
+static const env_var_t nil={(env_var_t*)&F,"NIL",(char*)_nil};
 static env_var_t *shell_vars=(env_var_t*)&nil;
 
 static env_var_t *search_var(const char *name);

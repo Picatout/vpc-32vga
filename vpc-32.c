@@ -243,13 +243,16 @@ void main(void) {
     crlf(con);
     last_shutdown();
     display_date_time();
-//    char c;
-//    while (1){
-//        c=wait_key(con);
-//        if ((c<32)||(c>126)){
-//            print_int(VGA_CONSOLE,(unsigned char)c,1);
-//        }else
-//            vga_put_char(c);
+//    char c=0;
+//    vt_set_curpos(0,0);
+//    vga_set_curpos(0,0);
+//    while(1){
+//        delay_ms(1000);
+//        c++;
+//        vt_insert_line();
+//        print_int(SERIAL_CONSOLE,c,0);
+//        vga_insert_line();
+//        print_int(VGA_CONSOLE,c,0);
 //    }
     shell();
 } // main()

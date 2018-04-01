@@ -250,3 +250,13 @@ void clear_line(dev_t dev, unsigned line){
         vt_clear_line(line);
     }
 }
+
+// insère une ligne vide à la position du curseur
+void insert_line(dev_t dev){
+    if (dev==VGA_CONSOLE){
+        vga_insert_line();
+    }else{
+        vt_insert_line();
+    }
+    
+}

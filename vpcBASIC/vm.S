@@ -253,21 +253,23 @@ bye:   // 'bye' ( -- ) exit virtual machine
     jr  ra
     addiu sp,sp,40
 
-qrx: // '?key' ( -- ch -1 | 0 )
+// lecture clavier sans attente
+// retourne 0 si aucune touche disponible    
+qrx: // '?key' ( -- ch | 0 )
     la a0,con
     jal get_key
     lbu a0,0(a0)
     _dpush
-    beqz v0, next
-    addu T,v0,zero 
-    addiu t0,zero,-1
-    _dpush
     b next
-    move T, t0
+    move T, v0
 
-space: // ( -- ) émet un caractère ascii 32
-    _dpush
-    addiu T,zero,32
+    
+vm_spaces: // ( n -- ) émet n espaces
+    _console
+    jal spaces
+    move a1,T
+    _drop_b_next
+    
 emit:   // 'emit' ( ch -- ) transmet charactère au terminal
     _console
     jal put_char
@@ -301,14 +303,6 @@ clit:   // 'clit' ( -- byte ) empile un octet signe étendu sur 32 bits
 //    b next
 //    addiu ip,ip,2
 
-lits: // 's"' ( -- addr) empile l'adresse d'une chaîne litérale
-    _dpush
-    move T,ip
-    lbu w,0(T)
-    addu ip,ip,w
-    b next
-    _inc_ip
-    
 bra:   // 'branch' ( -- ) branchement incondionnnel (adresse relative +127,-128)
     lb t0, 0(ip)
     _inc_ip
@@ -404,9 +398,9 @@ drop:  // 'drop' ( n -- )
     _drop_b_next
     
 twodrop: // '2drop' ( n1 n2 -- )
-    lw T, -2*CELL_SIZE(dp)
-    b next
-    addiu dp,dp,-2*CELL_SIZE
+//    lw T, -2*CELL_SIZE(dp)
+//    b next
+//    addiu dp,dp,-2*CELL_SIZE
 
 dup:  // 'dup' ( n -- n n )
     sw T, 0(dp)
@@ -414,11 +408,11 @@ dup:  // 'dup' ( n -- n n )
     addiu dp,dp,CELL_SIZE
 
 twodup: // (n2 n1 -- n2 n1 n2 n1)
-    addiu dp,dp,2*CELL_SIZE
-    sw T,-2*CELL_SIZE(dp)
-    lw t0, -3*CELL_SIZE(dp)
-    b next
-    sw t0, -CELL_SIZE(dp)
+//    addiu dp,dp,2*CELL_SIZE
+//    sw T,-2*CELL_SIZE(dp)
+//    lw t0, -3*CELL_SIZE(dp)
+//    b next
+//    sw t0, -CELL_SIZE(dp)
 
 qdup:   // ?dup ( n -- n n | n ) duplique n si n!=0
     beq T,zero, next
@@ -486,27 +480,27 @@ star:   // '*' ( n1 n2 -- n1*n2 ) multiplication signé, résultat simple précisio
     addiu dp,dp,-CELL_SIZE
 
 ustar:   // 'U*' ( u1 u2 -- u3 ) multiplication non signe, résultat simple précision
-    lw t0,-CELL_SIZE(dp)
-    multu  t0, T
-    mflo T
-    b next
-    addiu dp,dp,-CELL_SIZE
+//    lw t0,-CELL_SIZE(dp)
+//    multu  t0, T
+//    mflo T
+//    b next
+//    addiu dp,dp,-CELL_SIZE
 
 mstar:  // 'M*' ( n1 n2 -- d) multiplication signée avec résultat double précision.
-    lw t0, -CELL_SIZE(dp)
-    mult t0,T
-    mflo t0
-    mfhi T
-    b next
-    sw t0, -CELL_SIZE(dp)
+//    lw t0, -CELL_SIZE(dp)
+//    mult t0,T
+//    mflo t0
+//    mfhi T
+//    b next
+//    sw t0, -CELL_SIZE(dp)
 
 umstar: // 'UM*' ( u1 u2 -- ud ) multiplication non signé avec résultat double précision.
-    lw t0, -CELL_SIZE(dp)
-    multu t0,T
-    mflo t0
-    mfhi T
-    b next
-    sw t0, -CELL_SIZE(dp)
+//    lw t0, -CELL_SIZE(dp)
+//    multu t0,T
+//    mflo t0
+//    mfhi T
+//    b next
+//    sw t0, -CELL_SIZE(dp)
 
 slash:  // '/' ( n1 n2 -- n1/n2 )  division signée
     lw t0, -CELL_SIZE(dp)
@@ -516,27 +510,27 @@ slash:  // '/' ( n1 n2 -- n1/n2 )  division signée
     addiu dp,dp,-CELL_SIZE
 
 uslash:  // 'U/'  (u1 u2 -- u3)  division non signée
-    lw t0,-CELL_SIZE(dp)
-    divu t0,T
-    mflo T
-    b next
-    addiu dp,dp,-CELL_SIZE
+//    lw t0,-CELL_SIZE(dp)
+//    divu t0,T
+//    mflo T
+//    b next
+//    addiu dp,dp,-CELL_SIZE
 
 twostar:  # '2*'  ( n  -- 2*n ) multiply by 2 (shift left 1 bit)
-    b next
-    sll T,T,1
+//    b next
+//    sll T,T,1
 
 twoslash: // '2/'  ( n -- n/2 )  divide by 2 ( arithmetic shift right 1 bit)
-    b next
-    sra T,T,1
+//    b next
+//    sra T,T,1
 
 divmod:  // '/mod'  ( n1 n2 -- n1%n2 n1/n2 )
-    lw t0, -CELL_SIZE(dp)
-    div t0, T  # n1/n2
-    mfhi t0    #  remainder
-    sw t0, -CELL_SIZE(dp)
-    b next
-    mflo T     # quotient
+//    lw t0, -CELL_SIZE(dp)
+//    div t0, T  # n1/n2
+//    mfhi t0    #  remainder
+//    sw t0, -CELL_SIZE(dp)
+//    b next
+//    mflo T     # quotient
 
 lshift:  // '<<' ( n1 u -- n1<<u )
     lw t0, -CELL_SIZE(dp)
@@ -799,7 +793,7 @@ set_frame:// (R:  -- old_frame )
 // réserve de l'espace sur dstack pour les variables locales    
 // [ip] nombre de variables
 lc_space: // ( -- ) 
-    lw t0,0(ip)
+    lbu t0,0(ip)
     _inc_ip
     sll t0,t0,2
     b next
@@ -873,10 +867,6 @@ trunc: // ( f -- i)
     b next
     move T, v0
 
-num: //
-
-    b next
-    nop
 
 beep: // ( freq,duration -- ) fait entendre une tonalitée
     move a1,T
@@ -1009,6 +999,73 @@ curcolon: // ( -- colon )
     andi T,v0,0xff
     
 .end StackVM
+  
+// positionne le curseur texte    
+setcursor: // ( line, col -- )
+    _console
+    lw a2, -CELL_SIZE(dp)
+    addiu dp,dp,-CELL_SIZE
+    jal set_curpos
+    move a1,T
+    _drop_b_next
+    
+// extrait le bit n2 de l'entier n1    
+extbit: // ( n1 n2 -- n3 ) 
+    lw t0,-CELL_SIZE(dp)
+    srlv T,t0,T
+    andi T,T,1
+    b next
+    addiu dp,dp,-CELL_SIZE
+    
+// initialise la minuterie système.    
+// n durée en millisecondes    
+settimer: // ( n -- )
+    jal set_timer
+    move a0,T
+    _drop_b_next
+    
+// retourne vrai si la minuterie est expirée.    
+qtimeout: // ( -- t|f)
+    jal timeout
+    sw T,0(dp)
+    move T,v0
+    b next
+    addiu dp,dp,CELL_SIZE
+    
+    
+// contrôle sortie vidéeo N/B ou B/N
+// f -> blanc/noir
+// t -> noir/blanc    
+inv_vid: // ( f|t -- )
+    _console
+    jal invert_video
+    move a1,T
+    _drop_b_next
+    
+//glisse l'écran texte d'une ligne vers le bas
+scrldn: // ( -- )
+    _console
+    jal scroll_down
+    nop
+    b next
+    nop
+    
+//glisse l'écran texte d'une ligne vers le haut    
+scrlup: // ( -- )
+    _console
+    jal scroll_up
+    nop
+    b next
+    nop
+    
+//insère une ligne vide à la position du curseur    
+insertln: // ( -- )
+    _console
+    jal insert_line
+    nop
+    b next
+    nop
+    
     
     
 //*************************************************
@@ -1086,21 +1143,24 @@ dots:
 opcodes_table:
 .word bye,lit,clit,bra,qbra,store,fetch,cstore
 .word cfetch,rfetch,tor,rfrom,drop,dup,swap,over,pick,invert
-.word plus,minus,star,ustar,mstar,umstar,slash,uslash,modulo,ltz
+.word plus,minus,star,slash,modulo,ltz
 .word zequal, bitand,bitor
 .word bitxor,bitnot,ticks, delay
-.word qdup, oneplus, oneminus,plusstore, twostar, twoslash, twodrop, rot, twodup
-.word  min, max, abs, lshift, rshift, divmod, qbraz, dcnt, rcnt
+.word qdup, oneplus, oneminus,plusstore, rot
+.word  min, max, abs, lshift, rshift, qbraz, dcnt, rcnt
 .word equal,nequal, less, greater,lteq,gteq,forsave,forrest,for,fortest,fornext
-.word sine, cos, tan, atan, acos, asin,randomize,random,trunc,num
-.word key,qrx,emit,prt_str,cr,dot,lits,type,space
+.word randomize,random
+.word key,qrx,emit,prt_str,cr,dot,type,vm_spaces
 .word beep,melody,clr_scr,array_bound    
 .word local_store,local_fetch,local_addr,set_frame,sr_call,leave,lc_space
 .word trace,str_adr,str_len,readln,to_int,alloc,str_alloc,str_free,str_cpy
-.word curline,curcolon
-    
+.word curline,curcolon,setcursor
+.word extbit,settimer,qtimeout,inv_vid,scrldn,scrlup,insertln    
     
 bad_op:  
+.word ustar,mstar,umstar,uslash, twostar, twoslash, twodrop, twodup
+.word sine, cos, tan, atan, acos, asin,trunc, divmod
+    
 badop_msg: .asciz "bad operating code: "    
 trace_msg: .asciz "\ntrace: "
 opcode_msg: .asciz "\nnext opcode: "

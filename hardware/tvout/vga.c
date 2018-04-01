@@ -151,6 +151,8 @@ void vga_scroll_up(){
 }//vga_scroll_up();
 
 void vga_scroll_down(){
+    cx=0;
+    cy=0;
     char *src, *dst;
     src = (char*)video_bmp;
     dst = (char*)video_bmp+(CHAR_HEIGHT)*HRES/8;
@@ -432,6 +434,22 @@ void vga_spaces(unsigned char count){
         count--;
     }
 }//vga_spaces()
+
+void vga_insert_line(){
+    char *src, *dst;
+    int count;
+    
+    if (cy>=(CHAR_HEIGHT*(LINE_PER_SCREEN-1))){
+        vga_clear_line(cy/CHAR_HEIGHT);
+    }else{
+        cx=0;
+        count=BMP_SIZE-(cy*BPL)-CHAR_HEIGHT*BPL;
+        src = cy*BPL+(char*)video_bmp;
+        dst = cy*BPL+CHAR_HEIGHT*BPL+(char*)video_bmp;
+        memmove(dst,src,count);
+        memset(src,0,CHAR_HEIGHT*BPL);
+    }
+}
 
 
 void enable_cursor_timer(BOOL enable, cursor_tmr_callback_f cb){
