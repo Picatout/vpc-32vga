@@ -27,15 +27,15 @@
 #include "hardware/tvout/display.h"
 
 int getPixel(int x, int y);
-void setPixel(int x, int y);
-void clearPixel(int x, int y);
+void putPixel(int x, int y, int p);
+void xorPixel(int x, int y);
 void line(int x0, int y0, int x1, int y1);
 void rectangle(int x0, int y0, int x1, int y1);
 void circle(int xc, int yc, int r);
 void ellipse (int x0, int y0, int x1, int y1);
 void polygon(const int points[],int vertices);
-void bezier(int x0, int y0, int x1, int y1, int x2, int y2);
-void fill(int x, int y);
+//void bezier(int x0, int y0, int x1, int y1, int x2, int y2);
+void box (int x0, int y0, int x1, int y1);
 
 #ifdef	__cplusplus
 extern "C" {

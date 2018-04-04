@@ -1065,7 +1065,99 @@ insertln: // ( -- )
     nop
     b next
     nop
+   
+//retourne l'état d'un pixel de la mémoire vidéo    
+get_pixel: // ( x y -- 1|0 )
+    lw a0, -CELL_SIZE(dp)
+    jal getPixel
+    move a1,T
+    addiu dp,dp,-CELL_SIZE
+    b next
+    move T, v0
     
+    
+// met le pixel à 1.    
+put_pixel: // ( x y p -- )
+    lw a0, -2*CELL_SIZE(dp)
+    lw a1, -CELL_SIZE(dp)
+    jal putPixel
+    move a2,T
+    lw T,-3*CELL_SIZE(dp)
+    b next
+    addiu dp,dp, -3*CELL_SIZE
+    
+// met le pixel à 0.    
+xor_pixel: // ( x y -- )
+    lw a0, -CELL_SIZE(dp)
+    jal getPixel
+    move a1,T
+    lw T, -2*CELL_SIZE(dp)
+    b next
+    addiu dp,dp,-2*CELL_SIZE
+  
+// dessine une ligne droite.    
+vm_line: // (x0,y0,x1,y1 -- )
+    lw a0,-3*CELL_SIZE(dp)
+    lw a1,-2*CELL_SIZE(dp)
+    lw a2,-CELL_SIZE(dp)
+    jal line
+    move a3,T
+    addiu dp,dp,-4*CELL_SIZE
+    b next
+    lw T,0(dp)
+    
+// dessine un rectangle    
+vm_rectangle: // ( x0,y0,x1,y1 -- )
+    lw a0,-3*CELL_SIZE(dp)
+    lw a1,-2*CELL_SIZE(dp)
+    lw a2,-CELL_SIZE(dp)
+    jal rectangle
+    move a3,T
+    addiu dp,dp,-4*CELL_SIZE
+    b next
+    lw T,0(dp)
+    
+// dessine une boite.    
+vm_box:  // ( x0,y0,x1,y1 -- )
+    lw a0,-3*CELL_SIZE(dp)
+    lw a1,-2*CELL_SIZE(dp)
+    lw a2,-CELL_SIZE(dp)
+    jal box
+    move a3,T
+    addiu dp,dp,-4*CELL_SIZE
+    b next
+    lw T,0(dp)
+    
+// dessine un circle    
+vm_circle: // ( x,y,r -- )
+    lw a0,-2*CELL_SIZE(dp)
+    lw a1, -CELL_SIZE(dp)
+    jal circle
+    move a2,T
+    addiu dp,dp,-3*CELL_SIZE
+    b next
+    lw T,0(dp)
+    
+// dessine une ellipse    
+vm_ellipse:
+    lw a0,-3*CELL_SIZE(dp)
+    lw a1,-2*CELL_SIZE(dp)
+    lw a2,-CELL_SIZE(dp)
+    jal ellipse
+    move a3,T
+    addiu dp,dp,-4*CELL_SIZE
+    b next
+    lw T,0(dp)
+ 
+
+// dessine un polygon    
+vm_polygon: // ( addr n -- )
+    lw a0,-CELL_SIZE(dp)
+    jal polygon
+    move a1,T
+    addiu dp,dp,-2*CELL_SIZE
+    b next
+    lw T,0(dp)
     
     
 //*************************************************
@@ -1156,6 +1248,8 @@ opcodes_table:
 .word trace,str_adr,str_len,readln,to_int,alloc,str_alloc,str_free,str_cpy
 .word curline,curcolon,setcursor
 .word extbit,settimer,qtimeout,inv_vid,scrldn,scrlup,insertln    
+.word get_pixel,put_pixel,xor_pixel,vm_line,vm_rectangle,vm_box,vm_circle,vm_ellipse
+.word vm_polygon    
     
 bad_op:  
 .word ustar,mstar,umstar,uslash, twostar, twoslash, twodrop, twodup

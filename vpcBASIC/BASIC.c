@@ -154,11 +154,9 @@ typedef enum {eNONE,eSTOP,eCOLON,eIDENT,eNUMBER,eSTRING,ePLUS,eMINUS,eMUL,eDIV,
 
 // unité lexicale.              
 typedef struct _token{
-    tok_id_t id;
-    union{
-        char str[MAX_LINE_LEN]; // nom d l'identifiant.
-        int n; //  identifiant mot clef
-    };
+   tok_id_t id;
+   int n; //  identifiant KEYWORD ou valeur si entier
+   char str[MAX_LINE_LEN]; // chaîne représentant le jeton.
 }token_t;
 
 
@@ -202,6 +200,7 @@ static void kw_max();
 static void kw_min();
 static void kw_next();
 static void kw_pause();
+static void kw_polygon();
 static void kw_print();
 static void kw_putc();
 static void kw_randomize();
@@ -240,6 +239,7 @@ static void kw_waitkey();
 static void kw_wend();
 static void kw_while();
 static void kw_xorpixel();
+
 static void patch_fore_jump(int target_addr);
 static void patch_back_jump(int target_addr);
 static void ctrl_stack_nrot();
@@ -268,7 +268,7 @@ enum {eKW_ABS,eKW_AND,eKW_BOX,eKW_BTEST,eKW_BYE,eKW_CASE,eKW_CIRCLE,eKW_CLEAR,eK
       eKW_CONST,eKW_CURCOL,eKW_CURLINE,eKW_DIM,eKW_DO,eKW_ELLIPSE,eKW_ELSE,eKW_END,eKW_EXIT,
       eKW_FOR,eKW_FUNC,eKW_GETPIXEL,eKW_IF,eKW_INPUT,eKW_INSERTLN,eKW_INVVID,eKW_KEY,eKW_LEN,
       eKW_LET,eKW_LINE,eKW_LOCAL,eKW_LOCATE,eKW_LOOP,eKW_MAX,eKW_MIN,eKW_NEXT,
-      eKW_NOT,eKW_OR,eKW_PAUSE,
+      eKW_NOT,eKW_OR,eKW_PAUSE,eKW_POLYGON,
       eKW_PRINT,eKW_PUTC,eKW_RANDOMISIZE,eKW_RECT,eKW_REF,eKW_REM,eKW_REMSPR,eKW_RESTSCR,
       eKW_RETURN,eKW_RND,eKW_SAVESCR,eKW_SCRLUP,eKW_SCRLDN,
       eKW_SELECT,eKW_SETPIXEL,eKW_SETTMR,eKW_SHL,eKW_SHR,
@@ -317,6 +317,7 @@ static const dict_entry_t KEYWORD[]={
     {bad_syntax,3,"NOT"},
     {bad_syntax,2,"OR"},
     {kw_pause,5,"PAUSE"},
+    {kw_polygon,7,"POLYGON"},
     {kw_print,5,"PRINT"},
     {kw_putc,4,"PUTC"},
     {kw_randomize,9,"RANDOMIZE"},
@@ -378,6 +379,15 @@ static int dict_search(const  dict_entry_t *dict){
 }//cmd_search()
 
 
+static void print_token_info(){
+    print(con,"\ntok_id: ");
+    print_int(con,token.id,0);
+    print(con,"\ntok_value: ");
+    print_int(con,token.n,0);
+    print(con,"token string: ");
+    println(con,token.str);
+}
+
 //code d'erreurs
 //NOTE: eERR_DSTACK et eERR_RSTACK sont redéfinie dans stackvm.h
 //      si leur valeur change elles doivent aussi l'être dans stackvm.h
@@ -425,29 +435,7 @@ static void throw(int error){
     }
     strcpy(message,error_msg[error]);
     print(con,message);
-    print(con,"\ntok_id: ");
-    print_int(con,token.id,0);
-    print(con,"\ntok_value: ");
-    switch(token.id){
-        case eKWORD:
-            strcpy(message,(const char*)KEYWORD[token.n].name);
-            print(con,message);
-            break;
-        case eNUMBER:
-            print_int(con,token.n,0);
-            break;
-        case eSTOP:
-            print(con,"unspected end of command.");
-            break;
-        case eSTRING:
-        case eIDENT:
-            print(con,token.str);
-            break;
-        default:
-            if (token.str[0]>=32 && token.str[0]<=127)
-                print(con,token.str);
-    }//switch
-    crlf(con);
+    print_token_info();
 #ifdef DEBUG    
     print_prog(program_end);
 #endif    
@@ -737,7 +725,7 @@ static void parse_identifier(){
         token.str[i++]=toupper(c);
         if (c=='$' || c=='#') break;
     }
-    if (i>32) i=32;
+    if (i>LEN_MASK) i=LEN_MASK;
     token.str[i]=0;                  
     if ((i=dict_search(KEYWORD))>-1){
         token.id=eKWORD;
@@ -778,6 +766,7 @@ static void next_token(){
         return;
     }
     token.id=eNONE;
+    token.n=0;
     token.str[0]=0;
     if (activ_reader->eof){
         return;
@@ -807,10 +796,14 @@ static void next_token(){
             case '\'': // commentaire
                 token.id=eKWORD;
                 token.n=eKW_REM;
+                token.str[0]='\'';
+                token.str[1]=0;
                 break;
             case '\\':
                 token.id=eCHAR;
                 token.n=reader_getc(activ_reader);
+                token.str[0]=token.n;
+                token.str[1]=0;
                 break;
             case '"': // chaîne de caractères
                 parse_string();
@@ -902,10 +895,14 @@ static void next_token(){
             case '?': // alias pour PRINT
                 token.id=eKWORD;
                 token.n=eKW_PRINT;
+                token.str[0]='?';
+                token.str[1]=0;
                 break;
             case '@': // référence
                 token.id=eKWORD;
                 token.n=eKW_REF;
+                token.str[0]='@';
+                token.str[1]=0;
                 break;
             case '\n':
             case '\r':
@@ -1103,10 +1100,10 @@ static void factor(){
         op=token.id;
         unget_token=false;
     }
-    next_token();
+    next_token(); print(con,token.str);
     switch(token.id){
         case eKWORD:
-            if (KEYWORD[token.n].len&FUNCTION){
+            if ((KEYWORD[token.n].len&FUNCTION)){ //print_prog(program_end);
                 KEYWORD[token.n].cfn();
             }else  throw(eERR_SYNTAX);
             break;
@@ -1539,7 +1536,7 @@ static void kw_ref(){
     if (token.id!=eIDENT) throw(eERR_BAD_ARG);
     var=var_search(token.str);
     if (!var) throw(eERR_BAD_ARG);
-    bytecode(ILIT);
+//    bytecode(ILIT);
     switch(var->vtype){
     case eVAR_INT:
     case eVAR_CONST:
@@ -1693,7 +1690,7 @@ static void kw_tone(){
     bytecode(ITONE);
 }//f
 
-//TUNE(array)
+//TUNE(@array)
 // fait entendre une mélodie
 static void kw_tune(){
     parse_arg_list(1);
@@ -1991,19 +1988,19 @@ static void kw_getpixel(){
     bytecode(IGETPIXEL);
 }//f
 
-// SETPIXEL(x,y,c)
+// SETPIXEL(x,y,p)
 // fixe la couleur du pixel
 // en position x,y
-// c-> couleur {0-15}
+// p-> couleur {0,1}
 static void kw_setpixel(){
     parse_arg_list(3);
-    bytecode(ISETPIXEL);
+    bytecode(IPUTPIXEL);
 }//f
 
-// XORPIXEL(x,y,xor_value)
-// XOR le pixel avec xor_value {0-15}
+// XORPIXEL(x,y)
+// XOR le pixel
 static void kw_xorpixel(){
-    parse_arg_list(3);
+    parse_arg_list(2);
     bytecode(IXORPIXEL);
 }//f
 
@@ -2028,43 +2025,52 @@ static void kw_insert_line(){
     bytecode(IINSERTLN);
 }
 
-
+/***********************/
+/* fonction graphiques */
+/***********************/
 
 // LINE(x1,y,x2,y2,color)
 // trace une ligne droite
 static void kw_line(){
-    parse_arg_list(5);
+    parse_arg_list(4);
     bytecode(ILINE);
 }//f
 
-//BOX(x,y,width,height,color)
+//BOX(x,y,width,height)
 //desssine une rectangle plein
 static void kw_box(){
-    parse_arg_list(5);
+    parse_arg_list(4);
     bytecode(IBOX);
 }//f
 
-//RECT(x0,y0,width,height,color)
+//RECT(x0,y0,width,height)
 //dessine un rectangle vide
 static void kw_rect(){
-    parse_arg_list(5);
+    parse_arg_list(4);
     bytecode(IRECT);
 }//f
 
-//CIRCLE(xc,yc,r, color)
+//CIRCLE(xc,yc,r)
 //dissine un cercle rayon r, centré sur xc,yc
 static void kw_circle(){
-    parse_arg_list(4);
+    parse_arg_list(3);
     bytecode(ICIRCLE);
 }//f
 
-//ELLIPSE(xc,yc,w,h,color)
+//ELLIPSE(xc,yc,w,h)
 //dessine une ellipse centrée sur xc,yc
 // et de largeur w, hauteur h
 static void kw_ellipse(){
-    parse_arg_list(5);
+    parse_arg_list(4);
     bytecode(IELLIPSE);
 }//f
+
+//POLYGON(@points)
+//dessine un polygon à partir d'un tableau de points.
+void kw_polygon(){
+    parse_arg_list(2);
+    bytecode(IPOLYGON);
+}
 
 
 // SPRITE(x,y,width,height,@sprite,@save_back)
@@ -2587,7 +2593,7 @@ static void kw_local(){
 // PRINT|? chaine|identifier|expression {,chaine|identifier|expression}
 static void kw_print(){
     var_t *var;
-    
+
     next_token();
     while (!activ_reader->eof){
         switch (token.id){
@@ -2741,7 +2747,10 @@ static void compile(){
     uint32_t adr;
     
     do{
-        next_token();
+        next_token(); 
+//#ifdef DEBUG
+//        print_token_info();
+//#endif        
         switch(token.id){ 
             case eKWORD:
                 if ((KEYWORD[token.n].len&FUNCTION)==FUNCTION){

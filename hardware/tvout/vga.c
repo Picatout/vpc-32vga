@@ -303,9 +303,9 @@ void vga_clear_eol(void){
         x=cx;
         while (x<HRES){
             if (flags & INV_VID)
-                setPixel(x++,y);
+                putPixel(x++,y,1);
             else
-                clearPixel(x++,y);
+                putPixel(x++,y,0);
         }
         y++;
     }

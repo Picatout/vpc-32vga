@@ -1,3 +1,8 @@
+2018-04-02
+----------
+1. Travail sur vpcBASIC. Ajout des fonctions graphique dans vm.S
+
+
 2018-04-01
 ----------
 1. Travail sur vpcBASIC.
