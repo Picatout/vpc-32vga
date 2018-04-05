@@ -207,7 +207,6 @@ static void kw_randomize();
 static void kw_rect();
 static void kw_ref();
 static void kw_rem();
-static void kw_remove_sprite();
 static void kw_restore_screen();
 static void kw_return();
 static void kw_rnd();
@@ -269,7 +268,7 @@ enum {eKW_ABS,eKW_AND,eKW_BOX,eKW_BTEST,eKW_BYE,eKW_CASE,eKW_CIRCLE,eKW_CLEAR,eK
       eKW_FOR,eKW_FUNC,eKW_GETPIXEL,eKW_IF,eKW_INPUT,eKW_INSERTLN,eKW_INVVID,eKW_KEY,eKW_LEN,
       eKW_LET,eKW_LINE,eKW_LOCAL,eKW_LOCATE,eKW_LOOP,eKW_MAX,eKW_MIN,eKW_NEXT,
       eKW_NOT,eKW_OR,eKW_PAUSE,eKW_POLYGON,
-      eKW_PRINT,eKW_PUTC,eKW_RANDOMISIZE,eKW_RECT,eKW_REF,eKW_REM,eKW_REMSPR,eKW_RESTSCR,
+      eKW_PRINT,eKW_PUTC,eKW_RANDOMISIZE,eKW_RECT,eKW_REF,eKW_REM,eKW_RESTSCR,
       eKW_RETURN,eKW_RND,eKW_SAVESCR,eKW_SCRLUP,eKW_SCRLDN,
       eKW_SELECT,eKW_SETPIXEL,eKW_SETTMR,eKW_SHL,eKW_SHR,
       eKW_SPRITE,eKW_SRCLEAR,eKW_SRLOAD,eKW_SRREAD,eKW_SRSSAVE,eKW_SRWRITE,eKW_SUB,eKW_THEN,eKW_TICKS,
@@ -324,7 +323,6 @@ static const dict_entry_t KEYWORD[]={
     {kw_rect,4,"RECT"},
     {kw_ref,1+FUNCTION,"@"},
     {kw_rem,3,"REM"},
-    {kw_remove_sprite,6,"REMSPR"},
     {kw_restore_screen,7,"RESTSCR"},
     {kw_return,6,"RETURN"},
     {kw_rnd,3+FUNCTION,"RND"},
@@ -340,7 +338,7 @@ static const dict_entry_t KEYWORD[]={
     {kw_srclear,7,"SRCLEAR"},
     {kw_srload,6+FUNCTION,"SRLOAD"},
     {kw_srread,6,"SRREAD"},
-    {kw_srsave,6,"SRSAVE"},
+    {kw_srsave,6+FUNCTION,"SRSAVE"},
     {kw_srwrite,7,"SRWRITE"},
     {kw_sub,3,"SUB"},
     {kw_then,4,"THEN"},
@@ -2072,24 +2070,12 @@ void kw_polygon(){
     bytecode(IPOLYGON);
 }
 
-
-// SPRITE(x,y,width,height,@sprite,@save_back)
-// desssine le sprite à la position désigné
-// sprite est un vecteur de type octet
-//save_back est un vecteur de type octet de même grandeur que sprite
-//save_back est utilisé pour sauvegarder le fond d'écran
-//en vue de sa restauration
+// SPRITE(x,y,width,height,@sprite)
+// applique le sprite à la position désigné
+// il s'agit d'une opération xor
 static void kw_sprite(){
-    parse_arg_list(6);
-    bytecode(ISPRITE);
-}//f
-
-//REMSPR(x,y,width,height,@rest_back)
-//efface le sprite en restaurant les bits
-// de fond d'écran sauvegardés par SPRITE()
-static void kw_remove_sprite(){
     parse_arg_list(5);
-    bytecode(IREMSPR);
+    bytecode(ISPRITE);
 }//f
 
 
@@ -2214,57 +2200,73 @@ static void literal_string(char *lit_str){
 }//f
 
 
-//SRLOAD file_name
-//charge un fichier dans la SPIRAM
+//SRLOAD(addr,file_name)
+//charge un fichier dans la SPI RAM
 // retourne la grandeur en octet
 static void kw_srload(){
-    var_t *var;
-    
-    next_token();
-    if (token.id==eSTRING){
-        bytecode(ISTRADR);
-        literal_string(token.str);
-    }else if (token.id==eIDENT){
-        var=var_search(token.str);
-        if (!var || !(var->vtype==eVAR_STR || var->vtype==eVAR_STRARRAY)) throw(eERR_BAD_ARG);
-        if (var->vtype==eVAR_STRARRAY){
-            expect(eLPAREN);
-            code_array_address(var);
-        }else{
-            lit((uint32_t)&var->str);
-        }
-        bytecode(IFETCH);
-    }else{
-        throw(eERR_BAD_ARG);
-    }
+    expect(eLPAREN);
+    expression();
+    expect(eCOMMA);
+    expect(eSTRING);
+    strcpy(pad,token.str);
+    lit((uint32_t)pad);
+    expect(eRPAREN);
     bytecode(ISRLOAD);
+//    var_t *var;
+//    
+//    next_token();
+//    if (token.id==eSTRING){
+//        bytecode(ISTRADR);
+//        literal_string(token.str);
+//    }else if (token.id==eIDENT){
+//        var=var_search(token.str);
+//        if (!var || !(var->vtype==eVAR_STR || var->vtype==eVAR_STRARRAY)) throw(eERR_BAD_ARG);
+//        if (var->vtype==eVAR_STRARRAY){
+//            code_array_address(var);
+//        }else{
+//            lit((uint32_t)&var->str);
+//        }
+//        bytecode(IFETCH);
+//    }else{
+//        throw(eERR_BAD_ARG);
+//    }
+//    bytecode(ISRLOAD);
 }//f
 
-//SRSAVE file_name, size
-//sauvegarde SPIRAM dans un fichier
+//SRSAVE(addr,file_name,size)
+//sauvegarde un bloc de SPI RAM dans un fichier
 static void kw_srsave(){
-    var_t *var;
-    
-    next_token();
-    if (token.id==eSTRING){
-        bytecode(ISTRADR);
-        literal_string(token.str);
-    }else if (token.id==eIDENT){
-        var=var_search(token.str);
-        if (!var || !(var->vtype==eVAR_STR || var->vtype==eVAR_STRARRAY)) throw(eERR_BAD_ARG);
-        if (var->vtype==eVAR_STRARRAY){
-            expect(eLPAREN);
-            code_array_address(var);
-        }else{
-            lit((uint32_t)&var->str);
-        }
-        bytecode(IFETCH);
-    }else{
-        throw(eERR_BAD_ARG);
-    }
+    expect(eLPAREN);
+    expression();
+    expect(eCOMMA);
+    expect(eSTRING);
+    strcpy(pad,token.str);
+    lit((uint32_t)pad);
     expect(eCOMMA);
     expression();
+    expect(eRPAREN);
     bytecode(ISRSAVE);
+//    var_t *var;
+//    
+//    next_token();
+//    if (token.id==eSTRING){
+//        bytecode(ISTRADR);
+//        literal_string(token.str);
+//    }else if (token.id==eIDENT){
+//        var=var_search(token.str);
+//        if (!var || !(var->vtype==eVAR_STR || var->vtype==eVAR_STRARRAY)) throw(eERR_BAD_ARG);
+//        if (var->vtype==eVAR_STRARRAY){
+//            code_array_address(var);
+//        }else{
+//            lit((uint32_t)&var->str);
+//        }
+//        bytecode(IFETCH);
+//    }else{
+//        throw(eERR_BAD_ARG);
+//    }
+//    expect(eCOMMA);
+//    expression();
+//    bytecode(ISRSAVE);
 }//f
 
 //SRCLEAR(address,size)

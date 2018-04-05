@@ -43,6 +43,7 @@
 .extern string_alloc
 .extern string_free
 .extern delay_ms
+.extern sprite
     
 //math 
 .extern print_float
@@ -182,16 +183,16 @@ rstack0: .word rstack+CELL_SIZE
 .ent StackVM
 StackVM:  // VM initialization
     addiu sp, sp, -40 // save registers
-    sw  s0, 0(sp)
-    sw  s1, 4(sp)
-    sw  s2, 8(sp)
-    sw  s3,12(sp)
-    sw  s4,16(sp)
-    sw  s5,20(sp)
-    sw  s6,24(sp)
-    sw  s7,28(sp)
-    sw  s8,32(sp)
-    sw  ra,36(sp)
+    sw  s0, 36(sp)
+    sw  s1, 32(sp)
+    sw  s2, 28(sp)
+    sw  s3, 24(sp)
+    sw  s4, 20(sp)
+    sw  s5, 16(sp)
+    sw  s6, 12(sp)
+    sw  s7, 8(sp)
+    sw  s8, 4(sp)
+    sw  ra, 0(sp)
     move ip, a0   // pointeur bytecode à exécuter
     lui w, RAM_SEG
     ori dp, w, dstack
@@ -240,16 +241,17 @@ vm_bad_op:
 #endif    
 bye:   // 'bye' ( -- ) exit virtual machine
     jal depth
-1:  lw  s0,0(sp)
-    lw  s1,4(sp)
-    lw  s2,8(sp)
-    lw  s3,12(sp)
-    lw  s4,16(sp)
-    lw  s5,20(sp)
-    lw  s6,24(sp)
-    lw  s7,28(sp)
-    lw  s8,32(sp)
-    lw  ra,36(sp)
+    nop
+1:  lw  s0,36(sp)
+    lw  s1,32(sp)
+    lw  s2,28(sp)
+    lw  s3,24(sp)
+    lw  s4,20(sp)
+    lw  s5,16(sp)
+    lw  s6,12(sp)
+    lw  s7,8(sp)
+    lw  s8,4(sp)
+    lw  ra,0(sp)
     jr  ra
     addiu sp,sp,40
 
@@ -1158,6 +1160,90 @@ vm_polygon: // ( addr n -- )
     addiu dp,dp,-2*CELL_SIZE
     b next
     lw T,0(dp)
+ 
+    
+// applique un bitmap à l'écran VGA en utilisant la fonction xor_pixel 
+// un sprite a un maximum de 32 pixels en largeur et est contenu
+// dans un tableau d'entiers.    
+put_sprite: // ( x y w h addr_sprite -- )   
+    addiu sp,sp,-20
+    sw T, 16(sp)
+    lw a0,-4*CELL_SIZE(dp)
+    lw a1,-3*CELL_SIZE(dp)
+    lw a2,-2*CELL_SIZE(dp)
+    jal sprite
+    lw a3,-CELL_SIZE(dp)
+    addiu sp,sp,20
+    addiu dp,dp,-5*CELL_SIZE
+    b next
+    lw T, 0(dp)
+    
+    
+//****************************
+// fonction SPI RAM
+//****************************
+    
+//met à zéro un bloc de mémoire SPI RAM    
+sram_clear: // ( addr size -- )
+    lw a0,-CELL_SIZE(dp)
+    jal sram_clear_block
+    move a1,T
+    addiu dp,dp,-2*CELL_SIZE
+    b next
+    lw T,0(dp)
+    
+//copie le contenu d'une variable dans la mémoire SPI RAM    
+sram_write: // ( addr_ram addr_var  size -- )
+    lw a0,-2*CELL_SIZE(dp)
+    lw a1,-CELL_SIZE(dp)
+    jal sram_write_block
+    move a2,T
+    addiu dp,dp,-3*CELL_SIZE
+    b next
+    lw T,0(dp)
+    
+//copie le contenue de la mémoire SPI RAM dans une variable    
+sram_read: // ( addr_ram addr_var size -- )
+    lw a0,-2*CELL_SIZE(dp)
+    lw a1,-CELL_SIZE(dp)
+    jal sram_read_block
+    move a2,T
+    addiu dp,dp,-3*CELL_SIZE
+    b next
+    lw T,0(dp)
+    
+
+// sauvegarde la totalité du tampon vidéo dans la mémoire SPI RAM
+save_screen: // ( addr -- )
+    jal saveScreen
+    move a0,T
+    _drop_b_next
+    
+// restaure le contenu du tampon vidéo à partir de la mémoire SPI RAM
+rest_screen: // ( addr -- )
+    jal restoreScreen
+    move a0,T
+    _drop_b_next
+    
+    
+// charge un fichier dans la mémoire SPI RAM    
+vm_sram_load: // ( addr_ram char* -- size )
+    lw a0,-CELL_SIZE(dp)
+    jal sram_load
+    move a1,T
+    addiu dp,dp,-CELL_SIZE
+    b next
+    move T,v0
+    
+// sauvegarde un bloc de la mémoire SPI RAM dans un fichier    
+vm_sram_save: // ( addr_ram char* size -- )
+    lw a0,-2*CELL_SIZE(dp)
+    lw a1,-CELL_SIZE(dp)
+    jal sram_save
+    move a2,T
+    addiu dp,dp,-2*CELL_SIZE
+    b next
+    move T,v0
     
     
 //*************************************************
@@ -1249,7 +1335,8 @@ opcodes_table:
 .word curline,curcolon,setcursor
 .word extbit,settimer,qtimeout,inv_vid,scrldn,scrlup,insertln    
 .word get_pixel,put_pixel,xor_pixel,vm_line,vm_rectangle,vm_box,vm_circle,vm_ellipse
-.word vm_polygon    
+.word vm_polygon,put_sprite    
+.word sram_clear,sram_read,sram_write,save_screen,rest_screen,vm_sram_load,vm_sram_save
     
 bad_op:  
 .word ustar,mstar,umstar,uslash, twostar, twoslash, twodrop, twodup

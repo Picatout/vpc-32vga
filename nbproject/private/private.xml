@@ -4,14 +4,20 @@
     <editor-bookmarks xmlns="http://www.netbeans.org/ns/editor-bookmarks/2" lastBookmarkId="0"/>
     <open-files xmlns="http://www.netbeans.org/ns/projectui-open-files/2">
         <group>
-            <file>file:/home/jacques/github/vpc-32vga/vpcBASIC/vm.S</file>
-            <file>file:/home/jacques/github/vpc-32vga/hardware/tvout/vga.c</file>
             <file>file:/home/jacques/github/vpc-32vga/graphics.c</file>
             <file>file:/home/jacques/github/vpc-32vga/vpcBASIC/vm.h</file>
             <file>file:/home/jacques/github/vpc-32vga/vpcBASIC/BASIC.c</file>
             <file>file:/home/jacques/github/vpc-32vga/hardware/HardwareProfile.h</file>
-            <file>file:/home/jacques/github/vpc-32vga/hardware/HardwareProfile.c</file>
             <file>file:/home/jacques/github/vpc-32vga/notes.md</file>
+            <file>file:/home/jacques/github/vpc-32vga/shell.c</file>
+            <file>file:/home/jacques/github/vpc-32vga/hardware/spiram/spiram.c</file>
+            <file>file:/home/jacques/github/vpc-32vga/vpcBASIC/vm.S</file>
+            <file>file:/home/jacques/github/vpc-32vga/hardware/tvout/vga.c</file>
+            <file>file:/home/jacques/github/vpc-32vga/hardware/spiram/spiram.h</file>
+            <file>file:/home/jacques/github/vpc-32vga/hardware/Pinguino/ff.h</file>
+            <file>file:/home/jacques/github/vpc-32vga/hardware/HardwareProfile.c</file>
+            <file>file:/home/jacques/github/vpc-32vga/hardware/tvout/display.h</file>
+            <file>file:/home/jacques/github/vpc-32vga/hardware/Pinguino/ff.c</file>
             <file>file:/home/jacques/github/vpc-32vga/graphics.h</file>
         </group>
     </open-files>

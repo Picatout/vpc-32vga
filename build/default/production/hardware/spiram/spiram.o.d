@@ -6,4 +6,7 @@ hardware/spiram/../store/store_spi.h  \
  hardware/spiram/../store/../HardwareProfile.h  \
  hardware/spiram/../Pinguino/sdmmc.h  \
  hardware/spiram/../Pinguino/../HardwareProfile.h  \
- hardware/spiram/../Pinguino/../store/store_spi.h 
+ hardware/spiram/../Pinguino/../store/store_spi.h  \
+ hardware/spiram/../Pinguino/ff.h  \
+hardware/spiram/../Pinguino/integer.h  \
+ hardware/spiram/../Pinguino/ffconf.h 

@@ -19,6 +19,7 @@
 #include "../HardwareProfile.h"
 #include "spiram.h"
 #include "../Pinguino/sdmmc.h"
+#include "../Pinguino/ff.h"
 
 /* File:   spiram.c
  * Author: jacques Deschênes
@@ -244,4 +245,78 @@ void sram_move(unsigned dest, unsigned src, unsigned size){
     }else if (dest>src){
         move_down(dest,src,size);
     }
+}
+
+// sram_load()
+//charge un fichier dans la mémoire SPI
+// arguments:
+//  dest  addresse spi ram destination
+//  file_name  nom du fichier à charger
+// retourne:
+//   nombre d'octets chargés, ou -1 si erreur i/o
+int sram_load(unsigned dest,const char *file_name){
+   FIL *fh;
+   FRESULT error=FR_OK;
+   char *buffer;
+   DWORD size;
+   int total,count;
+   
+   buffer=malloc(512);
+   fh=malloc(sizeof(FIL));
+   if (!(buffer && fh)){
+       if (fh){free(fh);}
+       if (buffer){free(buffer);}
+       return -1;
+   }
+   error=f_open(fh,file_name,FA_READ);
+   if (error!=FR_OK) return -1;
+   size=fh->fsize;
+   size=min(SRAM_SIZE-dest,size);
+   total=0;
+   while ((error==FR_OK) && (size>0)){
+       count=min(512,size);
+       error=f_read(fh,buffer,count,&count);
+       sram_write_block(dest,buffer,count);
+       dest+=count;
+       total+=count;
+       size-=count;
+   }
+   f_close(fh);
+   free(fh);
+   free(buffer);
+   return total;
+}
+
+// sram_save()
+//sauvegarde un partie de la SPI RAM dans un fichier
+// arguments:
+//     src  adresse SPI RAM début bloc à sauvegarder
+//     file_name nom du fichier destination
+//     size  nombre d'octets à sauvegarder.
+// reotourne:
+//      nombre d'octets écris dans le fichier ou -1 si erreur i/o.
+int sram_save(unsigned src,const char *file_name,unsigned size){
+    FIL *fh;
+    FRESULT error=FR_OK;
+    char *buffer;
+    int total,count;
+    
+    buffer=malloc(512);
+    if (!buffer) return -1;
+    fh=malloc(sizeof(FIL));
+    if (!fh) return -1;
+    error=f_open(fh,file_name,FA_WRITE|FA_CREATE_ALWAYS);
+    total=0;
+    while (size && (error==FR_OK)){
+        count=min(size,512);
+        sram_read_block(src,buffer,count);
+        error=f_write(fh,buffer,count,&count);
+        src+=count;
+        total+=count;
+        size-=count;
+    }
+    f_close(fh);
+    free(fh);
+    free(buffer);
+    return error==FR_OK?total:-1; 
 }

@@ -29,7 +29,7 @@
 int getPixel(int x, int y){
     int h,ofs;
     h=x/32;
-    ofs=31-x%32;
+    ofs=31-x&31;
     return (video_bmp[y][h]&(1<<ofs))>>ofs;
 }//getPixel()
 
@@ -38,7 +38,7 @@ void putPixel(int x, int y, int p){
     int h,ofs;
     if (y>(VRES-1)) return; // hors limites
     h= x/32;
-    if (h>HRES/32) return; // hors limites
+    if (h>(HRES/32)) return; // hors limites
     ofs = 31 - x&31;
     if (p){
         video_bmp[y][h]|= (1<<ofs);
@@ -146,35 +146,32 @@ void polygon(const int points[], int vertices){
     line(points[0],points[1],points[i],points[i+1]);
 }//polygon()
 
-//  REF: http://members.chello.at/~easyfilter/bresenham.html
-//void bezier(int x0, int y0, int x1, int y1, int x2, int y2){
-//  int sx = x2-x1, sy = y2-y1;
-//  long xx = x0-x1, yy = y0-y1, xy;         /* relative values for checks */
-//  double dx, dy, err, cur = xx*sy-yy*sx;                    /* curvature */
-//
-//  //if(xx*sx <= 0 && yy*sy <= 0) return;  /* sign of gradient must not change */
-//
-//  if (sx*(long)sx+sy*(long)sy > xx*xx+yy*yy) { /* begin with longer part */
-//    x2 = x0; x0 = sx+x1; y2 = y0; y0 = sy+y1; cur = -cur;  /* swap P0 P2 */
-//  }
-//  if (cur != 0) {                                    /* no straight line */
-//    xx += sx; xx *= sx = x0 < x2 ? 1 : -1;           /* x step direction */
-//    yy += sy; yy *= sy = y0 < y2 ? 1 : -1;           /* y step direction */
-//    xy = 2*xx*yy; xx *= xx; yy *= yy;          /* differences 2nd degree */
-//    if (cur*sx*sy < 0) {                           /* negated curvature? */
-//      xx = -xx; yy = -yy; xy = -xy; cur = -cur;
-//    }
-//    dx = 4.0*sy*cur*(x1-x0)+xx-xy;             /* differences 1st degree */
-//    dy = 4.0*sx*cur*(y0-y1)+yy-xy;
-//    xx += xx; yy += yy; err = dx+dy+xy;                /* error 1st step */
-//    do {
-//      putPixel(x0,y0,1);                                     /* putPixel curve */
-//      if (x0 == x2 && y0 == y2) return;  /* last pixel -> curve finished */
-//      y1 = 2*err < dx;                  /* save value for test of y step */
-//      if (2*err > dy) { x0 += sx; dx -= xy; err += dy += yy; } /* x step */
-//      if (    y1    ) { y0 += sy; dy -= xy; err += dx += xx; } /* y step */
-//    } while (dy < dx );           /* gradient negates -> algorithm fails */
-//  }
-//  line(x0,y0, x2,y2);                  /* putPixel remaining part to end */
-//}//besiez()
+// un sprite est un bitmap appliqué à l'écran en utilisant xorPixel()
+// x{0..HRES-1}
+// y{0..VRES-1}
+// width{1..32}
+// height{1..VRES}
+void sprite( int x, int y, int width, int height, int* sp){
+    int wx,wy,bshift;
+
+    for (wx=0;wx<width;wx++){
+        bshift=31-wx;
+        for (wy=0;wy<height;wy++){
+            if (sp[wy]&(1<<bshift)){
+                xorPixel(x+wx,y+wy);
+            }//if
+        }//for y
+    }// for x
+}
+
+
+//sauvegarde le tampon vidéo dans la mémoire SPI RAM
+void saveScreen(unsigned addr){
+    sram_write_block(addr,video_bmp,BMP_SIZE);
+}
+
+//copie un bloc de la SPI RAM dans le tampon vidéo
+void restoreScreen(unsigned addr){
+    sram_read_block(addr,video_bmp,BMP_SIZE);
+}
 

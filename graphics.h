@@ -34,8 +34,10 @@ void rectangle(int x0, int y0, int x1, int y1);
 void circle(int xc, int yc, int r);
 void ellipse (int x0, int y0, int x1, int y1);
 void polygon(const int points[],int vertices);
-//void bezier(int x0, int y0, int x1, int y1, int x2, int y2);
 void box (int x0, int y0, int x1, int y1);
+void sprite( int x, int y, int width, int height, int* sp);
+void saveScreen(unsigned addr);
+void restoreScreen(unsigned addr);
 
 #ifdef	__cplusplus
 extern "C" {

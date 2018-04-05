@@ -1,4 +1,9 @@
-2018-04-02
+2018-04-04
+----------
+1. Travail sur vpcBASIC. Ajout des fonctions d'accès à la mémoire SPI RAM.
+2. Ajout de SPRITE,SRCLEAR,SRREAD,SRWRITE,SRSAVE,SRLOAD,POLYGON.
+
+2018-04-03
 ----------
 1. Travail sur vpcBASIC. Ajout des fonctions graphique dans vm.S
 

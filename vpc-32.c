@@ -168,6 +168,7 @@ void init_msg(int output, int code, const char *msg){
     }//switch
 }
 
+
 //__attribute__((mips16))
 void main(void) {
 #if defined _DEBUG_
