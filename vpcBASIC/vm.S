@@ -238,7 +238,8 @@ vm_bad_op:
     addu a2,zero,zero
     b 1f
     addiu v0,zero,-1
-#endif    
+#endif   
+    
 bye:   // 'bye' ( -- ) exit virtual machine
     jal depth
     nop
@@ -378,14 +379,6 @@ dcnt:  // 'dcnt' ( -- n) nombre d'éléments sur la pile de données
     subu t0,dp,t0
     b next
     sra T, t0,2
-
-rcnt:  // 'rcnt' ( -- n ) nombre d'éléments sur la pile des retours
-    _dpush
-    la t0,rstack
-    subu T,rp,t0
-    addiu t0,t0,1 // + élément dans R
-    b next
-    sra T,T,2
 
 ipfetch: // 'ip@' ( -- ip ) empile la valeur courante du pointeur d''instructions
     _dpush
@@ -1000,8 +993,6 @@ curcolon: // ( -- colon )
     b next
     andi T,v0,0xff
     
-.end StackVM
-  
 // positionne le curseur texte    
 setcursor: // ( line, col -- )
     _console
@@ -1245,6 +1236,11 @@ vm_sram_save: // ( addr_ram char* size -- )
     b next
     move T,v0
     
+    b vm_bad_op
+    nop
+   
+.end StackVM
+  
     
 //*************************************************
 depth: // retourne le nombre d'éléments sur dstack
@@ -1320,12 +1316,12 @@ dots:
 // routines names must be in same order as OP_CODES enum in vm.h    
 opcodes_table:
 .word bye,lit,clit,bra,qbra,store,fetch,cstore
-.word cfetch,rfetch,tor,rfrom,drop,dup,swap,over,pick,invert
+.word cfetch,drop,dup,swap,over,pick,invert
 .word plus,minus,star,slash,modulo,ltz
-.word zequal, bitand,bitor
+.word zequal,bitand,bitor
 .word bitxor,bitnot,ticks, delay
-.word qdup, oneplus, oneminus,plusstore, rot
-.word  min, max, abs, lshift, rshift, qbraz, dcnt, rcnt
+.word qdup,oneplus, oneminus,plusstore, rot
+.word  min, max, abs, lshift, rshift, qbraz, dcnt
 .word equal,nequal, less, greater,lteq,gteq,forsave,forrest,for,fortest,fornext
 .word randomize,random
 .word key,qrx,emit,prt_str,cr,dot,type,vm_spaces
@@ -1338,7 +1334,8 @@ opcodes_table:
 .word vm_polygon,put_sprite    
 .word sram_clear,sram_read,sram_write,save_screen,rest_screen,vm_sram_load,vm_sram_save
     
-bad_op:  
+bad_op: 
+.word rfetch,tor,rfrom    
 .word ustar,mstar,umstar,uslash, twostar, twoslash, twodrop, twodup
 .word sine, cos, tan, atan, acos, asin,trunc, divmod
     

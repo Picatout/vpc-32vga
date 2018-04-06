@@ -124,18 +124,17 @@ typedef struct{
 
 
 
-typedef enum {eVAR_INT,eVAR_STR,eVAR_INTARRAY,eVAR_BYTEARRAY,eVAR_STRARRAY,
-              eVAR_SUB,eVAR_FUNC,eVAR_LOCAL,eVAR_CONST,eVAR_BYTE,eVAR_CONST_STR
+typedef enum {eVAR_INT,eVAR_STR,eVAR_SUB,eVAR_FUNC,eVAR_LOCAL,eVAR_BYTE,eVAR_FLOAT
              }var_type_e;
 
 typedef struct _var{
     struct _var* next; // prochaine variable dans la liste
     uint16_t len:5; // longueur du nom
-    uint16_t ro:1; // constante
-    uint16_t array:1; // c'est un tableau
+    uint16_t ro:1; // booléen, c'est une constante
+    uint16_t array:1; // booléen, c'est un tableau
     uint16_t vtype:4; // var_type_e
     uint16_t dim:5; // nombre de dimension du tableau
-    char *name;
+    char *name;  // nom de la variable
     union{
         uint8_t byte; // variable octet
         int32_t n;    // entier ou nombre d'arguments et de variables locales pour func et sub
@@ -273,7 +272,7 @@ enum {eKW_ABS,eKW_AND,eKW_BOX,eKW_BTEST,eKW_BYE,eKW_CASE,eKW_CIRCLE,eKW_CLEAR,eK
       eKW_SELECT,eKW_SETPIXEL,eKW_SETTMR,eKW_SHL,eKW_SHR,
       eKW_SPRITE,eKW_SRCLEAR,eKW_SRLOAD,eKW_SRREAD,eKW_SRSSAVE,eKW_SRWRITE,eKW_SUB,eKW_THEN,eKW_TICKS,
       eKW_TIMEOUT,eKW_TONE,eKW_TKEY,eKW_TRACE,eKW_TUNE,eKW_UBOUND,eKW_UNTIL,eKW_USE,
-      eKW_WAITKEY,eKW_WEND,eKW_WHILE,eKW_XORPIXEL
+      eKW_WAITKEY,eKW_WEND,eKW_WHILE,eKW_XOR,eKW_XORPIXEL
 };
 
 //mots réservés BASIC
@@ -389,16 +388,16 @@ static void print_token_info(){
 //code d'erreurs
 //NOTE: eERR_DSTACK et eERR_RSTACK sont redéfinie dans stackvm.h
 //      si leur valeur change elles doivent aussi l'être dans stackvm.h
-enum {eERROR_NONE,eERR_DSTACK,eERR_RSTACK,eERR_MISSING_ARG,eERR_EXTRA_ARG,
+enum {eERROR_NONE,eERR_DSTACK,eERR_MISSING_ARG,eERR_EXTRA_ARG,
       eERR_BAD_ARG,eERR_SYNTAX,eERR_ALLOC,eERR_REDEF,
-      eERR_NOTDIM,eERR_BOUND,eERR_PROGSPACE,eERR_OUT_RANGE,
-      eERR_STACK_UNDER,eERR_STACK_OVER,eERR_NO_STR,eERR_NO_DIM,eERR_NO_CONST
+      eERR_NOTARRAY,eERR_BOUND,eERR_PROGSPACE,eERR_OUT_RANGE,
+      eERR_STACK_UNDER,eERR_STACK_OVER,eERR_NO_STR,eERR_NO_DIM,eERR_NO_CONST,
+      eERR_UNKNOWN
       };
 
  static  const char* error_msg[]={
     "no error\n",
     "data stack out of bound\n",
-    "control stack out of bound\n",
     "missing argument\n",
     "too much arguments\n",
     "bad argument\n",
@@ -414,6 +413,7 @@ enum {eERROR_NONE,eERR_DSTACK,eERR_RSTACK,eERR_MISSING_ARG,eERR_EXTRA_ARG,
     "no more string space available\n",
     "Can't use DIM inside sub-routine\n",
     "Can't use CONST inside sub-routine\n",
+    "Unknow variable or constant\n"
  };
  
  
@@ -476,12 +476,14 @@ void free_string_vars(){
     var=varlist;
     while (var){
         if (var->vtype==eVAR_STR){
-            string_free(var->str);
-        }else if (var->vtype==eVAR_STRARRAY){
-            str_array=(char**)var->adr;
-            count=*(unsigned*)str_array;
-            for (i=1;i<=count;i++){
-                string_free(str_array[i]);
+            if (!var->array){
+                string_free(var->str);
+            }else if ((var->vtype==eVAR_STR) && var->array){
+                str_array=(char**)var->adr;
+                count=*(unsigned*)str_array;
+                for (i=1;i<=count;i++){
+                    string_free(str_array[i]);
+                }
             }
         }
         var=var->next;
@@ -520,6 +522,9 @@ static var_t *var_create(char *name, void *value){
     varname=alloc_var_space(len+1);
     newend=varname;
     strcpy(varname,name);
+    newvar->ro=false;
+    newvar->array=false;
+    newvar->dim=0;
     if (name[strlen(name)-1]=='$'){ // variable chaine
         if (value){
             newvar->str=alloc_var_space(strlen(value)+1);
@@ -1055,7 +1060,7 @@ static bool try_mulop(){
 static void code_array_address(var_t *var){
     factor();// compile la valeur de l'index.
 //    expect(eRPAREN);
-    if (var->vtype==eVAR_INTARRAY || var->vtype==eVAR_STRARRAY){
+    if (var->vtype==eVAR_INT || var->vtype==eVAR_STR){
         _litc(2);
         bytecode(ILSHIFT);//4*index
     }else{
@@ -1069,6 +1074,30 @@ static void code_array_address(var_t *var){
     bytecode(IPLUS);
 }//f
 
+static void code_var_address(var_t *var){
+    if (var->array){
+        code_array_address(var);
+    }else{
+        switch(var->vtype){
+            case eVAR_STR:
+                lit((uint32_t)&var->str);
+                break;
+            case eVAR_INT:
+            case eVAR_BYTE:
+            case eVAR_FLOAT:
+                lit((uint32_t)&var->n);
+                break;
+            case eVAR_LOCAL:
+                bytecode(ILCADR);
+                bytecode((uint8_t)var->n);
+                break;
+            case eVAR_SUB:
+            case eVAR_FUNC:
+                lit(((uint32_t)&var->adr));
+                break;
+        }
+    }
+}
 
 static void parse_arg_list(unsigned arg_count){
     int count=0;
@@ -1114,49 +1143,21 @@ static void factor(){
                         lit(((uint32_t)var->adr)+1);
                         bytecode(ICALL);
                         break;
-                    case eVAR_LOCAL:
-                        bytecode(ILCFETCH);
-                        bytecode(var->n&(DSTACK_SIZE-1));
-                        break;
                     case eVAR_BYTE:
-                        lit((uint32_t)&var->n);
+                        code_var_address(var);
                         bytecode(ICFETCH);
                         break;
-                    case eVAR_CONST:
-                        lit(var->n);
-                        break;
+                    case eVAR_LOCAL:
                     case eVAR_INT:
-                        lit((uint32_t)&var->n);
-                        bytecode(IFETCH);
-                        break;
-                    case eVAR_BYTEARRAY:
-                        code_array_address(var);
-                        bytecode(ICFETCH);
-                        break;
-                    case eVAR_INTARRAY: 
-                        code_array_address(var);
+                    case eVAR_FLOAT:
+                        code_var_address(var);
                         bytecode(IFETCH);
                         break;
                     default:
                         throw(eERR_SYNTAX);
                 }//switch
-            }else if (!var){
-                if (var_local){
-                    i=varlist->n+1;
-                    var=var_create(token.str,(char*)&i);
-                    _litc(0);
-                    bytecode(ILCSTORE);
-                    bytecode(i);
-                }else{
-                    var=var_create(token.str,NULL);
-                    next_token();
-                    if (token.id==eLPAREN) throw(eERR_SYNTAX);
-                    unget_token=true;
-                    lit((uint32_t)&var->n);
-                    bytecode(IFETCH);
-                }
             }else{
-                throw(eERR_SYNTAX);
+                throw(eERR_UNKNOWN);
             }
             break;
         case eCHAR:
@@ -1339,14 +1340,14 @@ static void init_int_array(var_t *var){
     unsigned char *barray=NULL;
     int size,count=1,state=0;
     
-    if (var->vtype==eVAR_INTARRAY){
+    if (var->vtype==eVAR_INT){
         iarray=var->adr;
         size=*iarray;
     }else{
         barray=var->adr;
         size=*barray;
     }
-    if (var->vtype==eVAR_BYTEARRAY){ count=4;}
+    if (var->vtype==eVAR_BYTE){ count=4;}
     expect(eLPAREN);
     next_token();
     while (token.id!=eRPAREN){
@@ -1354,7 +1355,7 @@ static void init_int_array(var_t *var){
             case eCHAR:
             case eNUMBER: 
                 if (state) throw(eERR_SYNTAX);
-                if (var->vtype==eVAR_INTARRAY){
+                if (var->vtype==eVAR_INT){
                     iarray[count++]=token.n;
                 }else{
                     barray[count++]=(uint8_t)token.n;
@@ -1379,8 +1380,8 @@ static void init_int_array(var_t *var){
         next_token();
     }
     if (count<size) throw(eERR_MISSING_ARG);
-    if (((var->vtype==eVAR_BYTEARRAY) && (count>(size+sizeof(uint32_t)))) ||
-        ((var->vtype!=eVAR_BYTEARRAY) && (count>(size+1)))) throw(eERR_EXTRA_ARG);
+    if (((var->vtype==eVAR_BYTE) && (count>(size+sizeof(uint32_t)))) ||
+        ((var->vtype!=eVAR_BYTE) && (count>(size+1)))) throw(eERR_EXTRA_ARG);
 }//f
 
 static void init_str_array(var_t *var){
@@ -1424,6 +1425,7 @@ static void init_str_array(var_t *var){
     complevel--;
 }//f
 
+// récupère la taille du tableau et initialise si '='
 static void dim_array(char *var_name){
     int size=0, len;
     void *array;
@@ -1434,8 +1436,18 @@ static void dim_array(char *var_name){
         size=token.n;
     }else if (token.id==eIDENT){
         var=var_search(token.str);
-        if (!(var && (var->vtype==eVAR_CONST))) throw(eERR_BAD_ARG);
-        size=var->n;
+        if (var && !var->array){
+            switch (var->vtype){
+                case eVAR_INT:
+                case eVAR_BYTE:
+                    size=var->n;
+                    break;
+                default:
+                    throw(eERR_BAD_ARG);        
+            }//switch
+        }else{
+            throw(eERR_BAD_ARG);
+        }
     }else{
         throw(eERR_BAD_ARG);
     }
@@ -1452,21 +1464,23 @@ static void dim_array(char *var_name){
         *((uint32_t*)array)=size;
     }
     new_var=(var_t*)alloc_var_space(sizeof(var_t));
+    new_var->array=true;
+    new_var->dim=1;
     new_var->name=alloc_var_space(len+1);
     strcpy(new_var->name,var_name);
     new_var->adr=array;
     if (var_name[len-1]=='$'){
-        new_var->vtype=eVAR_STRARRAY;
+        new_var->vtype=eVAR_STR;
     }else if (var_name[len-1]=='#'){
-        new_var->vtype=eVAR_BYTEARRAY;
+        new_var->vtype=eVAR_BYTE;
     }else{
-        new_var->vtype=eVAR_INTARRAY;
+        new_var->vtype=eVAR_INT;
     }
     new_var->next=varlist;
     varlist=new_var;
     next_token();
     if (token.id==eEQUAL){
-        if (new_var->vtype==eVAR_STRARRAY){
+        if (new_var->vtype==eVAR_STR){
             init_str_array(new_var);
         }else{
             init_int_array(new_var);
@@ -1534,25 +1548,30 @@ static void kw_ref(){
     if (token.id!=eIDENT) throw(eERR_BAD_ARG);
     var=var_search(token.str);
     if (!var) throw(eERR_BAD_ARG);
-//    bytecode(ILIT);
-    switch(var->vtype){
-    case eVAR_INT:
-    case eVAR_CONST:
-        lit((uint32_t)&var->n);
-        break;
-    case eVAR_INTARRAY:
-    case eVAR_STRARRAY:
-    case eVAR_BYTEARRAY:
+    if (var->array){
         lit(((uint32_t)var->adr)+sizeof(int));
-        break;
-    case eVAR_FUNC:
-    case eVAR_SUB:
-    case eVAR_STR:
-        lit((uint32_t)var->adr);
-        break;
-    default:
-        throw(eERR_BAD_ARG);
-    }//switch
+    }else{
+        switch(var->vtype){
+            case eVAR_INT:
+            case eVAR_BYTE:
+            case eVAR_FLOAT:
+                if (var->ro){
+                    throw(eERR_BAD_ARG);
+                }
+                lit((uint32_t)&var->n);
+                break;
+            case eVAR_STR:
+                if (var->ro){
+                    throw(eERR_BAD_ARG);
+                }
+            case eVAR_FUNC:
+            case eVAR_SUB:
+                lit((uint32_t)var->adr);
+                break;
+            default:
+                throw(eERR_BAD_ARG);
+        }//switch
+    }
 }//f
 
 // UBOUND(var_name)
@@ -1566,7 +1585,7 @@ static void kw_ubound(){
     strcpy(name,token.str);
     expect(eRPAREN);
     var=var_search(name);
-    if (!var || !(var->vtype>=eVAR_INTARRAY && var->vtype<=eVAR_STRARRAY)) throw(eERR_BAD_ARG);
+    if (!(var && var->array)) throw(eERR_BAD_ARG);
     lit((uint32_t)var->adr);
     bytecode(IFETCH);
 }//f
@@ -1633,13 +1652,13 @@ static void kw_const(){
         if ((var=var_search(name))) throw(eERR_REDEF);
         expect(eEQUAL);
         var=var_create(name,NULL);
+        var->ro=true;
         if (var->vtype==eVAR_STR){
             expect(eSTRING);
             var->str=alloc_var_space(strlen(token.str)+1);
             strcpy(var->str,token.str);
-            var->vtype=eVAR_CONST_STR;
+            var->vtype=eVAR_STR;
         }else{
-            var->vtype=eVAR_CONST;
             expect(eNUMBER);
             var->n=token.n;
         }
@@ -2314,12 +2333,11 @@ static void array_let(char * name){
     char *adr;
     
     var=var_search(name);
-    if (!var) throw(eERR_NOTDIM);
-    if (!(var->vtype>=eVAR_INTARRAY && var->vtype<=eVAR_STRARRAY)) throw(eERR_BAD_ARG);
+    if (!var || !var->array) throw(eERR_NOTARRAY);
     code_array_address(var);
     expect(eEQUAL);
     switch (var->vtype){
-        case eVAR_STRARRAY:
+        case eVAR_STR:
             expect(eSTRING);
             adr=string_alloc(strlen(token.str));
             strcpy(adr,token.str);
@@ -2327,12 +2345,12 @@ static void array_let(char * name){
             bytecode(ISWAP);
             bytecode(ISTORE);
             break;
-        case eVAR_INTARRAY:
+        case eVAR_INT:
             expression();
             bytecode(ISWAP);
             bytecode(ISTORE);
             break;
-        case eVAR_BYTEARRAY:
+        case eVAR_BYTE:
             expression();
             bytecode(ISWAP);
             bytecode(ICSTORE);
@@ -2344,6 +2362,9 @@ static void array_let(char * name){
 
 // compile le code pour le stockage d'untier
 static void store_integer(var_t *var){
+    if (var->ro){
+        throw(eERR_REDEF);
+    }
     switch(var->vtype){
         case eVAR_LOCAL:
             bytecode(ILCSTORE);
@@ -2356,10 +2377,6 @@ static void store_integer(var_t *var){
         case eVAR_BYTE:
             lit(((uint32_t)(int*)&var->n));
             bytecode(ICSTORE);
-            break;
-        case eVAR_CONST:
-            // ignore les assignations de constantes jette la valeur
-            bytecode(IDROP);
             break;
         default:
             throw (eERR_BAD_ARG);
@@ -2394,11 +2411,10 @@ static void kw_len(){
     }else if (token.id==eIDENT){
         var=var_search(token.str);
         if (!var) throw(eERR_BAD_ARG);
-        switch(var->vtype){
-            case eVAR_STR:
+        if (var->vtype==eVAR_STR){
+            if (!var->array){
                 lit((uint32_t)var->str);
-                break;
-            case eVAR_STRARRAY:
+            }else{
                 lit((uint32_t)var->adr);
                 expect(eLPAREN);
                 expression();
@@ -2408,10 +2424,10 @@ static void kw_len(){
                 _litc(2);
                 bytecode(ILSHIFT);
                 bytecode(IPLUS);
-                break;
-            default:
-                throw(eERR_BAD_ARG);
-        }//switch
+            }
+        }else{
+            throw(eERR_BAD_ARG);
+        }//if
     }else{
         throw(eERR_BAD_ARG);
     }
@@ -2442,7 +2458,7 @@ static var_t  *var_accept(char *name){
     if (!var && (token.id==eLPAREN)) throw(eERR_BAD_ARG);
     unget_token=true;
     if (!var) var=var_create(name,NULL);
-    if (var->vtype>=eVAR_INTARRAY && var->vtype<=eVAR_STRARRAY){
+    if (var->array){
         code_array_address(var);
     }else if (var->vtype==eVAR_STR){
         lit((uint32_t)&var->adr);
@@ -2474,7 +2490,6 @@ static void kw_input(){
         var=var_accept(name); // ( -- var_addr )
         switch (var->vtype){ 
             case eVAR_STR:
-            case eVAR_STRARRAY: // ( var_addr -- )
                 bytecode(IDUP);
                 bytecode(IFETCH);
                 bytecode(ISTRFREE); 
@@ -2492,14 +2507,14 @@ static void kw_input(){
                 bytecode(I2INT);
                 store_integer(var);
                 break;
-            case eVAR_INTARRAY:
-            case eVAR_BYTEARRAY:
-                compile_input(var);
-                bytecode(IDROP);
-                bytecode(I2INT);
-                bytecode(ISWAP);
-                bytecode(ICSTORE);
-                break;
+//            case eVAR_INTARRAY:
+//            case eVAR_BYTEARRAY:
+//                compile_input(var);
+//                bytecode(IDROP);
+//                bytecode(I2INT);
+//                bytecode(ISWAP);
+//                bytecode(ICSTORE);
+//                break;
         }//switch
         next_token();
         if (token.id==eCOMMA){
@@ -2510,6 +2525,33 @@ static void kw_input(){
     }
     unget_token=true;
 }//f
+
+static void code_let_string(var_t *var){
+    char *string;
+    var_t *svar;
+    
+    bytecode(IDUP);
+    bytecode(IFETCH);
+    bytecode(ISTRFREE);
+    next_token();
+    switch (token.id){
+        case eSTRING:
+            if (!(string=string_alloc(strlen(token.str)))){throw(eERR_ALLOC);}
+            lit((uint32_t)strcpy(string,token.str));
+            break;
+        case eIDENT:
+            if (!(svar=var_search(token.str))){throw(eERR_UNKNOWN);}
+            if (!svar->vtype==eVAR_STR){throw(eERR_BAD_ARG);}
+            if (!(string=string_alloc(strlen(svar->str)))){throw(eERR_ALLOC);}
+            lit((uint32_t)strcpy(string,svar->str));
+            break;
+        default:
+            throw(eERR_BAD_ARG);
+    }//switch
+    bytecode(ISWAP);
+    bytecode(ISTORE);
+}
+
 
 // LET varname=expression
 //assigne une valeur à une variable
@@ -2522,47 +2564,41 @@ static void kw_let(){
     expect(eIDENT);
     strcpy(name,token.str);
     len=strlen(name);
+    if (var_local && (name[len-1]=='$')){throw(eERR_BAD_ARG);}
     var=var_search(name);
-    if (var && ((var->vtype==eVAR_CONST)||(var->vtype==eVAR_CONST_STR))) throw(eERR_REDEF);
+    if (var && var->ro){ throw(eERR_REDEF);}
+    if (!var && var_local){throw(eERR_BAD_ARG);}
     next_token();
-    if (var_local){
-        // on ne peut pas allouer de chaîne dans les sous-routines
-        if (name[len-1]=='$') throw(eERR_SYNTAX);
-         // pas d'auto création à l'intérieur des sous-routines
-        if (!var) throw(eERR_BAD_ARG);
-        if (token.id==eLPAREN && (var->vtype==eVAR_INTARRAY || var->vtype==eVAR_BYTEARRAY)){
-            code_array_address(var);
-            expect(eEQUAL);
+    unget_token=true;
+    if (token.id==eLPAREN){
+        if (!var ||(var && !var->array)){
+            throw(eERR_NOTARRAY);
+        }
+    }
+    if (!var){
+        var=var_create(name,NULL);
+    }
+    code_var_address(var);
+    expect(eEQUAL);
+    switch(var->vtype){
+        case eVAR_STR:
+            code_let_string(var);
+            break;
+        case eVAR_INT: 
+        case eVAR_BYTE:
+        case eVAR_FLOAT:
+        case eVAR_LOCAL:
             expression();
             bytecode(ISWAP);
-            if (var->vtype==eVAR_INTARRAY){
-                bytecode(ISTORE);
-            }else{
+            if (var->vtype==eVAR_BYTE){
                 bytecode(ICSTORE);
-            }
-        }else if (token.id==eEQUAL){
-            expression();
-            store_integer(var);
-        }else throw(eERR_SYNTAX);
-    }else{
-        if (token.id==eLPAREN){
-            unget_token=true;
-            array_let(name);
-        }else{
-            if (!var) var=var_create(name,NULL);
-            unget_token=true;
-            expect(eEQUAL);
-            if (var->vtype==eVAR_STR){
-                string_free(var->str);
-                expect(eSTRING);
-                var->str=string_alloc(strlen(token.str));
-                strcpy(var->str,token.str);
             }else{
-                expression();
-                store_integer(var);
+                bytecode(ISTORE);
             }
-        }//if
-    }//if
+            break;
+        default:
+            throw(eERR_SYNTAX);
+    }//switch
 }//f()
 
 // LOCAL identifier {,identifier}
@@ -2596,8 +2632,8 @@ static void kw_local(){
 static void kw_print(){
     var_t *var;
 
-    next_token();
     while (!activ_reader->eof){
+        next_token();
         switch (token.id){
             case eSTRING:
                 bytecode(IPSTR);
@@ -2606,24 +2642,20 @@ static void kw_print(){
                 bytecode(ISPACES);
                 break;
             case eIDENT:
-                if(token.str[strlen(token.str)-1]=='$'){
-                    if ((var=var_search(token.str))){
-                        if (var->vtype==eVAR_STRARRAY){
-                            code_array_address(var);
-                            bytecode(IFETCH);
-                        }else{
-                            lit((uint32_t)var->str);
-                        }
-                        bytecode(ITYPE);
-                        _litc(1);
-                        bytecode(ISPACES);
-                    }
-                }else{ 
+                var=var_search(token.str);
+                if (!var) throw(eERR_UNKNOWN);
+                if (var->vtype==eVAR_STR){
+                    code_var_address(var);
+                    bytecode(IFETCH);
+                    bytecode(ITYPE);
+                    _litc(1);
+                    bytecode(ISPACES);
+                }else{
                     unget_token=true;
                     expression();
                     bytecode(IDOT);
                 }
-               break;
+                break;
             case eSTOP:
                 bytecode(ICR);
                 break;
@@ -2639,11 +2671,9 @@ static void kw_print(){
         }
         if (token.id!=eCOMMA){
             bytecode(ICR);
-           // crlf(con);
             unget_token=true;
             break;
         }
-        next_token();
     }//while
 }//f()
 

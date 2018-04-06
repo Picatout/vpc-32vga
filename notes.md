@@ -1,3 +1,12 @@
+2018-04-05
+----------
+1. Travail sur vpcBASIC.
+2. Modifications pour tenir compte de la nouvelle définition de la structure **var_t**
+   Les champes **ro**, **array** et **dim** sont maintenant utilisés. L'énumération **var_type_e**
+   a été modifiée en conséquence.
+3. bogue à corrigée: ? 4*f(n) imprime 0.
+
+
 2018-04-04
 ----------
 1. Travail sur vpcBASIC. Ajout des fonctions d'accès à la mémoire SPI RAM.
