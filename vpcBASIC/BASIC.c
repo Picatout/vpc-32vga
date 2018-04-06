@@ -49,9 +49,6 @@ enum frame_type_e {FRAME_SUB,FRAME_FUNC};
 
 /* macros utilisées par le compilateur BASIC*/
 
-// n=frame_type_e
-#define _arg_frame(n) bytecode(IFRAME);\
-                     bytecode(n)
 
 #define _byte0(n) ((uint32_t)(n)&0xff)
 #define _byte1(n)((uint32_t)(n>>8)&0xff)
@@ -59,6 +56,8 @@ enum frame_type_e {FRAME_SUB,FRAME_FUNC};
 #define _byte3(n)(((uint32_t)(n)>>24)&0xff)
 
 
+#define _arg_frame(n) bytecode(IFRAME);\
+                      bytecode((uint8_t)n)
 
 #define _litc(c)  bytecode(ICLIT);\
                   bytecode(_byte0(c))
@@ -1138,9 +1137,9 @@ static void factor(){
             if ((var=var_search(token.str))){
                 switch(var->vtype){
                     case eVAR_FUNC:
-                        _arg_frame(FRAME_FUNC);
+                        _litc(0);
                         parse_arg_list(get_arg_count((void*)(var->adr)));
-                        lit(((uint32_t)var->adr)+1);
+                        lit(((uint32_t)var->adr));
                         bytecode(ICALL);
                         break;
                     case eVAR_BYTE:
@@ -1759,7 +1758,10 @@ static void kw_bye(){
 // utilisé dans les fonctions
 static void kw_return(){
         expression();
+        bytecode(ILCSTORE);
+        bytecode(0);
         bytecode(ILEAVE);
+//        bytecode(FRAME_FUNC);
 }//f
 
 // EXIT SUB
@@ -1770,6 +1772,7 @@ static void kw_exit(){
     expect(eKWORD);
     if (token.n != eKW_SUB) throw(eERR_SYNTAX);
     bytecode(ILEAVE);
+//    bytecode(FRAME_SUB);
 }//f
 
 // CLS
@@ -1861,8 +1864,6 @@ static void kw_end(){ // IF ->(C: blockend adr -- ) |
             break;
         case eKW_FUNC:
         case eKW_SUB:
-//            bytecode(ILCSTORE);
-//            bytecode(0);
             bytecode(ILEAVE);
             varlist=globals;
             globals=NULL;
@@ -2709,13 +2710,14 @@ static void create_arg_list(){
     expect(eLPAREN);
     next_token();
     while (token.id==eIDENT){
-        var=var_create(token.str,(char*)&i);
         i++;
+        var=var_create(token.str,(char*)&i);
         next_token();
         if (token.id!=eCOMMA) break;
         next_token();
     }
     if (token.id!=eRPAREN) throw(eERR_SYNTAX);
+    bytecode(IFRAME);
     bytecode(i); // enregistre le nombre d'argument avant le code de la fonction.
 }//f
 
@@ -2771,7 +2773,7 @@ static void kw_trace(){
 // 1ier octet avant le code de la fonction.
 static unsigned get_arg_count(void *fn_code){
     (uint8_t*)fn_code;
-    return *(uint8_t*)fn_code;
+    return *((uint8_t*)fn_code+1);
 }
 
 static void compile(){
@@ -2796,9 +2798,11 @@ static void compile(){
                 if ((var=var_search(token.str))){
                     if ((var->vtype==eVAR_SUB)||(var->vtype==eVAR_FUNC)){
                         adr=(uint32_t)var->adr;
-                        if (var->vtype==eVAR_SUB){_arg_frame(FRAME_SUB);}else{_arg_frame(FRAME_FUNC);} 
+                        if (var->vtype==eVAR_FUNC){
+                            _litc(0);
+                        } 
                         parse_arg_list(get_arg_count((void*)adr));
-                        lit(adr+1);
+                        lit(adr);
                         bytecode(ICALL);
                         if (var->vtype==eVAR_FUNC){
                             bytecode(IDROP); //jette la valeur de retour
@@ -2879,10 +2883,11 @@ int BASIC_shell(unsigned basic_heap, const char* file_name){
 //  initialisation lecteur source.
     if (file_name && !(result=f_open(fh,file_name,FA_READ))){
         reader_init(&file_reader,eDEV_SDCARD,fh);
+        activ_reader=&file_reader; println(con,file_name);
     }else{
         reader_init(&std_reader,eDEV_KBD,NULL);
+        activ_reader=&std_reader; 
     }
-    activ_reader=&std_reader; 
 // boucle interpréteur    
     while (!exit_basic){
         if (!setjmp(failed)){

@@ -1,3 +1,8 @@
+2018-04-06
+----------
+1. Travail sur vpcBASIC.
+2. Déboguer mécanisme d'appel des fonctions et sous-routines. 
+
 2018-04-05
 ----------
 1. Travail sur vpcBASIC.

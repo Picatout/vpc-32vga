@@ -210,7 +210,7 @@ next:
     lw t0,0(t0)
     beqz t0,1f
     nop
-    jal dots
+    jal print_state
     nop
 1:  lbu   t0, 0(ip)
     sll   t0, t0, 2   
@@ -774,16 +774,16 @@ local_addr: //( -- addr )
 // créé un pointeur de référence vers les arguments
 // et les variables locales.    
 //sauvegarde frame sur R
-// frame=dp+CELL_SIZE
+// [ip] indique le nombre de cellules réservés sur la pile pour les arguments
 set_frame:// (R:  -- old_frame )
     _rpush
     move R,frame //préserve la valeur actuelle de frame
+//    addiu frame,dp,CELL_SIZE
     lbu t0,0(ip)
     _inc_ip
     sll t0,t0,2
-    addu dp,dp,t0
     b next
-    addiu frame,dp,CELL_SIZE
+    subu frame,dp,t0
     
 // réserve de l'espace sur dstack pour les variables locales    
 // [ip] nombre de variables
@@ -797,14 +797,14 @@ lc_space: // ( -- )
     
 // quitte une sous-routine ou fonction
 // restore dp, ip et frame
-leave: // (R: frame ip -- )
-    addiu dp,frame,-CELL_SIZE 
+leave: // (R: ip frame -- )
+    move dp,frame
+    move frame,R
+    _rpop
     move ip,R
     _rpop
-    move frame,R
-    addiu rp,rp,-CELL_SIZE
     b next
-    lw R,0(rp)
+    lw T,0(dp)
     
     
 // appelle une sous-routine ou fonction
@@ -1251,9 +1251,8 @@ depth: // retourne le nombre d'éléments sur dstack
     jr ra    
     addiu v0,v0,1
     
-.global dots
-.ent dots
-dots:    
+
+print_state:    
     addiu sp,sp,-12
     sw s6,0(sp)
     sw s7, 4(sp)
@@ -1295,8 +1294,24 @@ dots:
     move a0,s7
     jal print_hex
     move a2,zero
+    //imprime ip
+3:  la a1,ip_msg
+    jal print
+    move a0,s7
+    move a1,ip
+    move a2,zero
+    jal print_hex
+    move a0,s7
+    //imprime dp
+    la a1, dp_msg
+    jal print
+    move a0, s7
+    move a1,dp
+    move a2,zero
+    jal print_hex
+    move a0,s7
     // imprime "next opcode: "
-3:  la a1,opcode_msg
+    la a1,opcode_msg
     jal print
     move a0,s7
     lbu a1,0(ip)
@@ -1311,7 +1326,7 @@ dots:
     jr ra
     addiu sp,sp,12
     
-.end dots
+
     
 // routines names must be in same order as OP_CODES enum in vm.h    
 opcodes_table:
@@ -1341,7 +1356,9 @@ bad_op:
     
 badop_msg: .asciz "bad operating code: "    
 trace_msg: .asciz "\ntrace: "
-opcode_msg: .asciz "\nnext opcode: "
+opcode_msg: .asciz "next opcode: "
 s_msg: .asciz "s: "
+dp_msg: .asciz "dp: "
+ip_msg: .asciz "\nip: "
     
 #undef _ASM_CODE_
