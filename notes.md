@@ -1,3 +1,14 @@
+2018-04-07
+----------
+1. Travail sur vpcBASIC.
+2. Changement au saut relatif. Au départ je pensait que codage des saut relatif
+   sur 1 octet {-128...127} serait suffisant. En pratique il s'est avéré insuffisant
+   je vais donc l'étrendre à 2 octets {-32768..32767}. Il faut donc modifié la machine
+   virtuelle et le compilateur en conséquence. 
+3. Modification à la **VM** pour que trace indique le nom symbolique au lieu du opcode.
+   la macro _dict ajout le nom symbolique avant chaque opcode de la machine virtuelle
+   et **print_state** affiche ce nom.
+
 2018-04-06
 ----------
 1. Travail sur vpcBASIC.

@@ -62,6 +62,9 @@ enum frame_type_e {FRAME_SUB,FRAME_FUNC};
 #define _litc(c)  bytecode(ICLIT);\
                   bytecode(_byte0(c))
 
+#define _litw(w)  bytecode(IWLIT);\
+                  bytecode(_byte0(w));\
+                  bytecode(_byte1(w))
 
 #define _prt_varname(v) lit((uint32_t)v->name);\
                       bytecode(ITYPE)
@@ -590,25 +593,27 @@ static void lit(unsigned int n){
 }
 
 //calcul la distance entre slot_address+1 et dptr.
-// le déplacement maximal authorizé est de 127 octets.
+// le déplacement maximal authorizé est de 32767 octets.
 // la valeur du déplacement est déposée dans la fente 'slot_address'.
 static void patch_fore_jump(int slot_addr){
     int displacement;
     
-    displacement=dptr-slot_addr-1;
-    if (displacement>127){throw(eERR_OUT_RANGE);}
-    progspace[slot_addr]=_byte0(displacement);
+    displacement=dptr-slot_addr-2;
+    if (displacement>32767){throw(eERR_OUT_RANGE);}
+    progspace[slot_addr++]=_byte0(displacement);
+    progspace[slot_addr]=_byte1(displacement);
 }//f
 
 //calcul la distance entre dptr+1 et target_address
-//le déplacement maximal authorizé est de -128 octets.
+//le déplacement maximal authorizé est de -32768 octets.
 // la valeur du déplacement est déposé à la position 'dptr'
 static void patch_back_jump(int target_addr){
     int displacement;
     
-    displacement=target_addr-dptr-1;
-    if (displacement<-128){throw(eERR_OUT_RANGE);}
+    displacement=target_addr-dptr-2;
+    if (displacement<-32768){throw(eERR_OUT_RANGE);}
     progspace[dptr++]=_byte0(displacement);
+    progspace[dptr++]=_byte1(displacement);
 }
 
 void cpush(uint32_t n){
@@ -1809,16 +1814,16 @@ static void kw_if(){
 static void kw_then(){
     bytecode(IQBRAZ);
     cpush(dptr);
-    dptr++;
+    dptr+=2;
 }//f
 
 
 // ELSE voir kw_if
 static void kw_else(){
     bytecode(IBRA);
-    bytecode(0);
+    dptr+=2;
     patch_fore_jump(cpop());
-    ctrl_stack[csp++]=dptr-1;
+    ctrl_stack[csp++]=dptr-2;
 }//f
 
 //déplace le code des sous-routine
@@ -1924,7 +1929,7 @@ static void compile_case_list(){
         bytecode(IEQUAL);  
         bytecode(IQBRA);  
         cpush(dptr);
-        dptr++;
+        dptr+=2;
         fix_count++;
         next_token();
         if (token.id!=eCOMMA){
@@ -1933,13 +1938,13 @@ static void compile_case_list(){
         }
     }//while
     bytecode(IBRA);
-    dptr++;
+    dptr+=2;
     while (fix_count){
         patch_fore_jump(cpop());
         fix_count--;
     }
     _ctop()++; //incrémente le nombre de clause CASE
-    cpush(dptr-1); // fente pour le IBRA de ce case (i.e. saut après le END SELECT)
+    cpush(dptr-2); // fente pour le IBRA de ce case (i.e. saut après le END SELECT)
     ctrl_stack_nrot();
     
 }//f
@@ -1952,7 +1957,7 @@ static void patch_previous_case(){
     bytecode(IBRA);  // branchement à la sortie du select case pour le case précédent
     cpush(dptr); // (adr blockend n -- dptr blockend n )
     ctrl_stack_nrot(); 
-    dptr++;
+    dptr+=2;
     patch_fore_jump(adr); // fixe branchement vers ce case
     
 }
@@ -1983,6 +1988,17 @@ static void kw_rnd(){
 }//f
 
 
+static void run_file(const char *file_name){
+    int vm_exit_code;
+    
+    compile_file(file_name);
+    if (program_loaded && run_it){
+        vm_exit_code=StackVM(progspace);
+        run_it=false;
+        activ_reader=&std_reader;
+    }
+}
+
 //RUN "file_name"
 // commande pour exécuté un fichier basic
 static void kw_run(){
@@ -1998,11 +2014,7 @@ static void kw_run(){
             if (!ext){
                 strcat(name,".BAS");
             }
-            compile_file(name);
-            if (program_loaded && run_it){
-                vm_exit_code=StackVM(progspace);
-                run_it=false;
-            }
+            run_file(name);
             break;
         case eSTOP:
             if (program_loaded){
@@ -2148,7 +2160,7 @@ static void kw_for(){
     strcpy(name,token.str);
     complevel++;
     unget_token=true;
-    kw_let(); // vakeur initale de la variable de boucle
+    kw_let(); // valeur initale de la variable de boucle
     expect(eIDENT);
     if (strcmp(token.str,"TO")) throw (eERR_SYNTAX);
     expression(); // valeur de la limite
@@ -2172,7 +2184,7 @@ static void kw_for(){
     bytecode(IFORTEST);
     bytecode(IQBRAZ);
     cpush(dptr); // fente déplacement après boucle FOR...NEXT
-    dptr++;
+    dptr+=2;
 }//f
 
 // voir kw_for()
@@ -2206,7 +2218,7 @@ static void kw_while(){
     bool_expression();
     bytecode(IQBRAZ);
     cpush(dptr);
-    dptr+=1;
+    dptr+=2;
 }//f
 
 // voir kw_while()
@@ -2937,45 +2949,31 @@ int BASIC_shell(unsigned basic_heap, const char* file_name){
     pad=malloc(PAD_SIZE);
     prog_size=(biggest_chunk()-basic_heap)&0xfffffff0;
     progspace=malloc(prog_size);
-    sprintf((char*)progspace,"vpcBASIC v1.0\nRAM available: %d bytes\nstrings space: %d bytes\n",prog_size,basic_heap);
+    sprintf((char*)progspace,"vpcBASIC v1.0\nRAM available: %d bytes\n"
+                             "strings space: %d bytes\n",prog_size,basic_heap);
     print(con,progspace);
     clear();
 //  initialisation lecteur source.
+    reader_init(&std_reader,eDEV_KBD,NULL);
+    activ_reader=&std_reader; 
     if (file_name){
-        compile_file(file_name);
-        if (program_loaded && run_it){
-            vm_exit_code=StackVM(progspace);
-            run_it=false;
-        }
-    }else{
-        reader_init(&std_reader,eDEV_KBD,NULL);
-        activ_reader=&std_reader; 
+        run_file(file_name);
     }
 // boucle interpréteur    
     while (!exit_basic){
         if (!setjmp(failed)){
             activ_reader->eof=false;
             compile();
-            if (file_name){
-                result=f_close(&fh);
-            }
-            if (!complevel){
-                if (program_loaded && run_it){
-                    vm_exit_code=StackVM(progspace);
-                    run_it=false;
-                    activ_reader=&std_reader;
-                }else if (dptr>program_end){
-
+            if (!complevel && (dptr>program_end)){
 #ifdef DEBUG
-        print_prog(program_end);
+                print_prog(program_end);
 #endif
-                    bytecode(IBYE);
-                    vm_exit_code=StackVM(&progspace[program_end]);
-                    if (activ_reader->device==eDEV_KBD){
+                bytecode(IBYE);
+                vm_exit_code=StackVM(&progspace[program_end]);
+                if (activ_reader->device==eDEV_KBD){
                         memset(&progspace[program_end],0,dptr-program_end);
                         dptr=program_end;
                         print_int(con,vm_exit_code,0);
-                    }
                 }
             }
         }else{

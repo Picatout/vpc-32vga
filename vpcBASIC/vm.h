@@ -15,6 +15,7 @@
 enum OP_CODES{
  IBYE,  
  ILIT,
+ IWLIT,
  ICLIT,
  IBRA , 
  IQBRA ,

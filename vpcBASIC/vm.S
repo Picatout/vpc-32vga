@@ -129,6 +129,12 @@ addiu ip,ip,1
     lbu a0,0(a0)
 .endm
     
+.macro _dict label, name  
+FN_\label :    
+    .asciz "\name"
+    .align 2
+    .word FN_\label
+.endm
     
 /* utilisation des regitres MIPS */
 ip=s0  /* pointeur d'instruction VM */
@@ -206,13 +212,7 @@ StackVM:  // VM initialization
     
 // VM instruction loop
 next:
-    la t0,f_trace
-    lw t0,0(t0)
-    beqz t0,1f
-    nop
-    jal print_state
-    nop
-1:  lbu   t0, 0(ip)
+    lbu   t0, 0(ip)
     sll   t0, t0, 2   
     la t1,opcodes_table
     addu t1,t1,t0
@@ -223,7 +223,13 @@ next:
     blez t0,vm_bad_op
 #endif    
     lw    t1, 0(t1)
-    jr    t1
+    la t0,f_trace
+    lw t0,0(t0)
+    beqz t0,1f
+    nop
+    jal print_state
+    nop
+1:  jr    t1
     _inc_ip
 
 #ifdef _CHECK_OPCODE    
@@ -239,7 +245,8 @@ vm_bad_op:
     b 1f
     addiu v0,zero,-1
 #endif   
-    
+
+_dict BYE,"bye"  
 bye:   // 'bye' ( -- ) exit virtual machine
     jal depth
     nop
@@ -256,6 +263,7 @@ bye:   // 'bye' ( -- ) exit virtual machine
     jr  ra
     addiu sp,sp,40
 
+_dict KEYQ,"key?"   
 // lecture clavier sans attente
 // retourne 0 si aucune touche disponible    
 qrx: // '?key' ( -- ch | 0 )
@@ -266,19 +274,21 @@ qrx: // '?key' ( -- ch | 0 )
     b next
     move T, v0
 
-    
+_dict SPACES,"spaces"    
 vm_spaces: // ( n -- ) émet n espaces
     _console
     jal spaces
     move a1,T
     _drop_b_next
-    
+
+_dict EMIT,"emit"    
 emit:   // 'emit' ( ch -- ) transmet charactère au terminal
     _console
     jal put_char
     move  a1, T
     _drop_b_next
 
+_dict CR,"cr"    
 cr: // 'cr' ( -- ) émet un carriage return line feed
     la a0,con
     jal crlf
@@ -286,50 +296,70 @@ cr: // 'cr' ( -- ) émet un carriage return line feed
     b next
     nop
     
-    
+_dict LIT,"lit"    
 lit:    // 'lit' ( -- n) empile un entier
     _dpush
     ulw T,0(ip)
     b next
     addiu ip,ip,CELL_SIZE
 
-clit:   // 'clit' ( -- byte ) empile un octet signe étendu sur 32 bits
+_dict WLIT,"wlit"    
+wlit:  // 'wlit' ( -- w16  ) empile un mot de 16 bits
+    _dpush
+    lbu T,0(ip)
+    lb t0,1(ip)
+    sll t0,t0,8
+    or T,T,t0
+    b next
+    addiu ip,ip,2
+
+_dict CLIT,"clit"    
+clit:   // 'clit' ( -- byte ) empile un octet non signé
     _dpush
     lbu T, 0(ip)
     b next
     _inc_ip
 
-//wlit:  // 'wlit' ( -- w16  ) empile un mot de 16 bits
-//    _dpush
-//    lwr T,0(ip)
-//    andi T,T,0xffff
-//    b next
-//    addiu ip,ip,2
-
-bra:   // 'branch' ( -- ) branchement incondionnnel (adresse relative +127,-128)
-    lb t0, 0(ip)
-    _inc_ip
+_dict BRA , "bra"   
+//  branchement relatif incondionnnel {-32768..32767}    
+bra:   // 'branch' ( -- )
+    lbu t0, 0(ip)
+    lb  t1,1(ip)
+    sll t1,t1,8
+    or t0,t1,t0
+    addiu ip,ip,2
     b next
-    addu ip, ip, t0  // branchement relatif à ip, intervale -128 à +127
+    addu ip, ip, t0  // branchement relatif à ip,
 
-qbra: // '?bra' ( t|f -- ) branche si sommet pile est vrai (tos!=0)
+_dict QBRA ,"?bra"   
+// branche si sommet pile est vrai (tos!=0) {-32768..32767}    
+qbra: // '?bra' ( t|f -- )
     move t0, T
     _dpop
     beqz t0, next
-    _inc_ip
-    lb t0, -1(ip)
+    addiu ip,ip,2
+    lbu t0, -2(ip)
+    lb  t1, -1(ip)
+    sll t1,t1,8
+    or  t0,t0,t1
     b next
-    addu ip,ip,t0 // relatif à ip {-128,127}
+    addu ip,ip,t0 // relatif à ip {-32768..32767}
 
-qbraz:  // '?braz' ( t|f -- ) branche si sommet pile est faux (tos==0)
+_dict QBRAZ,"0bra"    
+// branche si sommet pile est faux (tos==0)    
+qbraz:  // '?braz' ( t|f -- )
     move t0, T
     _dpop
     bne t0, zero, next
-    _inc_ip
-    lb t0, -1(ip)
+    addiu ip,ip,2
+    lbu t0, -2(ip)
+    lb  t1, -1(ip)
+    sll t1,t1,8
+    or t0,t0,t1
     b next
-    addu ip,ip,t0 // relatif à ip {-128,127}
+    addu ip,ip,t0 // relatif à ip {-32768..32767}
 
+_dict STORE,"!"    
 store:  // '!' ( n addr -- )  variable = n
     lw t0, -CELL_SIZE(dp)
     usw t0,0(T)
@@ -337,6 +367,7 @@ store:  // '!' ( n addr -- )  variable = n
     b next
     addiu dp,dp,-2*CELL_SIZE
     
+_dict FETCH,"@"    
 // load variable in T
 fetch:  // '@' ( addr -- n ) T= *addr
     move t0, T
@@ -344,6 +375,7 @@ fetch:  // '@' ( addr -- n ) T= *addr
     b next
     nop
 
+_dict CSTORE,"C!"    
 cstore:  // 'c!' ( char addr --  ) *addr = char
     lw t0, -CELL_SIZE(dp)
     sb t0, 0(T)
@@ -351,20 +383,24 @@ cstore:  // 'c!' ( char addr --  ) *addr = char
     b next
     addiu dp,dp,-2*CELL_SIZE
 
+_dict CFETCH,"C@"    
 cfetch:  // 'c@' ( addr -- char )  T = (char)*addr
     b next
     lb T, 0(T)
 
+_dict RFETCH, "R@"    
 rfetch:   // 'r@'  ( -- n R: n -- n )  empile le sommet de la pile des retours
     _dpush
     b next
     move T, R
 
+_dict TOR,">R"    
 tor:  // '>r' ( n -- ) (R: -- n ) envoie T sur pile retour
     _rpush
     move R, T
     _drop_b_next
     
+_dict RFROM, "R>"    
 rfrom:  // 'r>' ( -- n ) (R: n -- )  envoie R dans T
     _dpush
     move T, R
@@ -372,7 +408,7 @@ rfrom:  // 'r>' ( -- n ) (R: n -- )  envoie R dans T
     b next
     addiu rp,rp, -CELL_SIZE
 
-
+_dict DCNT,"dcnt"
 dcnt:  // 'dcnt' ( -- n) nombre d'éléments sur la pile de données
     _dpush
     la t0,dstack
@@ -380,28 +416,34 @@ dcnt:  // 'dcnt' ( -- n) nombre d'éléments sur la pile de données
     b next
     sra T, t0,2
 
+_dict IPFETCH ,"IP@"   
 ipfetch: // 'ip@' ( -- ip ) empile la valeur courante du pointeur d''instructions
     _dpush
     b next
     move T, ip
 
+_dict IPSTORE, "IP!"
 ipstore: // 'ip!' ( ip -- ) initialise le pointeur d''insturctions
     move ip, T
     _drop_b_next
-    
+ 
+_dict DROP  "drop"  
 drop:  // 'drop' ( n -- )
     _drop_b_next
     
+_dict TWODROP, "2drop"    
 twodrop: // '2drop' ( n1 n2 -- )
 //    lw T, -2*CELL_SIZE(dp)
 //    b next
 //    addiu dp,dp,-2*CELL_SIZE
 
+_dict DUP,"dup"    
 dup:  // 'dup' ( n -- n n )
     sw T, 0(dp)
     b next
     addiu dp,dp,CELL_SIZE
 
+_dict TWODUP, "2dup"    
 twodup: // (n2 n1 -- n2 n1 n2 n1)
 //    addiu dp,dp,2*CELL_SIZE
 //    sw T,-2*CELL_SIZE(dp)
@@ -409,6 +451,7 @@ twodup: // (n2 n1 -- n2 n1 n2 n1)
 //    b next
 //    sw t0, -CELL_SIZE(dp)
 
+_dict QDUP ,"?dup"   
 qdup:   // ?dup ( n -- n n | n ) duplique n si n!=0
     beq T,zero, next
     nop
@@ -416,17 +459,20 @@ qdup:   // ?dup ( n -- n n | n ) duplique n si n!=0
     b next
     addiu dp,dp,CELL_SIZE
 
+_dict SWAP ,"swap"   
 swap: // 'swap' (n2 n1 -- n1 n2 )
     move t0, T
     lw T, -CELL_SIZE(dp)
     b next
     sw t0, -CELL_SIZE(dp)
 
+_dict OVER ,"over"   
 over:   // 'over' ( n2 n1 -- n2 n1 n2 )
     _dpush
     b next
     lw T, -2*CELL_SIZE(dp)
 
+_dict ROT ,"rot"  
 rot: // ( n3 n2 n1 -- n2 n1 n3)
     move t0, T
     lw T,-2*CELL_SIZE(dp)
@@ -435,20 +481,24 @@ rot: // ( n3 n2 n1 -- n2 n1 n3)
     b next
     sw t1, -2*CELL_SIZE(dp)
 
+_dict INVERT, "invert"    
 invert: // ( n -- -n)  
     b next
     subu T,zero,T
     
+_dict PLUS ,"+"   
 plus:  // '+'   ( n1 n2 -- n1+n2 )
     lw t0,-CELL_SIZE(dp)
     addu T,T,t0
     b next
     addiu dp,dp,-CELL_SIZE
 
+_dict PLUS1, "1+"    
 oneplus:  // '1+'  (n -- n+1 )
     b next
     addiu T, T, 1
 
+_dict PLUSTORE  "+!"  
 plusstore:  // '+!'  ( n addr -- ) *addr  = *addr+n
     ulw t0,0(T)
     lw t1,-CELL_SIZE(dp)
@@ -458,22 +508,26 @@ plusstore:  // '+!'  ( n addr -- ) *addr  = *addr+n
     b next
     lw T,0(dp)
 
+_dict MINUS,"-" 
 minus:   //  '-' ( n1 n2 -- n1-n2 )
     lw t0,-CELL_SIZE(dp)
     subu T,t0,T
     b next
     addiu dp,dp,-CELL_SIZE
 
+_dict MINUS1,"1-"    
 oneminus:   // '1-' ( n -- n-1 )
     b next
     addiu T, T, -1
 
+_dict STAR,"*"    
 star:   // '*' ( n1 n2 -- n1*n2 ) multiplication signé, résultat simple précision.
     lw t0,-CELL_SIZE(dp) 
     mul T,t0,T
     b next
     addiu dp,dp,-CELL_SIZE
 
+  
 ustar:   // 'U*' ( u1 u2 -- u3 ) multiplication non signe, résultat simple précision
 //    lw t0,-CELL_SIZE(dp)
 //    multu  t0, T
@@ -497,6 +551,7 @@ umstar: // 'UM*' ( u1 u2 -- ud ) multiplication non signé avec résultat double p
 //    b next
 //    sw t0, -CELL_SIZE(dp)
 
+_dict SLASH, "/"    
 slash:  // '/' ( n1 n2 -- n1/n2 )  division signée
     lw t0, -CELL_SIZE(dp)
     div t0,T
@@ -527,18 +582,21 @@ divmod:  // '/mod'  ( n1 n2 -- n1%n2 n1/n2 )
 //    b next
 //    mflo T     # quotient
 
+_dict LSHIFT ,"LSHIFT"   
 lshift:  // '<<' ( n1 u -- n1<<u )
     lw t0, -CELL_SIZE(dp)
     sllv T,t0,T
     b next
     addiu dp,dp,-CELL_SIZE
 
+_dict RSHIFT ,"RSHIFT"   
 rshift:  // '>>'  ( n1 u -- n1>>u )
     lw t0,-CELL_SIZE(dp)
     srlv T,t0,T
     b next
     addiu dp,dp,-CELL_SIZE
 
+_dict MOD  ,"mod"  
 modulo:  // 'mod' ( n1 n2 -- n1%n2 )
     lw t0, -CELL_SIZE(dp)
     div t0,T
@@ -546,6 +604,7 @@ modulo:  // 'mod' ( n1 n2 -- n1%n2 )
     b next
     addiu dp,dp,-CELL_SIZE
 
+_dict MIN  , "min"  
 min:  // min (n1 n2 -- min )  conserve le plus petit
     lw t0, -CELL_SIZE(dp)
     subu t1,t0,T
@@ -554,6 +613,7 @@ min:  // min (n1 n2 -- min )  conserve le plus petit
     b next
     move T,t0
 
+_dict MAX , "max"   
 max:  // max (n1 n2 -- max ) conserve le plus grand
     lw t0,-CELL_SIZE(dp)
     subu t1,t0,T
@@ -562,34 +622,40 @@ max:  // max (n1 n2 -- max ) conserve le plus grand
     b next
     move T,t0
 
+_dict ABS ,"abs"    
 abs:  // 'abs' ( n -- abs(n) )
     bgez T, next
     nop
     b next
     negu T
 
+_dict B_AND, "and"    
 bitand: // 'and' ( n1 n2 -- n1&n2)
     lw t0, -CELL_SIZE(dp)
     and T,T,t0
     b next
     addiu dp,dp,-CELL_SIZE
 
+_dict B_OR , "or"   
 bitor:  // 'or' ( n1 n2 -- n1|n2)
     lw t0, -CELL_SIZE(dp)
     or T,T,t0
     b next
     addiu dp,dp,-CELL_SIZE
 
+_dict B_XOR, "xor"    
 bitxor: // 'xor' ( n1 n2 -- n1^n2)
     lw t0, -CELL_SIZE(dp)
     xor T,T,t0
     b next
     addiu dp,dp,-CELL_SIZE
 
+_dict B_NOT, "not"    
 bitnot: // 'not' ( n1 -- ~n1 )
     b next
     not T,T
 
+_dict EQUAL, "="    
 equal:  // '='  ( n1 n2 -- t|f ) n1==n2?
     lw t0,-CELL_SIZE(dp)
     addiu dp,dp,-CELL_SIZE
@@ -598,6 +664,7 @@ equal:  // '='  ( n1 n2 -- t|f ) n1==n2?
     b next
     li T, 0
 
+_dict NOT_EQUAL, "<>"    
 nequal: // '<>' ( n1 n2 -- t|f ) n1<>n2?
     lw t0,-CELL_SIZE(dp)
     addiu dp,dp,-CELL_SIZE
@@ -606,14 +673,17 @@ nequal: // '<>' ( n1 n2 -- t|f ) n1<>n2?
     b next
     li T, 0
 
+_dict LTZ , "0<"   
 ltz:  // '0<'  ( n -- t|f )
     b next
     slt T,T,zero
 
+_dict ZEQUAL , "0="  
 zequal: // '0=' ( n -- t|f ) vrai si n == 0 sinon faux
     b next
     sltiu T,1
 
+_dict LESS ,"<"   
 less:  //  '<'  ( n1 n2 -- t|f ) n1<n2?
     lw t0,-CELL_SIZE(dp)
     addiu dp,dp,-CELL_SIZE
@@ -623,6 +693,7 @@ less:  //  '<'  ( n1 n2 -- t|f ) n1<n2?
     b next
     li T, 0
 
+_dict GREATER ,">"   
 greater:  // '>'  ( n1 n2 -- t|f ) n1>n2?
     lw t0,-CELL_SIZE(dp)
     addiu dp,dp,-CELL_SIZE
@@ -632,6 +703,7 @@ greater:  // '>'  ( n1 n2 -- t|f ) n1>n2?
     b next
     li T, 0
 
+_dict LTEQ ,"<="  
 lteq:  // '<=' ( n1 n2 -- t|f ) n1<=n2?
     lw t0,-CELL_SIZE(dp)
     addiu dp,dp,-CELL_SIZE
@@ -641,6 +713,7 @@ lteq:  // '<=' ( n1 n2 -- t|f ) n1<=n2?
     b next
     li T, 0
 
+_dict GTEQ ,">="   
 gteq:  // '>=' ( n1 n2 -- t|f ) n1>=n2?
     lw t0,-CELL_SIZE(dp)
     addiu dp,dp,-CELL_SIZE
@@ -650,6 +723,7 @@ gteq:  // '>=' ( n1 n2 -- t|f ) n1>=n2?
     b next
     li T, 0
 
+_dict KEY  ,"key"  
 key:  // ( -- char ) attend réception caractère de la console
     la a0,con
     jal wait_key
@@ -658,7 +732,7 @@ key:  // ( -- char ) attend réception caractère de la console
     b next
     move T, v0  // T=v0
 
-
+_dict PSTR, "pstr"
 // imprime une chaîne litérale imbriquée dans le code.    
 //  ip pointe vers le texte.    
 prt_str: // IPSTR ( -- )
@@ -672,12 +746,14 @@ prt_str: // IPSTR ( -- )
     b prt_str
     nop
 
+_dict TYPE ,"type"   
 type: // ( addr -- ) // imprime la chaîne ascciz
     _console
     jal print
     move a1,T
     _drop_b_next
-    
+ 
+_dict DOT  ,"dot"  
 dot: // "." ( n -- ) imprime un entier en format libre
     _console
     move a1,T
@@ -685,18 +761,20 @@ dot: // "." ( n -- ) imprime un entier en format libre
     move a2,zero
     _drop_b_next
     
-    
+_dict PAUSE ,"pause"   
 delay: // 'delay' ( msec -- ) delais en millisecondes
     jal delay_ms
     move a0,T
     _drop_b_next
-    
+
+_dict TICKS  ,"ticks"  
 ticks:  // 'ticks'  ( -- n ) empile le compteur sys_tick
     _dpush
     la w,sys_ticks
     b next
     lw T, 0(w)
 
+_dict FOR_SAVE ,"for>r"  
 forsave: // ISAVEFOR ( R: -- limit step ) sauvegarde limit et step sur rstack
     _rpush
     move R,limit
@@ -704,6 +782,7 @@ forsave: // ISAVEFOR ( R: -- limit step ) sauvegarde limit et step sur rstack
     b next
     move R,step
 
+_dict FOR_REST ,"r>for"   
 forrest: // IRESTFOR ( R: L S -- ) restitue les valeurs originales de limit et step après NEXT
     move step,R
     _rpop
@@ -711,7 +790,8 @@ forrest: // IRESTFOR ( R: L S -- ) restitue les valeurs originales de limit et s
     lw R,0(rp)
     b next
     addiu rp,rp,-CELL_SIZE
-    
+ 
+_dict FOR , "for"  
 for: // IFOR ( limit step -- ) initialise une boucle FOR...NEXT 
     lw limit, -CELL_SIZE(dp) 
     move step,T
@@ -719,6 +799,7 @@ for: // IFOR ( limit step -- ) initialise une boucle FOR...NEXT
     b next
     addiu dp,dp,-(2*CELL_SIZE)
     
+_dict FOR_TEST , "for?"  
 // vrai si var dépasse la limite    
 fortest: // IFORTEST ( n -- f|t ) n=valeur variable boucle.  
    move t0,T
@@ -732,13 +813,15 @@ fortest: // IFORTEST ( n -- f|t ) n=valeur variable boucle.
    addiu T,zero,-1
    b next
    addu T,zero,zero
-   
+ 
+_dict FOR_NEXT ,"next"  
 fornext: // INEXT ( adr -- ) incrémente la variable for
     lw t0,0(T)
     addu t0,t0,step
     sw t0,0(T)
     _drop_b_next
-    
+ 
+_dict LCSTORE  ,"lc!"  
 //sauvegarde variable local
 //[IP] indique la position de la variable
 local_store: // ( valeur -- )
@@ -748,7 +831,8 @@ local_store: // ( valeur -- )
     addu t0,frame,t0
     sw T,0(t0)
     _drop_b_next
-    
+  
+_dict LCFETCH ,"lc@"   
 //empile variable locale
 //[IP] indique la position  de la variable
 local_fetch: // ( -- n )
@@ -759,7 +843,8 @@ local_fetch: // ( -- n )
     _dpush
     b next
     lw T,0(t0)
-    
+   
+_dict LCADR  ,"lcadr" 
 //empile l'adresse de la variable locale
 // [IP] indique la position de la variable
 //sur la pile
@@ -771,6 +856,7 @@ local_addr: //( -- addr )
     b next
     addu T,frame,t0
 
+_dict FRAME ,"frame"   
 // créé un pointeur de référence vers les arguments
 // et les variables locales.    
 //sauvegarde frame sur R
@@ -784,7 +870,8 @@ set_frame:// (R:  -- old_frame )
     sll t0,t0,2
     b next
     subu frame,dp,t0
-    
+ 
+_dict LOCAL , "local"   
 // réserve de l'espace sur dstack pour les variables locales    
 // [ip] nombre de variables
 lc_space: // ( -- ) 
@@ -794,7 +881,7 @@ lc_space: // ( -- )
     b next
     addu dp,dp,t0
     
-    
+_dict LEAVE ,"leave"   
 // quitte une sous-routine ou fonction
 // restore dp, ip et frame
 leave: // (R: ip frame -- )
@@ -806,7 +893,8 @@ leave: // (R: ip frame -- )
     b next
     lw T,0(dp)
     
-    
+  
+_dict CALL ,"call"   
 // appelle une sous-routine ou fonction
 // addr->uint32_t  addresse sous-routine    
 sr_call: // (addr --  R:  -- ip )
@@ -814,7 +902,8 @@ sr_call: // (addr --  R:  -- ip )
     move R,ip
     move ip,T
     _drop_b_next
-    
+
+_dict PICK ,"pick"   
 pick: // ( xu...,x1,x0,u -- xu...,x1,x0,xu ) empile une copie du Uième élément de la pile
     addiu w,dp,-CELL_SIZE
     sll  T, T, 2
@@ -822,24 +911,28 @@ pick: // ( xu...,x1,x0,u -- xu...,x1,x0,xu ) empile une copie du Uième élément d
     b next
     lw T, 0(w)
 
+_dict SINE ,"sine"   
 sine: // (angle -- sine)
     move a0, T
     jal sinf
     b next
     move T, v0
 
+_dict ACOS, "acos"    
 acos: // (angle -- cos)
     move a0, T
     jal cosf
     b next
     move T, v0
 
+_dict ASIN , "asine"   
 asin: // (sine -- angle)
     move a0, T
     jal asinf
     b next
     move T, v0
 
+_dict RANDOMIZE ,"randomize"   
 // initialize le générateur pseudo-hasard
 // en utilisant sys_ticks    
 randomize: // ( -- )
@@ -849,6 +942,7 @@ randomize: // ( -- )
     b next
     nop
 
+_dict RND ,"rnd"   
 // retourne un entier pseudo aléatoire    
 random: // ( -- n )
     jal rand
@@ -856,13 +950,14 @@ random: // ( -- n )
     b next
     move T, v0
 
+_dict TRUNC ,"trunc"   
 trunc: // ( f -- i)
     move a0, T
     jal rintf
     b next
     move T, v0
 
-
+_dict TONE, "tone"
 beep: // ( freq,duration -- ) fait entendre une tonalitée
     move a1,T
     _dpop
@@ -871,7 +966,8 @@ beep: // ( freq,duration -- ) fait entendre une tonalitée
     addiu dp,dp,-CELL_SIZE
     b next
     lw T,0(dp)
-    
+  
+_dict TUNE ,"tune"   
 melody: // ( addr -- ) fait entendre la mélodie contenue dans le tableau
     move a0,T
     jal tune
@@ -879,13 +975,15 @@ melody: // ( addr -- ) fait entendre la mélodie contenue dans le tableau
     b next
     lw T,0(dp)
  
+_dict CLS ,"cls"   
 clr_scr: // ( -- ) efface l'écran
     la a0,con
     jal clear_screen
     lbu a0,0(a0)
     b next
     nop
-    
+  
+_dict UBOUND ,"ubound"   
 //retourne la grandeur d'une table
 // cette valeur précède le premier
 // élément de la table    
@@ -893,6 +991,7 @@ array_bound: // ( adr -- size )
     b next
     lw T,0(T)
  
+_dict TRACE ,"trace"   
 // active/désactive le mode trace
 // imprime l'état de dstack avant exécution de chaque opcode    
 trace: // ( f -- )
@@ -900,6 +999,7 @@ trace: // ( f -- )
     sw T,0(t0)
     _drop_b_next
   
+_dict STRADR , "adr!"   
 // retourne l'adresse de la chaîne imbriquée dans le code
 // ip pointe la chaîne
 str_adr: // ( -- addr )    
@@ -910,7 +1010,8 @@ str_adr: // ( -- addr )
     _inc_ip
     b 1b
     lbu t0,0(ip)
-    
+
+_dict STRLEN ,"len"   
 // retourne la longueur de la chaîne dont l'adresse est sur dstack
 str_len: // ( adr -- length )    
     move t0,T
@@ -921,6 +1022,7 @@ str_len: // ( adr -- length )
     b 1b
     addiu T,T,1
     
+_dict READLN,"readln"   
 // lecture d'une ligne de text à partir de la consoel
 // addr  adresse du tampon de réception
 // n1  longueur du tampon
@@ -933,6 +1035,7 @@ readln: // ( addr n1 -- addr n2 )
     b next
     move T,v0
     
+_dict ATOI ,"atoi"  
 // convertie la chaîne en entier    
 // addr adresse de la châine asciiz
 // n valeur entière extraite de la chaîne    
@@ -942,6 +1045,7 @@ to_int: // addr -- n )
     b next
     move T,v0
 
+_dict ALLOC, "var_alloc"    
 // alloue de la mémoire dans l'espace progamme.
 // n taille en octets
 // addr adresse du bloc mémoire alloué ou 0 si manque de mémoire    
@@ -951,6 +1055,7 @@ alloc: // ( n -- addr )
     b next
     move T,v0
  
+_dict STRALLOC ,"str_alloc"   
 //alloue de l'espace sur le heap pour une chaîne asciiz
 // n longueur de la chaîne en octets    
 str_alloc: // ( n -- addr )    
@@ -959,14 +1064,14 @@ str_alloc: // ( n -- addr )
     j next
     move T,v0
     
-    
+_dict STRFREE , "str_free"   
 // libère une chaîne préalablement allouée sur le heap.
 str_free: // ( addr -- )
     jal string_free
     move a0,T
     _drop_b_next
     
-    
+_dict STRCPY , "str_cpy"   
 // copie une chaîne asciiz de src vers dest
 // src adresse chaîne à copier
 // dest adresse destination    
@@ -976,7 +1081,8 @@ str_cpy: // ( src dest -- dest )
     move a0,T
     b next
     addiu dp,dp,-CELL_SIZE
-    
+
+_dict CURLINE , "curline"   
 // retourne la ligne du curseur texte {0..29}    
 curline: // ( -- line )
     _console
@@ -984,7 +1090,8 @@ curline: // ( -- line )
     _dpush
     b next
     srl T,v0,16
-    
+ 
+_dict CURCOL, "curcol"    
 // retourne la colonne du curseur texte {0..79}    
 curcolon: // ( -- colon )
     _console
@@ -992,7 +1099,8 @@ curcolon: // ( -- colon )
     _dpush
     b next
     andi T,v0,0xff
-    
+  
+_dict SETCURSOR, "setcursor"    
 // positionne le curseur texte    
 setcursor: // ( line, col -- )
     _console
@@ -1001,7 +1109,8 @@ setcursor: // ( line, col -- )
     jal set_curpos
     move a1,T
     _drop_b_next
-    
+ 
+_dict EXTBIT , "btest"   
 // extrait le bit n2 de l'entier n1    
 extbit: // ( n1 n2 -- n3 ) 
     lw t0,-CELL_SIZE(dp)
@@ -1009,7 +1118,8 @@ extbit: // ( n1 n2 -- n3 )
     andi T,T,1
     b next
     addiu dp,dp,-CELL_SIZE
-    
+
+_dict SETTIMER, "settimer"    
 // initialise la minuterie système.    
 // n durée en millisecondes    
 settimer: // ( n -- )
@@ -1017,6 +1127,7 @@ settimer: // ( n -- )
     move a0,T
     _drop_b_next
     
+_dict TIMEOUT, "timeout"   
 // retourne vrai si la minuterie est expirée.    
 qtimeout: // ( -- t|f)
     jal timeout
@@ -1025,7 +1136,7 @@ qtimeout: // ( -- t|f)
     b next
     addiu dp,dp,CELL_SIZE
     
-    
+_dict INV_VIDEO, "invvideo"    
 // contrôle sortie vidéeo N/B ou B/N
 // f -> blanc/noir
 // t -> noir/blanc    
@@ -1034,7 +1145,8 @@ inv_vid: // ( f|t -- )
     jal invert_video
     move a1,T
     _drop_b_next
-    
+
+_dict SCRLDN, "scrldn"    
 //glisse l'écran texte d'une ligne vers le bas
 scrldn: // ( -- )
     _console
@@ -1043,6 +1155,7 @@ scrldn: // ( -- )
     b next
     nop
     
+_dict SCRLUP , "scrlup"   
 //glisse l'écran texte d'une ligne vers le haut    
 scrlup: // ( -- )
     _console
@@ -1050,7 +1163,8 @@ scrlup: // ( -- )
     nop
     b next
     nop
-    
+   
+_dict INSRTLN , "insrtln" 
 //insère une ligne vide à la position du curseur    
 insertln: // ( -- )
     _console
@@ -1059,6 +1173,7 @@ insertln: // ( -- )
     b next
     nop
    
+_dict GETPIXEL ,"getpixel"   
 //retourne l'état d'un pixel de la mémoire vidéo    
 get_pixel: // ( x y -- 1|0 )
     lw a0, -CELL_SIZE(dp)
@@ -1068,7 +1183,7 @@ get_pixel: // ( x y -- 1|0 )
     b next
     move T, v0
     
-    
+_dict PUTPIXEL ,"putpixel"   
 // met le pixel à 1.    
 put_pixel: // ( x y p -- )
     lw a0, -2*CELL_SIZE(dp)
@@ -1078,7 +1193,8 @@ put_pixel: // ( x y p -- )
     lw T,-3*CELL_SIZE(dp)
     b next
     addiu dp,dp, -3*CELL_SIZE
-    
+ 
+_dict XORPIXEL ,"xorpixel"   
 // met le pixel à 0.    
 xor_pixel: // ( x y -- )
     lw a0, -CELL_SIZE(dp)
@@ -1087,7 +1203,8 @@ xor_pixel: // ( x y -- )
     lw T, -2*CELL_SIZE(dp)
     b next
     addiu dp,dp,-2*CELL_SIZE
-  
+ 
+_dict LINE ,"line"   
 // dessine une ligne droite.    
 vm_line: // (x0,y0,x1,y1 -- )
     lw a0,-3*CELL_SIZE(dp)
@@ -1098,7 +1215,8 @@ vm_line: // (x0,y0,x1,y1 -- )
     addiu dp,dp,-4*CELL_SIZE
     b next
     lw T,0(dp)
-    
+ 
+_dict RECT, "rect"    
 // dessine un rectangle    
 vm_rectangle: // ( x0,y0,x1,y1 -- )
     lw a0,-3*CELL_SIZE(dp)
@@ -1109,7 +1227,8 @@ vm_rectangle: // ( x0,y0,x1,y1 -- )
     addiu dp,dp,-4*CELL_SIZE
     b next
     lw T,0(dp)
-    
+ 
+_dict BOX ,"box"   
 // dessine une boite.    
 vm_box:  // ( x0,y0,x1,y1 -- )
     lw a0,-3*CELL_SIZE(dp)
@@ -1120,7 +1239,8 @@ vm_box:  // ( x0,y0,x1,y1 -- )
     addiu dp,dp,-4*CELL_SIZE
     b next
     lw T,0(dp)
-    
+  
+_dict CIRCLE ,"circle"   
 // dessine un circle    
 vm_circle: // ( x,y,r -- )
     lw a0,-2*CELL_SIZE(dp)
@@ -1130,7 +1250,8 @@ vm_circle: // ( x,y,r -- )
     addiu dp,dp,-3*CELL_SIZE
     b next
     lw T,0(dp)
-    
+ 
+_dict ELLIPSE ,"ellipse"   
 // dessine une ellipse    
 vm_ellipse:
     lw a0,-3*CELL_SIZE(dp)
@@ -1142,7 +1263,7 @@ vm_ellipse:
     b next
     lw T,0(dp)
  
-
+_dict POLYGON, "polygon"
 // dessine un polygon    
 vm_polygon: // ( addr n -- )
     lw a0,-CELL_SIZE(dp)
@@ -1152,7 +1273,7 @@ vm_polygon: // ( addr n -- )
     b next
     lw T,0(dp)
  
-    
+_dict SPRITE  ,"sprite"  
 // applique un bitmap à l'écran VGA en utilisant la fonction xor_pixel 
 // un sprite a un maximum de 32 pixels en largeur et est contenu
 // dans un tableau d'entiers.    
@@ -1173,7 +1294,8 @@ put_sprite: // ( x y w h addr_sprite -- )
 //****************************
 // fonction SPI RAM
 //****************************
-    
+  
+_dict SRCLEAR , "srclear"   
 //met à zéro un bloc de mémoire SPI RAM    
 sram_clear: // ( addr size -- )
     lw a0,-CELL_SIZE(dp)
@@ -1182,7 +1304,8 @@ sram_clear: // ( addr size -- )
     addiu dp,dp,-2*CELL_SIZE
     b next
     lw T,0(dp)
-    
+ 
+_dict SRWRITE ,"srwrite"   
 //copie le contenu d'une variable dans la mémoire SPI RAM    
 sram_write: // ( addr_ram addr_var  size -- )
     lw a0,-2*CELL_SIZE(dp)
@@ -1193,6 +1316,7 @@ sram_write: // ( addr_ram addr_var  size -- )
     b next
     lw T,0(dp)
     
+_dict SRREAD, "srread"    
 //copie le contenue de la mémoire SPI RAM dans une variable    
 sram_read: // ( addr_ram addr_var size -- )
     lw a0,-2*CELL_SIZE(dp)
@@ -1203,20 +1327,21 @@ sram_read: // ( addr_ram addr_var size -- )
     b next
     lw T,0(dp)
     
-
+_dict SAVSCR, "savscr"
 // sauvegarde la totalité du tampon vidéo dans la mémoire SPI RAM
 save_screen: // ( addr -- )
     jal saveScreen
     move a0,T
     _drop_b_next
-    
+ 
+_dict RSTSCR , "restscr"   
 // restaure le contenu du tampon vidéo à partir de la mémoire SPI RAM
 rest_screen: // ( addr -- )
     jal restoreScreen
     move a0,T
     _drop_b_next
     
-    
+_dict SRLOAD , "srload"   
 // charge un fichier dans la mémoire SPI RAM    
 vm_sram_load: // ( addr_ram char* -- size )
     lw a0,-CELL_SIZE(dp)
@@ -1225,7 +1350,8 @@ vm_sram_load: // ( addr_ram char* -- size )
     addiu dp,dp,-CELL_SIZE
     b next
     move T,v0
-    
+
+_dict SRSAV, "srsav"    
 // sauvegarde un bloc de la mémoire SPI RAM dans un fichier    
 vm_sram_save: // ( addr_ram char* size -- )
     lw a0,-2*CELL_SIZE(dp)
@@ -1253,10 +1379,12 @@ depth: // retourne le nombre d'éléments sur dstack
     
 
 print_state:    
-    addiu sp,sp,-12
-    sw s6,0(sp)
-    sw s7, 4(sp)
-    sw ra,8(sp)
+    addiu sp,sp,-16
+    sw s5,0(sp)
+    sw s6,4(sp)
+    sw s7, 8(sp)
+    sw ra,12(sp)
+    move s5,t1
     la s7,con
     lbu s7,0(s7)
     // imprime "trace: "
@@ -1314,23 +1442,25 @@ print_state:
     la a1,opcode_msg
     jal print
     move a0,s7
-    lbu a1,0(ip)
-    addu a2,zero,zero
-    jal print_int
+    // imprime nom opcode
+    lw a1,-4(s5)
+    jal print
     move a0,s7
     jal crlf
     move a0,s7
-    lw s6,0(sp)
-    lw s7,4(sp)
-    lw ra,8(sp)
+    move t1,s5
+    lw s5,0(sp)
+    lw s6,4(sp)
+    lw s7,8(sp)
+    lw ra,12(sp)
     jr ra
-    addiu sp,sp,12
+    addiu sp,sp,16
     
 
     
 // routines names must be in same order as OP_CODES enum in vm.h    
 opcodes_table:
-.word bye,lit,clit,bra,qbra,store,fetch,cstore
+.word bye,lit,wlit,clit,bra,qbra,store,fetch,cstore
 .word cfetch,drop,dup,swap,over,pick,invert
 .word plus,minus,star,slash,modulo,ltz
 .word zequal,bitand,bitor
