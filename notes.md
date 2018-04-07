@@ -159,6 +159,7 @@ pré-incémentées, maintenant elles sont post-incrémentées.
 2018-03-08
 ----------
 1. Travail sur editor.c
+2. ajouter  kw_run, modification pour supporté la commande RUN.
 
 
 2018-03-07

@@ -534,7 +534,7 @@ static void save_file(){
         saddr=0;
         while ((result==FR_OK) && (saddr < MAX_SIZE)){
             size=get_line(buffer,&saddr);
-            buffer[size]=A_CR;
+            buffer[size]=A_LF;
             result=f_write(&fh,buffer,size+1,&size);
         }
         f_close(&fh);

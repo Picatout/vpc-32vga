@@ -208,6 +208,7 @@ static void kw_rem();
 static void kw_restore_screen();
 static void kw_return();
 static void kw_rnd();
+static void kw_run();
 static void kw_save_screen();
 static void kw_scrlup();
 static void kw_scrldown();
@@ -252,7 +253,7 @@ char* string_alloc(unsigned size);
 void string_free(char *);
 static void compile();
 static void bool_expression();
-
+static void compile_file(const char *file_name);
 
 #ifdef DEBUG
 static void print_prog(int start);
@@ -267,7 +268,7 @@ enum {eKW_ABS,eKW_AND,eKW_BOX,eKW_BTEST,eKW_BYE,eKW_CASE,eKW_CIRCLE,eKW_CLEAR,eK
       eKW_LET,eKW_LINE,eKW_LOCAL,eKW_LOCATE,eKW_LOOP,eKW_MAX,eKW_MIN,eKW_NEXT,
       eKW_NOT,eKW_OR,eKW_PAUSE,eKW_POLYGON,
       eKW_PRINT,eKW_PUTC,eKW_RANDOMISIZE,eKW_RECT,eKW_REF,eKW_REM,eKW_RESTSCR,
-      eKW_RETURN,eKW_RND,eKW_SAVESCR,eKW_SCRLUP,eKW_SCRLDN,
+      eKW_RETURN,eKW_RND,eKW_RUN,eKW_SAVESCR,eKW_SCRLUP,eKW_SCRLDN,
       eKW_SELECT,eKW_SETPIXEL,eKW_SETTMR,eKW_SHL,eKW_SHR,
       eKW_SPRITE,eKW_SRCLEAR,eKW_SRLOAD,eKW_SRREAD,eKW_SRSSAVE,eKW_SRWRITE,eKW_SUB,eKW_THEN,eKW_TICKS,
       eKW_TIMEOUT,eKW_TONE,eKW_TKEY,eKW_TRACE,eKW_TUNE,eKW_UBOUND,eKW_UNTIL,eKW_USE,
@@ -324,6 +325,7 @@ static const dict_entry_t KEYWORD[]={
     {kw_restore_screen,7,"RESTSCR"},
     {kw_return,6,"RETURN"},
     {kw_rnd,3+FUNCTION,"RND"},
+    {kw_run,3,"RUN"},
     {kw_save_screen,7,"SAVESCR"},
     {kw_scrlup,6,"SCRLUP"},
     {kw_scrldown,6,"SCRLDN"},
@@ -1980,6 +1982,40 @@ static void kw_rnd(){
     bytecode(IRND);
 }//f
 
+
+//RUN "file_name"
+// commande pour exécuté un fichier basic
+static void kw_run(){
+    char name[32], *ext;
+    int vm_exit_code;
+    
+    next_token();
+    switch (token.id){
+        case eSTRING:
+            strcpy(name,token.str);
+            uppercase(name);
+            ext=strstr(name,".BAS");
+            if (!ext){
+                strcat(name,".BAS");
+            }
+            compile_file(name);
+            if (program_loaded && run_it){
+                vm_exit_code=StackVM(progspace);
+                run_it=false;
+            }
+            break;
+        case eSTOP:
+            if (program_loaded){
+                vm_exit_code=StackVM(progspace);
+            }else{
+                println(con,"No program loaded.");
+            }
+            break;
+        default:
+            throw(eERR_SYNTAX);
+    }//switch
+}// kw_run()
+
 //RANDOMIZE()
 static void kw_randomize(){
     parse_arg_list(0);
@@ -2868,9 +2904,33 @@ static void print_cstack(){
 }
 #endif
 
+//compile un fichier basic
+static void compile_file(const char *file_name){
+    FIL fh;
+    FRESULT result;
+    
+    if ((result=f_open(&fh,file_name,FA_READ))==FR_OK){
+        reader_init(&file_reader,eDEV_SDCARD,&fh);
+        activ_reader=&file_reader;
+        clear();
+        compiler_msg(COMPILING,token.str);
+        line_count=1;
+        compile();
+        f_close(&fh);
+        activ_reader=&std_reader;
+        program_loaded=true;
+        program_end=dptr;
+        run_it=true;
+        compiler_msg(COMP_END,NULL);
+    }else{
+        compiler_msg(COMP_FILE_ERROR,token.str);
+    }
+}//f
+
+
 int BASIC_shell(unsigned basic_heap, const char* file_name){
     clear_screen(con);
-    FIL *fh;
+    FIL fh;
     FRESULT result;
     int vm_exit_code;
     
@@ -2881,9 +2941,12 @@ int BASIC_shell(unsigned basic_heap, const char* file_name){
     print(con,progspace);
     clear();
 //  initialisation lecteur source.
-    if (file_name && !(result=f_open(fh,file_name,FA_READ))){
-        reader_init(&file_reader,eDEV_SDCARD,fh);
-        activ_reader=&file_reader; println(con,file_name);
+    if (file_name){
+        compile_file(file_name);
+        if (program_loaded && run_it){
+            vm_exit_code=StackVM(progspace);
+            run_it=false;
+        }
     }else{
         reader_init(&std_reader,eDEV_KBD,NULL);
         activ_reader=&std_reader; 
@@ -2893,11 +2956,14 @@ int BASIC_shell(unsigned basic_heap, const char* file_name){
         if (!setjmp(failed)){
             activ_reader->eof=false;
             compile();
-            if (fh){result=f_close(fh);}
+            if (file_name){
+                result=f_close(&fh);
+            }
             if (!complevel){
                 if (program_loaded && run_it){
                     vm_exit_code=StackVM(progspace);
                     run_it=false;
+                    activ_reader=&std_reader;
                 }else if (dptr>program_end){
 
 #ifdef DEBUG
@@ -2914,13 +2980,12 @@ int BASIC_shell(unsigned basic_heap, const char* file_name){
             }
         }else{
             clear();
+            reader_init(&std_reader,eDEV_KBD,NULL);
             activ_reader=&std_reader;
-            reader_init(activ_reader,eDEV_KBD,NULL);
         }
-        
     }//while(1)
-    if (fh){
-        result=f_close(fh);
+    if (file_name){
+        result=f_close(&fh);
     }
     free_string_vars();
     free(progspace);

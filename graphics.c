@@ -65,7 +65,7 @@ void line(int x0, int y0, int x1, int y1)
    int err = dx+dy, e2; /* error value e_xy */
 
    for(;;){  /* loop */
-      putPixel(x0,y0,1);
+      xorPixel(x0,y0);
       if (x0==x1 && y0==y1) break;
       e2 = 2*err;
       if (e2 >= dy) { err += dy; x0 += sx; } /* e_xy+e_x > 0 */
@@ -93,10 +93,10 @@ void circle(int xc, int yc, int r)
 {
    int x = -r, y = 0, err = 2-2*r; /* II. Quadrant */
    do {
-      putPixel(xc-x, yc+y,1); /*   I. Quadrant */
-      putPixel(xc-y, yc-x,1); /*  II. Quadrant */
-      putPixel(xc+x, yc-y,1); /* III. Quadrant */
-      putPixel(xc+y, yc+x,1); /*  IV. Quadrant */
+      xorPixel(xc-x, yc+y); /*   I. Quadrant */
+      xorPixel(xc-y, yc-x); /*  II. Quadrant */
+      xorPixel(xc+x, yc-y); /* III. Quadrant */
+      xorPixel(xc+y, yc+x); /*  IV. Quadrant */
       r = err;
       if (r <= y) err += ++y*2+1;           /* e_xy+e_y < 0 */
       if (r > x || err > y) err += ++x*2+1; /* e_xy+e_x > 0 or no 2nd y-step */
@@ -117,20 +117,20 @@ void ellipse (int x0, int y0, int x1, int y1){
    a *= 8*a; b1 = 8*b*b;
 
    do {
-       putPixel(x1, y0,1); /*   I. Quadrant */
-       putPixel(x0, y0,1); /*  II. Quadrant */
-       putPixel(x0, y1,1); /* III. Quadrant */
-       putPixel(x1, y1,1); /*  IV. Quadrant */
+       xorPixel(x1, y0); /*   I. Quadrant */
+       xorPixel(x0, y0); /*  II. Quadrant */
+       xorPixel(x0, y1); /* III. Quadrant */
+       xorPixel(x1, y1); /*  IV. Quadrant */
        e2 = 2*err;
        if (e2 <= dy) { y0++; y1--; err += dy += a; }  /* y step */
        if (e2 >= dx || 2*err > dy) { x0++; x1--; err += dx += b1; } /* x step */
    } while (x0 <= x1);
 
    while (y0-y1 < b) {  /* too early stop of flat ellipses a=1 */
-       putPixel(x0-1, y0,1); /* -> finish tip of ellipse */
-       putPixel(x1+1, y0++,1);
-       putPixel(x0-1, y1,1);
-       putPixel(x1+1, y1--,1);
+       xorPixel(x0-1, y0); /* -> finish tip of ellipse */
+       xorPixel(x1+1, y0++);
+       xorPixel(x0-1, y1);
+       xorPixel(x1+1, y1--);
    }
 }//ellipse()
 
