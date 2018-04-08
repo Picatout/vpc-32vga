@@ -46,9 +46,10 @@
 .extern sprite
     
 //math 
-.extern print_float
 .extern srand    
 .extern rnd
+// fonctios virgule flottante    
+.extern print_float
 .extern sinf
 .extern cosf
 .extern tanf
@@ -64,7 +65,8 @@
 .extern rintf
 .extern floorf
 .extern ceilf
-//graphiques
+
+ //graphiques
 .extern getPixel
 .extern setPixel
 .extern clearPixel
@@ -147,6 +149,7 @@ limit=s6  /* limite boucle FOR ... NEXT */
 step=s7  /* incrément boucle FOR ... NEXT */ 
 frame=s8 /* pointeur variables locales */
 
+    
 RAM_SEG=0xA000
 CODE_SEG=0x9D00
 SFR_SEG=0xBF80
@@ -234,22 +237,17 @@ next:
 
 #ifdef _CHECK_OPCODE    
 vm_bad_op:
-    _console
-    la a1,badop_msg
-    jal print
-    nop
-    _console
-    lbu a1,0(ip)
-    jal print_int
-    addu a2,zero,zero
     b 1f
-    addiu v0,zero,-1
+    addiu v0,zero,ERR_BADOP
 #endif   
 
 _dict BYE,"bye"  
 bye:   // 'bye' ( -- ) exit virtual machine
     jal depth
     nop
+    beq v0,zero,1f
+    nop
+    addiu v0,zero,ERR_DSTACK
 1:  lw  s0,36(sp)
     lw  s1,32(sp)
     lw  s2,28(sp)

@@ -98,7 +98,6 @@ static jmp_buf failed; // utilisé par setjmp() et lngjmp()
 static reader_t std_reader; // source clavier
 static reader_t file_reader; // source fichier
 static reader_t *activ_reader=NULL; // source active
-//static void *endmark;
 static uint32_t prog_size;
 static uint32_t line_count;
 static uint32_t token_count;
@@ -184,6 +183,7 @@ static void kw_else();
 static void kw_end();
 static void kw_exit();
 static void kw_for();
+static void kw_free();
 static void kw_func();
 static void kw_getpixel();
 static void kw_if();
@@ -267,7 +267,7 @@ static void print_cstack();
 //dans la liste KEYWORD
 enum {eKW_ABS,eKW_AND,eKW_BOX,eKW_BTEST,eKW_BYE,eKW_CASE,eKW_CIRCLE,eKW_CLEAR,eKW_CLS,
       eKW_CONST,eKW_CURCOL,eKW_CURLINE,eKW_DIM,eKW_DO,eKW_ELLIPSE,eKW_ELSE,eKW_END,eKW_EXIT,
-      eKW_FOR,eKW_FUNC,eKW_GETPIXEL,eKW_IF,eKW_INPUT,eKW_INSERTLN,eKW_INVVID,eKW_KEY,eKW_LEN,
+      eKW_FOR,eKW_FREE,eKW_FUNC,eKW_GETPIXEL,eKW_IF,eKW_INPUT,eKW_INSERTLN,eKW_INVVID,eKW_KEY,eKW_LEN,
       eKW_LET,eKW_LINE,eKW_LOCAL,eKW_LOCATE,eKW_LOOP,eKW_MAX,eKW_MIN,eKW_NEXT,
       eKW_NOT,eKW_OR,eKW_PAUSE,eKW_POLYGON,
       eKW_PRINT,eKW_PUTC,eKW_RANDOMISIZE,eKW_RECT,eKW_REF,eKW_REM,eKW_RESTSCR,
@@ -299,6 +299,7 @@ static const dict_entry_t KEYWORD[]={
     {kw_end,3,"END"},
     {kw_exit,4,"EXIT"},
     {kw_for,3,"FOR"},
+    {kw_free,4,"FREE"},
     {kw_func,4,"FUNC"},
     {kw_getpixel,8+FUNCTION,"GETPIXEL"},
     {kw_if,2,"IF"},
@@ -389,19 +390,11 @@ static void print_token_info(){
     println(con,token.str);
 }
 
-//code d'erreurs
-//NOTE: eERR_DSTACK et eERR_RSTACK sont redéfinie dans stackvm.h
-//      si leur valeur change elles doivent aussi l'être dans stackvm.h
-enum {eERROR_NONE,eERR_DSTACK,eERR_MISSING_ARG,eERR_EXTRA_ARG,
-      eERR_BAD_ARG,eERR_SYNTAX,eERR_ALLOC,eERR_REDEF,
-      eERR_NOTARRAY,eERR_BOUND,eERR_PROGSPACE,eERR_OUT_RANGE,
-      eERR_STACK_UNDER,eERR_STACK_OVER,eERR_NO_STR,eERR_NO_DIM,eERR_NO_CONST,
-      eERR_UNKNOWN
-      };
-
- static  const char* error_msg[]={
-    "no error\n",
-    "data stack out of bound\n",
+// messages d'erreurs correspondants à l'enumération BASIC_ERROR_CODES dans BASIC.h
+static  const char* error_msg[]={
+    "Existing BASIC ",  
+    "VM bad operating code\n",
+    "VM exited with data stack not empty\n",
     "missing argument\n",
     "too much arguments\n",
     "bad argument\n",
@@ -417,7 +410,9 @@ enum {eERROR_NONE,eERR_DSTACK,eERR_MISSING_ARG,eERR_EXTRA_ARG,
     "no more string space available\n",
     "Can't use DIM inside sub-routine\n",
     "Can't use CONST inside sub-routine\n",
-    "Unknow variable or constant\n"
+    "Unknow variable or constant\n",
+    "File open error\n",
+
  };
  
  
@@ -425,23 +420,28 @@ static void throw(int error){
     char message[64];
     
 //    fat_close_all_files();
-    crlf(con);
-    if (activ_reader->device==eDEV_SDCARD){
-        print(con,"line: ");
-        print_int(con,line_count,0);
-        crlf(con);
+    if (!error){
+        print(con,error_msg[error]);
+        
     }else{
-        print(con,"token#: ");
-        print_int(con,token_count,0);
         crlf(con);
-    }
-    strcpy(message,error_msg[error]);
-    print(con,message);
-    print_token_info();
+        if (activ_reader->device==eDEV_SDCARD){
+            print(con,"line: ");
+            print_int(con,line_count,0);
+            crlf(con);
+        }else{
+            print(con,"token#: ");
+            print_int(con,token_count,0);
+            crlf(con);
+        }
+        strcpy(message,error_msg[error]);
+        print(con,message);
+        print_token_info();
 #ifdef DEBUG    
-    print_prog(program_end);
+        print_prog(program_end);
 #endif    
-    activ_reader->eof=true;
+        activ_reader->eof=true;
+    }
     longjmp(failed,error);
 }
 
@@ -1133,7 +1133,7 @@ static void factor(){
         op=token.id;
         unget_token=false;
     }
-    next_token(); print(con,token.str);
+    next_token(); // print(con,token.str);
     switch(token.id){
         case eKWORD:
             if ((KEYWORD[token.n].len&FUNCTION)){ //print_prog(program_end);
@@ -1320,12 +1320,10 @@ static void bad_syntax(){
 static  const char* compile_msg[]={
     "compiling ",
     "completed ",
-    "file open error "
 };
 
 #define COMPILING 0
 #define COMP_END 1
-#define COMP_FILE_ERROR 2
 
 static void compiler_msg(int msg_id, char *detail){
     char msg[CHAR_PER_LINE];
@@ -1620,8 +1618,7 @@ static void kw_use(){
         activ_reader=old_reader;
         compiler_msg(COMP_END,NULL);
     }else{
-        compiler_msg(COMP_FILE_ERROR,NULL);
-        throw(eERR_BAD_ARG);
+        throw(eERR_FILEOPEN);
     }
 }//f
 
@@ -1756,7 +1753,7 @@ static void kw_timeout(){
 static void kw_bye(){
     if (!complevel && (activ_reader->device==eDEV_KBD)){
         exit_basic=true;
-        return;
+        throw(eERR_NONE);
     }
     bytecode(IBYE);
 }//f
@@ -1880,7 +1877,7 @@ static void kw_end(){ // IF ->(C: blockend adr -- ) |
             movecode(var);
             csp-=2; // drop eKW_xxx et endmark
             var_local=false;
-//#undef DEBUG
+#undef DEBUG
 #ifdef DEBUG
     {
         uint8_t * bc;   
@@ -1987,23 +1984,59 @@ static void kw_rnd(){
     bytecode(IRND);
 }//f
 
-
-static void run_file(const char *file_name){
-    int vm_exit_code;
+// exécute le code BASIC compilé
+static void exec_basic(){
+    int vm_exit_code=0;
     
-    compile_file(file_name);
-    if (program_loaded && run_it){
+    if (run_it){
         vm_exit_code=StackVM(progspace);
         run_it=false;
-        activ_reader=&std_reader;
+    }else{
+        bytecode(IBYE);
+        vm_exit_code=StackVM(&progspace[program_end]);
+        memset(&progspace[program_end],0,dptr-program_end);
+        dptr=program_end;
+    }
+    if (vm_exit_code){
+        throw(vm_exit_code);
     }
 }
 
+//compile un fichier basic
+static void compile_file(const char *file_name){
+    FIL fh;
+    FRESULT result;
+    
+    if ((result=f_open(&fh,file_name,FA_READ))==FR_OK){
+        reader_init(&file_reader,eDEV_SDCARD,&fh);
+        activ_reader=&file_reader;
+        clear();
+        compiler_msg(COMPILING,token.str);
+        line_count=1;
+        compile();
+        f_close(&fh);
+        activ_reader=&std_reader;
+        program_loaded=true;
+        program_end=dptr;
+        run_it=true;
+        compiler_msg(COMP_END,NULL);
+    }else{
+        throw(eERR_FILEOPEN);
+    }
+}//f
+
+// compile et exécute un fichier BASIC.
+static void run_file(const char *file_name){
+    compile_file(file_name);
+    exec_basic();
+    activ_reader=&std_reader;
+}
+
+
 //RUN "file_name"
-// commande pour exécuté un fichier basic
+// commande pour exécuter un fichier basic
 static void kw_run(){
     char name[32], *ext;
-    int vm_exit_code;
     
     next_token();
     switch (token.id){
@@ -2018,9 +2051,10 @@ static void kw_run(){
             break;
         case eSTOP:
             if (program_loaded){
-                vm_exit_code=StackVM(progspace);
+                run_it=true;
+                exec_basic();
             }else{
-                println(con,"No program loaded.");
+                print(con,"Nothing to run\n");
             }
             break;
         default:
@@ -2146,6 +2180,18 @@ static void kw_sprite(){
     bytecode(ISPRITE);
 }//f
 
+// FREE
+// commande qui affiche la mémoire programme et chaîne disponible
+static void kw_free(){
+    char fmt[64];
+    
+    crlf(con);
+    sprintf(fmt,"Program space (bytes): used %d , available %d\n",program_end,
+                (uint32_t)endmark-(uint32_t)&progspace[program_end]);
+    print(con,fmt);
+    sprintf(fmt,"strings space (bytes): available %d\n",free_heap());
+    print(con,fmt);
+}
 
 
 // FOR var=expression TO expression [STEP expression]
@@ -2578,21 +2624,47 @@ static void kw_input(){
 static void code_let_string(var_t *var){
     char *string;
     var_t *svar;
+    int len;
     
     bytecode(IDUP);
     bytecode(IFETCH);
     bytecode(ISTRFREE);
+    _litc(0);
+    bytecode(IOVER);
+    bytecode(ISTORE);
     next_token();
     switch (token.id){
         case eSTRING:
-            if (!(string=string_alloc(strlen(token.str)))){throw(eERR_ALLOC);}
-            lit((uint32_t)strcpy(string,token.str));
+            len=strlen(token.str);
+            if (!len){
+                _litc(0);
+            }else{
+                if (!(string=string_alloc(strlen(token.str)))){throw(eERR_ALLOC);}
+                lit((uint32_t)strcpy(string,token.str));
+            }
             break;
         case eIDENT:
             if (!(svar=var_search(token.str))){throw(eERR_UNKNOWN);}
             if (!svar->vtype==eVAR_STR){throw(eERR_BAD_ARG);}
-            if (!(string=string_alloc(strlen(svar->str)))){throw(eERR_ALLOC);}
-            lit((uint32_t)strcpy(string,svar->str));
+            code_var_address(svar);
+            bytecode(IDUP);
+            bytecode(IFETCH);
+            bytecode(ILEN);
+            bytecode(IDUP);
+            bytecode(IQBRAZ);
+            cpush(dptr);
+            dptr+=2;
+            bytecode(ISTRALLOC);
+            bytecode(IQDUP);
+            bytecode(IQBRA);
+            cpush(dptr);
+            dptr+=2;
+            _litc(eERR_ALLOC);
+            bytecode(IBYE);
+            patch_fore_jump(dptr);
+            lit((uint32_t)svar->str);
+            bytecode(ISTRCPY);
+            patch_fore_jump(dptr);
             break;
         default:
             throw(eERR_BAD_ARG);
@@ -2830,9 +2902,6 @@ static void compile(){
     
     do{
         next_token(); 
-//#ifdef DEBUG
-//        print_token_info();
-//#endif        
         switch(token.id){ 
             case eKWORD:
                 if ((KEYWORD[token.n].len&FUNCTION)==FUNCTION){
@@ -2899,7 +2968,7 @@ static void clear(){
 #ifdef DEBUG
 static void print_prog(int start){
     int i;
-    for (i=start;i<=dptr;i++){
+    for (i=start;i<dptr;i++){
         print_int(con,progspace[i],3);
         put_char(con,' ');
     }
@@ -2916,36 +2985,10 @@ static void print_cstack(){
 }
 #endif
 
-//compile un fichier basic
-static void compile_file(const char *file_name){
-    FIL fh;
-    FRESULT result;
-    
-    if ((result=f_open(&fh,file_name,FA_READ))==FR_OK){
-        reader_init(&file_reader,eDEV_SDCARD,&fh);
-        activ_reader=&file_reader;
-        clear();
-        compiler_msg(COMPILING,token.str);
-        line_count=1;
-        compile();
-        f_close(&fh);
-        activ_reader=&std_reader;
-        program_loaded=true;
-        program_end=dptr;
-        run_it=true;
-        compiler_msg(COMP_END,NULL);
-    }else{
-        compiler_msg(COMP_FILE_ERROR,token.str);
-    }
-}//f
 
+void BASIC_shell(unsigned basic_heap, const char* file_name){
 
-int BASIC_shell(unsigned basic_heap, const char* file_name){
     clear_screen(con);
-    FIL fh;
-    FRESULT result;
-    int vm_exit_code;
-    
     pad=malloc(PAD_SIZE);
     prog_size=(biggest_chunk()-basic_heap)&0xfffffff0;
     progspace=malloc(prog_size);
@@ -2968,25 +3011,16 @@ int BASIC_shell(unsigned basic_heap, const char* file_name){
 #ifdef DEBUG
                 print_prog(program_end);
 #endif
-                bytecode(IBYE);
-                vm_exit_code=StackVM(&progspace[program_end]);
-                if (activ_reader->device==eDEV_KBD){
-                        memset(&progspace[program_end],0,dptr-program_end);
-                        dptr=program_end;
-                        print_int(con,vm_exit_code,0);
-                }
+                exec_basic();
             }
         }else{
+            if (exit_basic) break;
             clear();
             reader_init(&std_reader,eDEV_KBD,NULL);
             activ_reader=&std_reader;
-        }
+        }// if (!setjump(failed))
     }//while(1)
-    if (file_name){
-        result=f_close(&fh);
-    }
     free_string_vars();
     free(progspace);
     free(pad);
-    return vm_exit_code;
 }//BASIC_shell()

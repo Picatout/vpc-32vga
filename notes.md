@@ -1,3 +1,9 @@
+2018-04-08
+----------
+1. Travail sur vpcBASIC.
+2. Correction code_let_string().
+3. Modification à la gestion des erreurs du compilateur et de la VM.
+
 2018-04-07
 ----------
 1. Travail sur vpcBASIC.

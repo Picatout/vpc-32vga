@@ -234,13 +234,16 @@ static char* cmd_format(int tok_count, const char **tok_list){
 // basic [-h n] [fichier.bas]
 // -h -> espace réservé pour l'allocation dynamique 4096 octets par défaut.
 static char* cmd_basic(int tok_count, const char **tok_list){
-    char *code=NULL, *basic_file=NULL;
-    int i, exit_code;
+    char *fmt=NULL, *basic_file=NULL;
+    int i;
     unsigned heap=DEFAULT_HEAP;
     
 //#define TEST_VM
-#ifdef TEST_VM    
+#ifdef TEST_VM
+    int exit_code;
     exit_code=test_vm();
+    fmt=malloc(32);
+    sprintf(fmt,"VM exit code: %d\n",exit_code);
 #else    
     for (i=1;i<tok_count;i++){
         if (!strcmp(tok_list[i],"-h")){
@@ -250,11 +253,9 @@ static char* cmd_basic(int tok_count, const char **tok_list){
             basic_file=(char*)tok_list[i];
         }
     }
-    exit_code=BASIC_shell(heap,basic_file);
-    code=malloc(32);
-    sprintf(code,"\nBASIC exit code: %d", exit_code);
+    BASIC_shell(heap,basic_file);
 #endif    
-    return code;
+    return fmt;
 }
 
 static char* cmd_cd(int tok_count, const char **tok_list){ // change le répertoire courant.

@@ -155,9 +155,9 @@ enum OP_CODES{
 #define DSTACK_SIZE (32*CELL_SIZE)
 #define RSTACK_SIZE (32*CELL_SIZE)
 
-
+#ifndef _ASM_CODE_
 extern int StackVM(const uint8_t* prog_space);
-
+#endif
 
 #endif	/* OPCODES_H */
 
