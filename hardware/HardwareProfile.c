@@ -134,7 +134,7 @@ unsigned biggest_chunk(){
     void *ptr=NULL;
 
     size=RAM_SIZE;
-    while ((last_failed-last_succeed)>8){
+    while ((last_failed-last_succeed)>=8){
         ptr=malloc(size);
         if (!ptr){
             last_failed=size;

@@ -1231,9 +1231,6 @@ static void condition(){
     //print(con,"condition\n");
     expression();
     if (!try_relation()){
-        _litc(0);
-        bytecode(IEQUAL);
-        bytecode(INOT);
         return;
     }
     rel=token.id;
@@ -1269,7 +1266,7 @@ static void bool_factor(){
     }
     condition();
     if (boolop){
-        bytecode(INOT);
+        bytecode(IBOOL_NOT);
     }
 }//f
 
@@ -1282,10 +1279,10 @@ static void bool_term(){// print(con,"bool_term()\n");
         bytecode(IDUP);
         bytecode(IQBRAZ); // si premier facteur==faux saut court-circuit.
         ctrl_stack[csp++]=dptr;
-        dptr+=1;
+        dptr+=2;
         fix_count++;
         bool_factor();
-        bytecode(IAND);
+        bytecode(IBOOL_AND);
     }
     unget_token=true;
     while (fix_count){
@@ -1294,6 +1291,7 @@ static void bool_term(){// print(con,"bool_term()\n");
     }
 }//f
 
+// compile les expressions booléenne
 static void bool_expression(){// print(con,"bool_expression()\n");
     int fix_count=0; // pour évaluation court-circuitée.
     bool_term();
@@ -1301,10 +1299,10 @@ static void bool_expression(){// print(con,"bool_expression()\n");
         bytecode(IDUP);
         bytecode(IQBRA); // si premier facteur==vrai saut court-circuit.
         ctrl_stack[csp++]=dptr;
-        dptr+=1;
+        dptr+=2;
         fix_count++;
         bool_term();
-        bytecode(IOR);
+        bytecode(IBOOL_OR);
     }
     unget_token=true;
     while (fix_count){
@@ -2553,13 +2551,7 @@ static var_t  *var_accept(char *name){
     if (!var && (token.id==eLPAREN)) throw(eERR_BAD_ARG);
     unget_token=true;
     if (!var) var=var_create(name,NULL);
-    if (var->array){
-        code_array_address(var);
-    }else if (var->vtype==eVAR_STR){
-        lit((uint32_t)&var->adr);
-    }else{
-        lit((uint32_t)&var->n);
-    }
+    code_var_address(var);
     return var;
 }
 
@@ -2590,7 +2582,7 @@ static void kw_input(){
                 bytecode(ISTRFREE); 
                 compile_input(var); // (var_addr -- var_addr pad_addr)
                 bytecode(ISTRALLOC);// ( var_addr pad_addr n -- var_addr pad_addr str_addr)  
-                bytecode(ISTRCPY); // ( var_addr pad_addr str_addr -- var_addr )
+                bytecode(ISTRCPY); //( var_addr pad_addr str_addr -- var_addr )
                 bytecode(ISWAP);
                 bytecode(ISTORE);
                 break;
@@ -2600,7 +2592,12 @@ static void kw_input(){
                 compile_input(var);
                 bytecode(IDROP);
                 bytecode(I2INT);
-                store_integer(var);
+                bytecode(ISWAP);
+                if (var->vtype==eVAR_BYTE){
+                    bytecode(ICSTORE);
+                }else{
+                    bytecode(ISTORE);
+                }
                 break;
 //            case eVAR_INTARRAY:
 //            case eVAR_BYTEARRAY:
@@ -2629,9 +2626,6 @@ static void code_let_string(var_t *var){
     bytecode(IDUP);
     bytecode(IFETCH);
     bytecode(ISTRFREE);
-    _litc(0);
-    bytecode(IOVER);
-    bytecode(ISTORE);
     next_token();
     switch (token.id){
         case eSTRING:
@@ -2647,8 +2641,12 @@ static void code_let_string(var_t *var){
             if (!(svar=var_search(token.str))){throw(eERR_UNKNOWN);}
             if (!svar->vtype==eVAR_STR){throw(eERR_BAD_ARG);}
             code_var_address(svar);
-            bytecode(IDUP);
             bytecode(IFETCH);
+            bytecode(IDUP);
+            bytecode(IQBRAZ);
+            cpush(dptr);
+            dptr+=2;
+            bytecode(IDUP);
             bytecode(ILEN);
             bytecode(IDUP);
             bytecode(IQBRAZ);
@@ -2660,16 +2658,16 @@ static void code_let_string(var_t *var){
             cpush(dptr);
             dptr+=2;
             _litc(eERR_ALLOC);
-            bytecode(IBYE);
-            patch_fore_jump(dptr);
-            lit((uint32_t)svar->str);
+            bytecode(IABORT);
+            patch_fore_jump(cpop());
             bytecode(ISTRCPY);
-            patch_fore_jump(dptr);
+            patch_fore_jump(cpop());
+            patch_fore_jump(cpop());
             break;
         default:
             throw(eERR_BAD_ARG);
     }//switch
-    bytecode(ISWAP);
+    bytecode(ISWAP); 
     bytecode(ISTORE);
 }
 
@@ -3020,6 +3018,10 @@ void BASIC_shell(unsigned basic_heap, const char* file_name){
             activ_reader=&std_reader;
         }// if (!setjump(failed))
     }//while(1)
+    // désactive le mode trace avant de quitter.
+    _litc(0);
+    bytecode(ITRACE);
+    exec_basic();
     free_string_vars();
     free(progspace);
     free(pad);

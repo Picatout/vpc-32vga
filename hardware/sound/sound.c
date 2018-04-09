@@ -47,8 +47,8 @@ void tone(unsigned int freq, // frequency hertz
         //config OC3 for tone generation
         OC3RS=0;
         T3CONbits.ON=0;
-        PR3=(SYSCLK/8/freq)-1; // 50% duty cycle
-        OC3R=SYSCLK/16/freq;
+        PR3=(SYSCLK/8/freq)-1; 
+        OC3R=SYSCLK/16/freq; // 50% duty cycle
         duration=msec;
         fSound |=TONE_ON;
         mTone_on();

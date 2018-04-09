@@ -1,8 +1,17 @@
+2018-04-09
+----------
+1. Corrigé bogue dans code_let_string().
+2. tester BASIC.
+3. Corriger bogue dans INPUT
+4. Corriger bogue dans fonction booléenne.
+5. Ajout fonctiopns booléenne bool_not,bool_or,bool_and  dans VM.
+
 2018-04-08
 ----------
 1. Travail sur vpcBASIC.
 2. Correction code_let_string().
 3. Modification à la gestion des erreurs du compilateur et de la VM.
+4. Retravailler la boucle read-compile-execute
 
 2018-04-07
 ----------

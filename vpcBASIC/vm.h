@@ -13,7 +13,8 @@
 
 // op codes
 enum OP_CODES{
- IBYE,  
+ IBYE,
+ IABORT,
  ILIT,
  IWLIT,
  ICLIT,
@@ -40,6 +41,9 @@ enum OP_CODES{
  IOR  ,  
  IXOR  , 
  INOT  , 
+ IBOOL_NOT,
+ IBOOL_OR,
+ IBOOL_AND,
  ITICKS ,
  IDELAY , 
  IQDUP  , 

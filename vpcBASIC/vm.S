@@ -241,6 +241,11 @@ vm_bad_op:
     addiu v0,zero,ERR_BADOP
 #endif   
 
+_dict ABORT,"abort"    
+abort:
+    b 1f
+    move v0,T
+
 _dict BYE,"bye"  
 bye:   // 'bye' ( -- ) exit virtual machine
     jal depth
@@ -627,32 +632,58 @@ abs:  // 'abs' ( n -- abs(n) )
     b next
     negu T
 
-_dict B_AND, "and"    
+_dict BIT_AND, "&"    
 bitand: // 'and' ( n1 n2 -- n1&n2)
     lw t0, -CELL_SIZE(dp)
     and T,T,t0
     b next
     addiu dp,dp,-CELL_SIZE
 
-_dict B_OR , "or"   
+_dict BIT_OR , "|"   
 bitor:  // 'or' ( n1 n2 -- n1|n2)
     lw t0, -CELL_SIZE(dp)
     or T,T,t0
     b next
     addiu dp,dp,-CELL_SIZE
 
-_dict B_XOR, "xor"    
+_dict BIT_XOR, "^"    
 bitxor: // 'xor' ( n1 n2 -- n1^n2)
     lw t0, -CELL_SIZE(dp)
     xor T,T,t0
     b next
     addiu dp,dp,-CELL_SIZE
 
-_dict B_NOT, "not"    
+_dict BIT_NOT, "!"    
 bitnot: // 'not' ( n1 -- ~n1 )
     b next
     not T,T
 
+_dict BOOL_NOT,"not"   
+bool_not: // ( b -- ~b ) négation booléenne
+    beq T,zero,next
+    addiu T,zero,-1
+    b next
+    not T,T
+    
+_dict BOOL_OR,"or"
+bool_or: // ( b1 b2 -- b1||b2 ) ou booléen    
+    lw t0,-CELL_SIZE(dp)
+    or T,T,t0
+    b next
+    addiu dp,dp,-CELL_SIZE
+    
+_dict BOOL_AND,"and"
+bool_and: // ( b1 b2 -- b1&&b2 )  et booléen
+    lw t0,-CELL_SIZE(dp)
+    beq T,zero, next
+    addiu dp,dp,-CELL_SIZE
+    bne t0,zero,next
+    nop
+    b next
+    addu T,zero,zero
+    
+    
+    
 _dict EQUAL, "="    
 equal:  // '='  ( n1 n2 -- t|f ) n1==n2?
     lw t0,-CELL_SIZE(dp)
@@ -1013,7 +1044,6 @@ _dict STRLEN ,"len"
 // retourne la longueur de la chaîne dont l'adresse est sur dstack
 str_len: // ( adr -- length )    
     move t0,T
-    move T,zero
 1:  lbu t1,0(t0)
     beqz t1,next
     addiu t0,t0,1
@@ -1458,11 +1488,11 @@ print_state:
     
 // routines names must be in same order as OP_CODES enum in vm.h    
 opcodes_table:
-.word bye,lit,wlit,clit,bra,qbra,store,fetch,cstore
+.word bye,abort,lit,wlit,clit,bra,qbra,store,fetch,cstore
 .word cfetch,drop,dup,swap,over,pick,invert
 .word plus,minus,star,slash,modulo,ltz
-.word zequal,bitand,bitor
-.word bitxor,bitnot,ticks, delay
+.word zequal,bitand,bitor,bitxor,bitnot,bool_not,bool_or,bool_and
+.word ticks, delay
 .word qdup,oneplus, oneminus,plusstore, rot
 .word  min, max, abs, lshift, rshift, qbraz, dcnt
 .word equal,nequal, less, greater,lteq,gteq,forsave,forrest,for,fortest,fornext
