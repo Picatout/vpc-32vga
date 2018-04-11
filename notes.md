@@ -1,3 +1,12 @@
+2018-04-10
+----------
+1. Modification à la commande cmd_basic() dans shell.c pour accommoder l'option **-c "BASIC code"** et
+   **-k "BASIC code"**.
+2. Modification de l'interface de BASIC_shell() pour accommoder le passage d'option.
+3. Ajout de VGACLS dans BASIC.
+4. Modifié circle() pour correcger l'aspect qui du cercle qui était en fait elliptique.
+5. Correction boguqe dans LEN().
+
 2018-04-09
 ----------
 1. Corrigé bogue dans code_let_string().

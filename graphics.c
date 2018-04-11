@@ -28,6 +28,8 @@
 
 int getPixel(int x, int y){
     int h,ofs;
+
+    if ((y>=VRES)||(y<0)||(x>=HRES)||(x<0)) return 0; // hors limites
     h=x/32;
     ofs=31-x&31;
     return (video_bmp[y][h]&(1<<ofs))>>ofs;
@@ -36,9 +38,8 @@ int getPixel(int x, int y){
 // fixe l'état d'un pixel, p{0,1}
 void putPixel(int x, int y, int p){
     int h,ofs;
-    if (y>(VRES-1)) return; // hors limites
+    if ((y>=VRES)||(y<0)||(x>=HRES)||(x<0)) return; // hors limites
     h= x/32;
-    if (h>(HRES/32)) return; // hors limites
     ofs = 31 - x&31;
     if (p){
         video_bmp[y][h]|= (1<<ofs);
@@ -50,9 +51,8 @@ void putPixel(int x, int y, int p){
 // inverse l'état du pixel
 void xorPixel(int x, int y){
     int h,ofs;
-    if (y>(VRES-1)) return; // hors limites
+    if ((y>=VRES)||(y<0)||(x>=HRES)||(x<0)) return; // hors limites
     h= x/32;
-    if (h>HRES/32) return; // hors limites
     ofs = 31 - x&31;
     video_bmp[y][h]^= (1<<ofs);
 }//clearPixel()
@@ -88,21 +88,6 @@ void box (int x0, int y0, int x1, int y1){
 }
 
 
-//  REF: http://members.chello.at/~easyfilter/bresenham.html
-void circle(int xc, int yc, int r)
-{
-   int x = -r, y = 0, err = 2-2*r; /* II. Quadrant */
-   do {
-      xorPixel(xc-x, yc+y); /*   I. Quadrant */
-      xorPixel(xc-y, yc-x); /*  II. Quadrant */
-      xorPixel(xc+x, yc-y); /* III. Quadrant */
-      xorPixel(xc+y, yc+x); /*  IV. Quadrant */
-      r = err;
-      if (r <= y) err += ++y*2+1;           /* e_xy+e_y < 0 */
-      if (r > x || err > y) err += ++x*2+1; /* e_xy+e_x > 0 or no 2nd y-step */
-   } while (x < 0);
-}//circle()
-
 /* REF: http://members.chello.at/~easyfilter/bresenham.html
  * dessine une ellipse circoncrite par un rectangle
  */
@@ -133,6 +118,20 @@ void ellipse (int x0, int y0, int x1, int y1){
        xorPixel(x1+1, y1--);
    }
 }//ellipse()
+
+// circle()
+// un facteur de correction doit-être appliqué à la valeur du rayon
+// p.c.q. la dimension des pixels à l'écran n'est pas la même verticalement
+// qu'horizontalement. Sans correction le cercle apparaît comme une ellipse.
+void circle(int xc, int yc, int r){
+#define CORRECTION_FACTOR 16    
+    int rx,ry;
+    
+    rx=r+r*CORRECTION_FACTOR/200;
+    ry=r-r*CORRECTION_FACTOR/200;
+    ellipse(xc-rx,yc-ry,xc+rx,yc+ry);
+}//circle()
+
 
 /*
  * points[]={x1,y1,x2,y2,x3,y3,...}

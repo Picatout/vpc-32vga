@@ -231,12 +231,21 @@ static char* cmd_format(int tok_count, const char **tok_list){
 
 #include "vpcBASIC/BASIC.h"
 
+static void cmd_basic_help(){
+    println(con,"USAGE: basic [-?]|[-c|-k string]| file_name");
+    println(con,"-?  display this help.");
+    println(con,"-c or -k \"code\", \"code\" is BASIC code to be executed.");
+    println(con,"Use -c to leave BASIC or -k to stay after code execution.");
+    println(con,"file_name, is a basic file to execute. Stay in BASIC at program exit.");
+}
+
 // basic [-h n] [fichier.bas]
 // -h -> espace réservé pour l'allocation dynamique 4096 octets par défaut.
 static char* cmd_basic(int tok_count, const char **tok_list){
     char *fmt=NULL, *basic_file=NULL;
     int i;
     unsigned heap=DEFAULT_HEAP;
+    unsigned option=BASIC_PROMPT;
     
 //#define TEST_VM
 #ifdef TEST_VM
@@ -246,14 +255,28 @@ static char* cmd_basic(int tok_count, const char **tok_list){
     sprintf(fmt,"VM exit code: %d\n",exit_code);
 #else    
     for (i=1;i<tok_count;i++){
+        if (!strcmp(tok_list[i],"-?")){
+            i=tok_count;
+            cmd_basic_help();
+            return fmt;
+        }
         if (!strcmp(tok_list[i],"-h")){
             i++;
             heap=atoi(tok_list[i]);
+        }else if (!strcmp(tok_list[i],"-c")){
+            i++;
+            basic_file=(char*)tok_list[i];
+            option=EXEC_STRING;
+        }else if (!strcmp(tok_list[i],"-k")){
+            i++;
+            basic_file=(char*)tok_list[i];
+            option=EXEC_STAY;
         }else{
             basic_file=(char*)tok_list[i];
+            option=EXEC_FILE;
         }
-    }
-    BASIC_shell(heap,basic_file);
+    }//for
+    BASIC_shell(heap,option,basic_file);
 #endif    
     return fmt;
 }

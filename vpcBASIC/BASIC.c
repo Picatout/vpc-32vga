@@ -236,6 +236,7 @@ static void kw_trace();
 static void kw_tune();
 static void kw_ubound();
 static void kw_use();
+static void kw_vgacls();
 static void kw_waitkey();
 static void kw_wend();
 static void kw_while();
@@ -274,7 +275,7 @@ enum {eKW_ABS,eKW_AND,eKW_BOX,eKW_BTEST,eKW_BYE,eKW_CASE,eKW_CIRCLE,eKW_CLEAR,eK
       eKW_RETURN,eKW_RND,eKW_RUN,eKW_SAVESCR,eKW_SCRLUP,eKW_SCRLDN,
       eKW_SELECT,eKW_SETPIXEL,eKW_SETTMR,eKW_SHL,eKW_SHR,
       eKW_SPRITE,eKW_SRCLEAR,eKW_SRLOAD,eKW_SRREAD,eKW_SRSSAVE,eKW_SRWRITE,eKW_SUB,eKW_THEN,eKW_TICKS,
-      eKW_TIMEOUT,eKW_TONE,eKW_TKEY,eKW_TRACE,eKW_TUNE,eKW_UBOUND,eKW_UNTIL,eKW_USE,
+      eKW_TIMEOUT,eKW_TONE,eKW_TKEY,eKW_TRACE,eKW_TUNE,eKW_UBOUND,eKW_UNTIL,eKW_USE,eKW_VGACLS,
       eKW_WAITKEY,eKW_WEND,eKW_WHILE,eKW_XOR,eKW_XORPIXEL
 };
 
@@ -355,6 +356,7 @@ static const dict_entry_t KEYWORD[]={
     {kw_ubound,6+FUNCTION,"UBOUND"},
     {bad_syntax,5,"UNTIL"},
     {kw_use,3,"USE"},
+    {kw_vgacls,6,"VGACLS"},
     {kw_waitkey,7+FUNCTION,"WAITKEY"},
     {kw_wend,4,"WEND"},
     {kw_while,5,"WHILE"},
@@ -387,7 +389,7 @@ static void print_token_info(){
     print(con,"\ntok_value: ");
     print_int(con,token.n,0);
     print(con,"token string: ");
-    println(con,token.str);
+    if (token.str){println(con,token.str);}
 }
 
 // messages d'erreurs correspondants à l'enumération BASIC_ERROR_CODES dans BASIC.h
@@ -2178,6 +2180,12 @@ static void kw_sprite(){
     bytecode(ISPRITE);
 }//f
 
+// VGACLS
+// commande pour effacer l'écran graphique, indépendamment de la console active.
+static void kw_vgacls(){
+    bytecode(IVGACLS);
+}
+
 // FREE
 // commande qui affiche la mémoire programme et chaîne disponible
 static void kw_free(){
@@ -2305,10 +2313,10 @@ static void kw_loop(){
 static void literal_string(char *lit_str){
     int size;
 
-    size=strlen(lit_str);
-    if ((void*)&progspace[dptr+size+1]>endmark) throw(eERR_PROGSPACE);
+    size=strlen(lit_str)+1;
+    if ((void*)&progspace[dptr+size]>endmark) throw(eERR_PROGSPACE);
     strcpy((void*)&progspace[dptr],lit_str);
-    dptr+=size+1;
+    dptr+=size;
 }//f
 
 
@@ -2505,19 +2513,8 @@ static void kw_len(){
         var=var_search(token.str);
         if (!var) throw(eERR_BAD_ARG);
         if (var->vtype==eVAR_STR){
-            if (!var->array){
-                lit((uint32_t)var->str);
-            }else{
-                lit((uint32_t)var->adr);
-                expect(eLPAREN);
-                expression();
-                expect(eRPAREN);
-                _litc(1);
-                bytecode(IPLUS);
-                _litc(2);
-                bytecode(ILSHIFT);
-                bytecode(IPLUS);
-            }
+            code_var_address(var);
+            bytecode(IFETCH);
         }else{
             throw(eERR_BAD_ARG);
         }//if
@@ -2984,21 +2981,45 @@ static void print_cstack(){
 #endif
 
 
-void BASIC_shell(unsigned basic_heap, const char* file_name){
+void BASIC_shell(unsigned basic_heap, unsigned option, const char* file_or_string){
 
-    clear_screen(con);
     pad=malloc(PAD_SIZE);
     prog_size=(biggest_chunk()-basic_heap)&0xfffffff0;
     progspace=malloc(prog_size);
-    sprintf((char*)progspace,"vpcBASIC v1.0\nRAM available: %d bytes\n"
-                             "strings space: %d bytes\n",prog_size,basic_heap);
-    print(con,progspace);
+    if (option!=EXEC_STRING){
+        clear_screen(con);
+        sprintf((char*)progspace,"vpcBASIC v1.0\nRAM available: %d bytes\n"
+                                 "strings space: %d bytes\n",prog_size,basic_heap);
+        print(con,progspace);
+    }
     clear();
+   
 //  initialisation lecteur source.
     reader_init(&std_reader,eDEV_KBD,NULL);
     activ_reader=&std_reader; 
-    if (file_name){
-        run_file(file_name);
+    if (option==EXEC_FILE){
+        run_file(file_or_string);
+    }else if ((option==EXEC_STRING) || (option==EXEC_STAY)){
+        sram_device_t *sram_file;
+        int len;
+
+        sram_file=malloc(sizeof(sram_device_t));
+        activ_reader=malloc(sizeof(reader_t));
+        sram_file->first=0;
+        sram_file->pos=0;
+        len=strlen(file_or_string)+1;
+        sram_file->fsize=len;
+        sram_write_block(0,file_or_string,len);
+        reader_init(activ_reader,eDEV_SPIRAM,sram_file);
+        compile();
+        exec_basic();
+        free(activ_reader);
+        free(sram_file);
+        if (option==EXEC_STAY){
+            activ_reader=&std_reader;
+        }else{
+            exit_basic=true;
+        }
     }
 // boucle interpréteur    
     while (!exit_basic){

@@ -1044,6 +1044,7 @@ _dict STRLEN ,"len"
 // retourne la longueur de la chaîne dont l'adresse est sur dstack
 str_len: // ( adr -- length )    
     move t0,T
+    addu T,zero,zero
 1:  lbu t1,0(t0)
     beqz t1,next
     addiu t0,t0,1
@@ -1319,6 +1320,15 @@ put_sprite: // ( x y w h addr_sprite -- )
     lw T, 0(dp)
     
     
+_dict VGACLS,"vgacls"
+//efface l'écran VGA indépendemment de la console sélectionnée
+vgacls: // ( -- )
+    jal vga_clear_screen
+    nop
+    b next
+    nop
+    
+    
 //****************************
 // fonction SPI RAM
 //****************************
@@ -1504,7 +1514,7 @@ opcodes_table:
 .word curline,curcolon,setcursor
 .word extbit,settimer,qtimeout,inv_vid,scrldn,scrlup,insertln    
 .word get_pixel,put_pixel,xor_pixel,vm_line,vm_rectangle,vm_box,vm_circle,vm_ellipse
-.word vm_polygon,put_sprite    
+.word vm_polygon,put_sprite,vgacls    
 .word sram_clear,sram_read,sram_write,save_screen,rest_screen,vm_sram_load,vm_sram_save
     
 bad_op: 
