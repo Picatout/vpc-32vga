@@ -127,11 +127,11 @@ enum OP_CODES{
  IRESTSCR,
  ISRLOAD,
  ISRSAVE,
- 
-// IRFETCH ,
+ IMDIV,
+
+ // IRFETCH ,
 // ITOR   , 
 // IRFROM , 
-// IMDIV,
 // IDIVMOD,
 // IDDUP ,
 // IUSLASH , // 25

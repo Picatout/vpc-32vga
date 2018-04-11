@@ -48,6 +48,7 @@
 //math 
 .extern srand    
 .extern rnd
+.extern mdiv    
 // fonctios virgule flottante    
 .extern print_float
 .extern sinf
@@ -530,7 +531,19 @@ star:   // '*' ( n1 n2 -- n1*n2 ) multiplication signé, résultat simple précisio
     b next
     addiu dp,dp,-CELL_SIZE
 
-  
+_dict MDIV,"mdiv"
+// multiplication avec résultat conservé sur 64 bits suivit d'une division
+// retourne un entier 32 bits    
+mslash: // ( n1 n2 n3 -- n3 )  n4=n1*n2/n3    
+    lw a0,-2*CELL_SIZE(dp)
+    lw a1,-CELL_SIZE(dp)
+    jal mdiv
+    move a2,T
+    addiu dp,dp,-2*CELL_SIZE
+    b next
+    move T,v0
+    
+    
 ustar:   // 'U*' ( u1 u2 -- u3 ) multiplication non signe, résultat simple précision
 //    lw t0,-CELL_SIZE(dp)
 //    multu  t0, T
@@ -1516,6 +1529,8 @@ opcodes_table:
 .word get_pixel,put_pixel,xor_pixel,vm_line,vm_rectangle,vm_box,vm_circle,vm_ellipse
 .word vm_polygon,put_sprite,vgacls    
 .word sram_clear,sram_read,sram_write,save_screen,rest_screen,vm_sram_load,vm_sram_save
+.word mslash
+    
     
 bad_op: 
 .word rfetch,tor,rfrom    

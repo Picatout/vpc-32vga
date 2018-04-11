@@ -1,3 +1,9 @@
+2018-04-11
+----------
+1. Test BASIC.
+2. Ajout du module **math.c** et de la fonction **mdiv()**.
+3. Corrigé bogue dans **kw_wend()**.
+
 2018-04-10
 ----------
 1. Modification à la commande cmd_basic() dans shell.c pour accommoder l'option **-c "BASIC code"** et

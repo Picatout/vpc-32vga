@@ -44,6 +44,7 @@
 #include "../reader.h"
 #include "vm.h"
 #include "BASIC.h"
+#include "../math.h"
 
 enum frame_type_e {FRAME_SUB,FRAME_FUNC};
 
@@ -198,6 +199,7 @@ static void kw_local();
 static void kw_locate();
 static void kw_loop();
 static void kw_max();
+static void kw_mdiv();
 static void kw_min();
 static void kw_next();
 static void kw_pause();
@@ -269,7 +271,7 @@ static void print_cstack();
 enum {eKW_ABS,eKW_AND,eKW_BOX,eKW_BTEST,eKW_BYE,eKW_CASE,eKW_CIRCLE,eKW_CLEAR,eKW_CLS,
       eKW_CONST,eKW_CURCOL,eKW_CURLINE,eKW_DIM,eKW_DO,eKW_ELLIPSE,eKW_ELSE,eKW_END,eKW_EXIT,
       eKW_FOR,eKW_FREE,eKW_FUNC,eKW_GETPIXEL,eKW_IF,eKW_INPUT,eKW_INSERTLN,eKW_INVVID,eKW_KEY,eKW_LEN,
-      eKW_LET,eKW_LINE,eKW_LOCAL,eKW_LOCATE,eKW_LOOP,eKW_MAX,eKW_MIN,eKW_NEXT,
+      eKW_LET,eKW_LINE,eKW_LOCAL,eKW_LOCATE,eKW_LOOP,eKW_MAX,eKW_MDIV,eKW_MIN,eKW_NEXT,
       eKW_NOT,eKW_OR,eKW_PAUSE,eKW_POLYGON,
       eKW_PRINT,eKW_PUTC,eKW_RANDOMISIZE,eKW_RECT,eKW_REF,eKW_REM,eKW_RESTSCR,
       eKW_RETURN,eKW_RND,eKW_RUN,eKW_SAVESCR,eKW_SCRLUP,eKW_SCRLDN,
@@ -315,6 +317,7 @@ static const dict_entry_t KEYWORD[]={
     {kw_locate,6,"LOCATE"},
     {kw_loop,4,"LOOP"},
     {kw_max,3+FUNCTION,"MAX"},
+    {kw_mdiv,4+FUNCTION,"MDIV"},
     {kw_min,3+FUNCTION,"MIN"},
     {kw_next,4,"NEXT"},
     {bad_syntax,3,"NOT"},
@@ -1598,15 +1601,15 @@ static void kw_ubound(){
 // compilation d'un fichier source inclut dans un autre fichier source.
 static void kw_use(){
     reader_t *old_reader, freader;
-    FIL *fh;
+    FIL fh;
     uint32_t lcount;
     FRESULT result;
     
     if (activ_reader->device==eDEV_KBD) throw(eERR_SYNTAX);
     expect(eSTRING);
     uppercase(token.str);
-    if (!(result=f_open(fh,token.str,FA_READ))){
-        reader_init(&freader,eDEV_SDCARD,fh);
+    if (!(result=f_open(&fh,token.str,FA_READ))){
+        reader_init(&freader,eDEV_SDCARD,&fh);
         old_reader=activ_reader;
         activ_reader=&freader;
         compiler_msg(COMPILING, token.str);
@@ -1614,7 +1617,7 @@ static void kw_use(){
         line_count=1;
         compile();
         line_count=lcount+1;
-        f_close(fh);
+        f_close(&fh);
         activ_reader=old_reader;
         compiler_msg(COMP_END,NULL);
     }else{
@@ -2074,6 +2077,11 @@ static void kw_max(){
     bytecode(IMAX);
 }//f
 
+static void kw_mdiv(){
+    parse_arg_list(3);
+    bytecode(IMDIV);
+}
+
 //MIN(expr1,expr2)
 static void kw_min(){
     parse_arg_list(2);
@@ -2280,6 +2288,7 @@ static void kw_wend(){
     bytecode(IBRA);
     patch_back_jump(_cnext());
     patch_fore_jump(cpop());
+    cdrop();
     complevel--;
 }//f
 
