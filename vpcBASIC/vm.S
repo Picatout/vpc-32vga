@@ -158,8 +158,8 @@ CFG_SEG=0xBFC0
     
 CELL_SIZE=4
     
-DSTACK_SIZE=128
-RSTACK_SIZE=128
+DSTACK_SIZE=256
+RSTACK_SIZE=256
 TIB_SIZE=80
 PAD_SIZE=80
     
@@ -171,16 +171,16 @@ SFR_INV=12
 f_trace: .word 0
     
 .bss
-.global dstack,rstack,rstack0,dstack0
-// piles
+
+    // piles
 .section .bss.dstack bss    
 dstack: .space DSTACK_SIZE
 .section .bss.rstack bss
 rstack: .space RSTACK_SIZE
 
 .data    
-dstack0: .word dstack+CELL_SIZE
-rstack0: .word rstack+CELL_SIZE
+dstack0: .word dstack
+rstack0: .word rstack
     
     
 .text
@@ -216,7 +216,23 @@ StackVM:  // VM initialization
     
 // VM instruction loop
 next:
-    lbu   t0, 0(ip)
+#ifdef _CHECK_STACKS
+    jal depth
+    nop
+    addiu v0,v0,-DSTACK_SIZE
+    bltz v0, 1f
+    addiu v0,zero,ERR_OV_DSTACK
+    b bye2
+    nop
+    jal rdepth
+    nop
+    addiu v0,v0,-RSTACK_SIZE
+    bltz v0, 1f
+    addiu v0,zero,ERR_OV_RSTACK
+    b bye2
+    nop
+#endif    
+1:  lbu   t0, 0(ip)
     sll   t0, t0, 2   
     la t1,opcodes_table
     addu t1,t1,t0
@@ -238,23 +254,24 @@ next:
 
 #ifdef _CHECK_OPCODE    
 vm_bad_op:
-    b 1f
+    b bye2
     addiu v0,zero,ERR_BADOP
 #endif   
 
 _dict ABORT,"abort"    
 abort:
-    b 1f
+    b bye2
     move v0,T
 
 _dict BYE,"bye"  
 bye:   // 'bye' ( -- ) exit virtual machine
     jal depth
     nop
-    beq v0,zero,1f
+    beq v0,zero,bye2
     nop
     addiu v0,zero,ERR_DSTACK
-1:  lw  s0,36(sp)
+bye2:
+    lw  s0,36(sp)
     lw  s1,32(sp)
     lw  s2,28(sp)
     lw  s3,24(sp)
@@ -1412,9 +1429,7 @@ vm_sram_save: // ( addr_ram char* size -- )
     addiu dp,dp,-2*CELL_SIZE
     b next
     move T,v0
-    
-    b vm_bad_op
-    nop
+
    
 .end StackVM
   
@@ -1424,9 +1439,16 @@ depth: // retourne le nombre d'éléments sur dstack
     la v0,dstack0
     lw v0,0(v0)
     subu v0,dp,v0
-    sra v0,v0,2
     jr ra    
-    addiu v0,v0,1
+    sra v0,v0,2
+    
+  
+rdepth: // retourne le nombre d'élément sur rstack
+    la v0,rstack0
+    lw v0,0(v0)
+    subu v0,rp,v0
+    jr ra
+    sra v0,v0,2
     
 
 print_state:    

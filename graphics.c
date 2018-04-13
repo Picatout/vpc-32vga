@@ -174,3 +174,24 @@ void restoreScreen(unsigned addr){
     sram_read_block(addr,video_bmp,BMP_SIZE);
 }
 
+
+void fill(int x, int y){
+    int x0,y0;
+    
+    if ((y<0) || (y>=VRES) (x<0)|| (x>=HRES) || getPixel(x,y)) return;
+    x0=x;
+    y0=y;
+    while ((x<HRES) && !getPixel(x,y)){
+        xorPixel(x,y);
+        x++;
+    }
+    x=--x0;
+    while ((x>=0) && !getPixel(x,y)){
+        xorPixel(x,y);
+        x--;
+    }
+    y--;
+    while ((y<VRES) && !getPixel()){
+        xorPixel();
+    }
+}

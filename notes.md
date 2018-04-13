@@ -1,3 +1,9 @@
+2018-04-12
+----------
+1. Test BASIC.
+2. Ajouter code dans vm.S pour contrôler le débordement des piles dstack et rstack
+3. À faire: trouver un algorithme pour fill() moins récursif.
+
 2018-04-11
 ----------
 1. Test BASIC.

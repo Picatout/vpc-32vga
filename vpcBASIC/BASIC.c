@@ -417,7 +417,8 @@ static  const char* error_msg[]={
     "Can't use CONST inside sub-routine\n",
     "Unknow variable or constant\n",
     "File open error\n",
-
+    "VM parameters stack overflow\n",
+    "VM call stack overflow\n",
  };
  
  
