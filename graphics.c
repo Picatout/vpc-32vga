@@ -73,18 +73,31 @@ void line(int x0, int y0, int x1, int y1)
    }
 }//line()
 
-void rectangle(int x1, int y1, int x2, int y2){
-    line(x1,y1,x1,y2);
-    line(x2,y1,x2,y2);
-    line(x1,y1,x2,y1);
-    line(x1,y2,x2,y2);
+void rectangle(int x1, int y1, int width, int height){
+    int xLeft=x1,right,bottom;
+    
+    right=x1+width-1;
+    bottom=y1+height-1;
+    while (x1<=right){//lignes horizontales
+        xorPixel(x1,y1);
+        xorPixel(x1++,bottom);
+    }
+    ++y1;
+    while (y1<bottom){//lignes verticales
+        xorPixel(xLeft,y1);
+        xorPixel(right,y1++);
+    }
 }//rectangle()
 
-void box (int x0, int y0, int x1, int y1){
-    int wy;
-    for (wy=y0;wy<y1;wy++){
-       line(x0,wy,x1,wy);
-    }   
+void box (int x0, int y0, int width, int height){
+    int x;
+    width+=x0;
+    height+=y0;
+    for (y0;y0<width;y0++){
+        for (x=x0;x<height;x++){
+            xorPixel(x,y0);
+        }
+    }
 }
 
 
@@ -138,9 +151,12 @@ void circle(int xc, int yc, int r){
  * vertices est le nombre de points
  */
 void polygon(const int points[], int vertices){
-    int i;
+    int i,x0=points[0],y0=points[1];
     for(i=0;i<(2*vertices-2);i+=2){
+        xorPixel(x0,y0);
         line(points[i],points[i+1],points[i+2],points[i+3]);
+        x0=points[i+2];
+        y0=points[i+3];
     }
     line(points[0],points[1],points[i],points[i+1]);
 }//polygon()
@@ -174,24 +190,18 @@ void restoreScreen(unsigned addr){
     sram_read_block(addr,video_bmp,BMP_SIZE);
 }
 
-
+// remplissage d'une figure géométrique fermée
+// AVERTISSEMENT: Appel récursif profond qui peut faire planter l'ordinateur
+// du à la taille limité de la pile.
 void fill(int x, int y){
-    int x0,y0;
+    int x0;
     
-    if ((y<0) || (y>=VRES) (x<0)|| (x>=HRES) || getPixel(x,y)) return;
-    x0=x;
-    y0=y;
-    while ((x<HRES) && !getPixel(x,y)){
+    if ((y>=0) && (y<VRES) && (x>=0) && (x<HRES) && !getPixel(x,y)){
         xorPixel(x,y);
-        x++;
-    }
-    x=--x0;
-    while ((x>=0) && !getPixel(x,y)){
-        xorPixel(x,y);
-        x--;
-    }
-    y--;
-    while ((y<VRES) && !getPixel()){
-        xorPixel();
+        fill(x-1,y);
+        fill(x,y-1);
+        fill(x+1,y);
+        fill(x,y+1);
     }
 }
+

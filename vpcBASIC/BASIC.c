@@ -183,6 +183,7 @@ static void kw_ellipse();
 static void kw_else();
 static void kw_end();
 static void kw_exit();
+static void kw_fill();
 static void kw_for();
 static void kw_free();
 static void kw_func();
@@ -269,7 +270,7 @@ static void print_cstack();
 //identifiant KEYWORD doit-être dans le même ordre que
 //dans la liste KEYWORD
 enum {eKW_ABS,eKW_AND,eKW_BOX,eKW_BTEST,eKW_BYE,eKW_CASE,eKW_CIRCLE,eKW_CLEAR,eKW_CLS,
-      eKW_CONST,eKW_CURCOL,eKW_CURLINE,eKW_DIM,eKW_DO,eKW_ELLIPSE,eKW_ELSE,eKW_END,eKW_EXIT,
+      eKW_CONST,eKW_CURCOL,eKW_CURLINE,eKW_DIM,eKW_DO,eKW_ELLIPSE,eKW_ELSE,eKW_END,eKW_EXIT,eKW_FILL,
       eKW_FOR,eKW_FREE,eKW_FUNC,eKW_GETPIXEL,eKW_IF,eKW_INPUT,eKW_INSERTLN,eKW_INVVID,eKW_KEY,eKW_LEN,
       eKW_LET,eKW_LINE,eKW_LOCAL,eKW_LOCATE,eKW_LOOP,eKW_MAX,eKW_MDIV,eKW_MIN,eKW_NEXT,
       eKW_NOT,eKW_OR,eKW_PAUSE,eKW_POLYGON,
@@ -301,6 +302,7 @@ static const dict_entry_t KEYWORD[]={
     {kw_else,4,"ELSE"},
     {kw_end,3,"END"},
     {kw_exit,4,"EXIT"},
+    {kw_fill,4,"FILL"},
     {kw_for,3,"FOR"},
     {kw_free,4,"FREE"},
     {kw_func,4,"FUNC"},
@@ -1078,8 +1080,13 @@ static void code_array_address(var_t *var){
     }else{
         // élément 0,1,2,3  réservé pour size
         // index 1 correspond à array[4]
-        _litc(4);
+        bytecode(IDUP);
+        bytecode(IQBRAZ);
+        cpush(dptr);
+        dptr+=2;        
+        _litc(3);
         bytecode(IPLUS);
+        patch_fore_jump(cpop());
     }
     //index dans le tableau
     lit((uint32_t)var->adr);
@@ -1152,7 +1159,8 @@ static void factor(){
                     case eVAR_FUNC:
                         _litc(0);
                         parse_arg_list(get_arg_count((void*)(var->adr)));
-                        lit(((uint32_t)var->adr));
+                        lit(((uint32_t)&var->adr));
+                        bytecode(IFETCH);
                         bytecode(ICALL);
                         break;
                     case eVAR_BYTE:
@@ -1843,6 +1851,19 @@ static void movecode(var_t *var){
     dptr=(uint8_t*)pos-(uint8_t*)progspace;
     memset(&progspace[dptr],0,size);
     var->adr=adr; 
+//#undef DEBUG
+#ifdef DEBUG
+    {
+        uint8_t * bc;   
+        crlf(con);print_hex(con,(uint32_t)var->adr,0);put_char(con,':');
+        for(bc=(uint8_t*)adr;bc<((uint8_t*)adr+size);bc++){
+            print_int(con,*bc,0);
+        }
+        print_int(con,*bc,0);
+        crlf(con);
+    }
+#endif
+#define DEBUG
 }//f
 
 // END [IF|SUB|FUNC|SELECT]  termine les blocs conditionnels.
@@ -1881,19 +1902,6 @@ static void kw_end(){ // IF ->(C: blockend adr -- ) |
             movecode(var);
             csp-=2; // drop eKW_xxx et endmark
             var_local=false;
-#undef DEBUG
-#ifdef DEBUG
-    {
-        uint8_t * bc;   
-        crlf(con);print_hex(con,(uint32_t)var->adr,0);
-        for(bc=(uint8_t*)var->adr;*bc!=ILEAVE;bc++){
-            print_int(con,*bc,0);
-        }
-        print_int(con,*bc,0);
-        crlf(con);
-    }
-#endif
-#define DEBUG
             break;
         default:
             throw(eERR_SYNTAX);
@@ -2174,11 +2182,17 @@ static void kw_ellipse(){
     bytecode(IELLIPSE);
 }//f
 
-//POLYGON(@points)
+//POLYGON(@points,n)
 //dessine un polygon à partir d'un tableau de points.
 void kw_polygon(){
     parse_arg_list(2);
     bytecode(IPOLYGON);
+}
+//FILL(x,y)
+//remplissage d'une figure géométirique fermée.
+void kw_fill(){
+    parse_arg_list(2);
+    bytecode(IFILL);
 }
 
 // SPRITE(x,y,width,height,@sprite)

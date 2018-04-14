@@ -209,8 +209,7 @@ StackVM:  // VM initialization
     ori rp, w, rstack
     addu T,zero,zero
     addu R,zero,zero
-    la frame,dstack0
-    lw frame,0(frame)
+    addiu frame,dp,CELL_SIZE
     sw zero,0(dp)
     sw zero,CELL_SIZE(dp)
     
@@ -1257,7 +1256,7 @@ _dict XORPIXEL ,"xorpixel"
 // met le pixel à 0.    
 xor_pixel: // ( x y -- )
     lw a0, -CELL_SIZE(dp)
-    jal getPixel
+    jal xorPixel
     move a1,T
     lw T, -2*CELL_SIZE(dp)
     b next
@@ -1332,6 +1331,18 @@ vm_polygon: // ( addr n -- )
     b next
     lw T,0(dp)
  
+_dict FILL,"fill"
+// remplissage d'une figure géométrique fermée.
+// x,y point de départ du remplissage.
+vm_fill: // ( x y -- )    
+    lw a0,-CELL_SIZE(dp)
+    jal fill
+    move a1,T
+    addiu dp,dp,-2*CELL_SIZE
+    b next
+    lw T,0(dp)
+    
+    
 _dict SPRITE  ,"sprite"  
 // applique un bitmap à l'écran VGA en utilisant la fonction xor_pixel 
 // un sprite a un maximum de 32 pixels en largeur et est contenu
@@ -1481,6 +1492,7 @@ print_state:
     nop
     la s6,dstack0
     lw s6,0(s6)
+    addiu s6,s6,CELL_SIZE
     // boucle d'impression des éléments de dstack
 1:  subu t0,s6,dp
     bgez t0,2f
@@ -1549,7 +1561,7 @@ opcodes_table:
 .word curline,curcolon,setcursor
 .word extbit,settimer,qtimeout,inv_vid,scrldn,scrlup,insertln    
 .word get_pixel,put_pixel,xor_pixel,vm_line,vm_rectangle,vm_box,vm_circle,vm_ellipse
-.word vm_polygon,put_sprite,vgacls    
+.word vm_polygon,vm_fill,put_sprite,vgacls    
 .word sram_clear,sram_read,sram_write,save_screen,rest_screen,vm_sram_load,vm_sram_save
 .word mslash
     

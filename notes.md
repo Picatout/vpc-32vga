@@ -1,3 +1,13 @@
+2018-04-13
+----------
+1. Test BASIC.
+2. corrigé bogue dans vm:xor_pixel
+3. Modification à vm:rectangle() et vm:box()
+4. Modification à graphics:polygon()
+5. Corrigé bogue régressif dans vm:print_state()
+6. Corrigé bogue régressif dans basic:factor()
+7. Corrigé bogue dans array_code_address()
+ 
 2018-04-12
 ----------
 1. Test BASIC.
