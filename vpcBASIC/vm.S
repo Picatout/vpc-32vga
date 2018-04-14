@@ -406,7 +406,7 @@ cstore:  // 'c!' ( char addr --  ) *addr = char
 _dict CFETCH,"C@"    
 cfetch:  // 'c@' ( addr -- char )  T = (char)*addr
     b next
-    lb T, 0(T)
+    lbu T, 0(T)
 
 _dict RFETCH, "R@"    
 rfetch:   // 'r@'  ( -- n R: n -- n )  empile le sommet de la pile des retours
@@ -841,13 +841,13 @@ forsave: // ISAVEFOR ( R: -- limit step ) sauvegarde limit et step sur rstack
     move R,step
 
 _dict FOR_REST ,"r>for"   
-forrest: // IRESTFOR ( R: L S -- ) restitue les valeurs originales de limit et step après NEXT
+forrest: // IFORREST ( R: L S -- ) restitue les valeurs originales de limit et step après NEXT
     move step,R
     _rpop
     move limit,R
-    lw R,0(rp)
-    b next
     addiu rp,rp,-CELL_SIZE
+    b next
+    lw R,0(rp)
  
 _dict FOR , "for"  
 for: // IFOR ( limit step -- ) initialise une boucle FOR...NEXT 
@@ -1475,17 +1475,33 @@ print_state:
     la a1,trace_msg
     jal print
     move a0,s7
+    // imprime nombre d'éléments sur R
+    la a1,r_msg
+    jal print
+    move a0,s7
+    jal rdepth
+    nop
+    move a1,v0
+    move a2,zero
+    jal print_int
+    move a0,s7
+    addiu a1,zero,')'
+    jal put_char
+    move a0,s7
+    // imprime nombre d'éléments sur dstack
+    la a1,s_msg
+    jal print
+    move a0,s7
     jal depth
+    nop
     move a0,s7
     move a1,v0
     move s6,a1
-    // imprime nombre d'éléments sur dstack
-    move a0,s7
     jal print_int
     move a2,zero
-    // imprime "s: "
-    la a1,s_msg
-    jal print
+    // imprime ")"
+    addiu a1,zero,')'
+    jal put_char
     move a0,s7
     // si dstack vide va à 3f
     beqz s6,3f
@@ -1574,8 +1590,9 @@ bad_op:
 badop_msg: .asciz "bad operating code: "    
 trace_msg: .asciz "\ntrace: "
 opcode_msg: .asciz "next opcode: "
-s_msg: .asciz "s: "
+s_msg: .asciz " S("
 dp_msg: .asciz "dp: "
 ip_msg: .asciz "\nip: "
+r_msg: .asciz "R("
     
 #undef _ASM_CODE_

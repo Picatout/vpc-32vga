@@ -79,6 +79,7 @@ static int get_param(char c){
 
 void vt_clear_screen(){
     ser_put_char( FF);
+    vt_set_curpos(0,0);
 }
 
 void vt_clear_eol(){

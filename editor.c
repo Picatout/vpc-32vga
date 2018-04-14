@@ -124,7 +124,6 @@ static void delete_at();
 static void delete_to_end();
 static void delete_to_start();
 static void insert_char(char c);
-static void replace_char(char c);
 static void line_home();
 static void line_end();
 static void line_break();
@@ -171,22 +170,20 @@ static void ed_error(const char *msg, int code){//static uint8_t *llen;
 
 //si fichier modifié confirme 
 //avant de continuer
-static bool ask_confirm(){
+static void ask_save_changes(){
     char key;
     
-    bool answer=state->flags.modified;
-    if (answer){
+    if (state->flags.modified){
         _beep();
         invert_display(true);
-        print(con,"file unsaved! continue (y/n)?");
+        print(con,"Save changes (y/n)?");
         key= wait_key(con);
-        answer=(key=='y')||(key=='Y');
         invert_display(false);
-    }else{
-        answer=true;
+        if ((key=='y')||(key=='Y')){
+            save_file();
+        }
     }
-    return answer;
-}// ask_confirm()
+}// ask_save_changes()
 
 static void clear_all_states(){
     fname[0]=0;
@@ -201,27 +198,25 @@ static void clear_all_states(){
 }//clear_all_states()
 
 static void new_file(const char *name){
-    if (!state->flags.modified || ask_confirm()){
-        clear_all_states();
-        if (file_exist(name)){
-            load_file(name);
-        }else if(name){
-            strcpy(fname,name);
-        }
+    ask_save_changes();
+    clear_all_states();
+    if (file_exist(name)){
+        load_file(name);
+    }else if(name){
+        strcpy(fname,name);
     }
 }//new_file()
 
 static bool quit;
 
 static void leave_editor(){
-    if (ask_confirm()){
-        free(fname);
-        free(state);
-        free(search_info);
-        free(screen);
-        vga_set_cursor(CR_UNDER);
-        quit=true;
-    }
+    ask_save_changes();
+    free(fname);
+    free(state);
+    free(search_info);
+    free(screen);
+    vga_set_cursor(CR_UNDER);
+    quit=true;
 }
  
 static void list_files(){
@@ -498,18 +493,17 @@ static void open_file(){
     FIL fh;
     FRESULT result;
     char name[32];
-
-    if (ask_confirm()){
-        invert_display(true);
-        print(con,"open file\n");
-        if (get_file_name(name) && file_exist(name)){
-                load_file(name);
-        }else{
-                ed_error("failed to open file.",result);
-        }
-        
-        invert_display(false);
+    
+    ask_save_changes();
+    clear_all_states();
+    invert_display(true);
+    print(con,"open file\n");
+    if (get_file_name(name) && file_exist(name)){
+        load_file(name);
+    }else{
+        ed_error("failed to open file.",result);
     }
+    invert_display(false);
 }//open_file()
 
 
@@ -1098,6 +1092,7 @@ static void delete_at(){
            }
            fill_screen();
         }
+        state->flags.modified=true;
     }else{
         _beep();
         return;
@@ -1133,6 +1128,7 @@ static void delete_to_end(){
         }
         fill_screen();
     }
+    state->flags.modified=true;
  }//f()
 
 //efface tous les caratères à gauche du curseur
@@ -1150,6 +1146,7 @@ static void delete_to_start(){
         clear_eol(con);
         print(con,_screen_line(state->scr_line));
         set_curpos(con,0,state->scr_line);
+        state->flags.modified=true;
     }
 }//f()
 
@@ -1165,6 +1162,7 @@ static void insert_char(char c){
         print(con,_screen_line(state->scr_line));
         state->scr_col++;
         set_curpos(con,state->scr_col,state->scr_line);
+        state->flags.modified=true;
     }else{
         _beep();
         return;
@@ -1214,6 +1212,7 @@ static void line_end(){
              state->scr_first+=strlen(screen)+1;
          }
          fill_screen();
+         state->flags.modified=true;
      }else{
          _beep();
      }

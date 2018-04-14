@@ -135,7 +135,7 @@ typedef struct _var{
     uint16_t ro:1; // booléen, c'est une constante
     uint16_t array:1; // booléen, c'est un tableau
     uint16_t vtype:4; // var_type_e
-    uint16_t dim:5; // nombre de dimension du tableau
+    uint16_t dim:5; // nombre de dimension du tableau ou nombre arguments FUNC|SUB
     char *name;  // nom de la variable
     union{
         uint8_t byte; // variable octet
@@ -253,7 +253,7 @@ static void ctrl_stack_check();
 static void cpush(uint32_t);
 static uint32_t cpop();
 static void cdrop();
-static unsigned get_arg_count(void* fn_code);
+//static unsigned get_arg_count(void* fn_code);
 static void expression();
 static void factor();
 char* string_alloc(unsigned size);
@@ -1158,7 +1158,7 @@ static void factor(){
                 switch(var->vtype){
                     case eVAR_FUNC:
                         _litc(0);
-                        parse_arg_list(get_arg_count((void*)(var->adr)));
+                        parse_arg_list(var->dim);
                         lit(((uint32_t)&var->adr));
                         bytecode(IFETCH);
                         bytecode(ICALL);
@@ -1571,9 +1571,6 @@ static void kw_ref(){
             case eVAR_INT:
             case eVAR_BYTE:
             case eVAR_FLOAT:
-                if (var->ro){
-                    throw(eERR_BAD_ARG);
-                }
                 lit((uint32_t)&var->n);
                 break;
             case eVAR_STR:
@@ -1851,7 +1848,7 @@ static void movecode(var_t *var){
     dptr=(uint8_t*)pos-(uint8_t*)progspace;
     memset(&progspace[dptr],0,size);
     var->adr=adr; 
-//#undef DEBUG
+#undef DEBUG
 #ifdef DEBUG
     {
         uint8_t * bc;   
@@ -2843,7 +2840,7 @@ static void kw_invert_video(){
 
 // cré la liste des arguments pour
 // la compilation des SUB|FUNC
-static void create_arg_list(){
+static uint8_t create_arg_list(){
     var_t *var;
     int i=0;
     expect(eLPAREN);
@@ -2857,7 +2854,8 @@ static void create_arg_list(){
     }
     if (token.id!=eRPAREN) throw(eERR_SYNTAX);
     bytecode(IFRAME);
-    bytecode(i); // enregistre le nombre d'argument avant le code de la fonction.
+    bytecode(i); //nombre d'arguments de la FUNC|SUB
+    return i&0x1f;
 }//f
 
 //cré une nouvelle variable de type eVAR_SUB|eVAR_FUNC
@@ -2880,7 +2878,7 @@ static void subrtn_create(int var_type, int blockend){
     complevel++;
     cpush(blockend);
     cpush((uint32_t)var);
-    create_arg_list();
+    var->dim=create_arg_list();
 }//f
 
 // FUNC identifier (arg_list)
@@ -2907,14 +2905,6 @@ static void kw_trace(){
     bytecode(ITRACE);
 }//f
 
-//retourne le nombre d'arguments inscris dans le
-// code programme
-// 1ier octet avant le code de la fonction.
-static unsigned get_arg_count(void *fn_code){
-    (uint8_t*)fn_code;
-    return *((uint8_t*)fn_code+1);
-}
-
 static void compile(){
     var_t *var;
     uint32_t adr;
@@ -2937,7 +2927,7 @@ static void compile(){
                         if (var->vtype==eVAR_FUNC){
                             _litc(0);
                         } 
-                        parse_arg_list(get_arg_count((void*)adr));
+                        parse_arg_list(var->dim);
                         lit(adr);
                         bytecode(ICALL);
                         if (var->vtype==eVAR_FUNC){
@@ -3022,7 +3012,13 @@ void BASIC_shell(unsigned basic_heap, unsigned option, const char* file_or_strin
     reader_init(&std_reader,eDEV_KBD,NULL);
     activ_reader=&std_reader; 
     if (option==EXEC_FILE){
-        run_file(file_or_string);
+        if (!setjmp(failed)){
+            run_file(file_or_string);
+        }else{
+            clear();
+            reader_init(&std_reader,eDEV_KBD,NULL);
+            activ_reader=&std_reader;
+        }
     }else if ((option==EXEC_STRING) || (option==EXEC_STAY)){
         sram_device_t *sram_file;
         int len;

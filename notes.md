@@ -1,5 +1,18 @@
 2018-04-13
 ----------
+1. Corrigé bogue dans vt_clear_screen()
+2. Correction bogues dans editor.
+3. Remplacé editor:ask_confirm() par ask_save_changes().
+4. Correction bogue vm:cfeth, remplacé instruction **lb** par **lbu**.
+5. Correction bogue vm:fortest
+6. Modification de l'utlisation de var_t, champ **dim** utilisé pour le nombre d'arguments
+   Modification de create_arg_list(), factor() et compile() pour tenir compte
+   de ce nouvel usage.
+7. Corrigé bogue dans basic:BASIC_shell().
+
+
+2018-04-13
+----------
 1. Test BASIC.
 2. corrigé bogue dans vm:xor_pixel
 3. Modification à vm:rectangle() et vm:box()
