@@ -10,12 +10,14 @@
             <file>file:/home/jacques/github/vpc-32vga/vpcBASIC/BASIC.c</file>
             <file>file:/home/jacques/github/vpc-32vga/reader.c</file>
             <file>file:/home/jacques/github/vpc-32vga/hardware/HardwareProfile.h</file>
+            <file>file:/home/jacques/github/vpc-32vga/editor.c</file>
             <file>file:/home/jacques/github/vpc-32vga/notes.md</file>
             <file>file:/home/jacques/github/vpc-32vga/reader.h</file>
             <file>file:/home/jacques/github/vpc-32vga/vpcBASIC/BASIC.h</file>
             <file>file:/home/jacques/github/vpc-32vga/shell.c</file>
             <file>file:/home/jacques/github/vpc-32vga/hardware/spiram/spiram.c</file>
             <file>file:/home/jacques/github/vpc-32vga/vpcBASIC/vm.S</file>
+            <file>file:/home/jacques/github/vpc-32vga/vt100.c</file>
             <file>file:/home/jacques/github/vpc-32vga/hardware/HardwareProfile.c</file>
             <file>file:/home/jacques/github/vpc-32vga/math.h</file>
             <file>file:/home/jacques/github/vpc-32vga/graphics.h</file>

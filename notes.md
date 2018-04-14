@@ -1,4 +1,4 @@
-2018-04-13
+2018-04-14
 ----------
 1. Corrigé bogue dans vt_clear_screen()
 2. Correction bogues dans editor.
