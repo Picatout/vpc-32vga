@@ -44,7 +44,6 @@
 #include "../reader.h"
 #include "vm.h"
 #include "BASIC.h"
-#include "../math.h"
 
 enum frame_type_e {FRAME_SUB,FRAME_FUNC};
 
@@ -1712,10 +1711,10 @@ static void kw_btest(){
     bytecode(IBTEST);
 }//f
 
-//TONE(freq,msec)
+//TONE(freq,msec,attend)
 //fait entendre un note de la gamme tempérée
 static void kw_tone(){
-    parse_arg_list(2);
+    parse_arg_list(3);
     bytecode(ITONE);
 }//f
 
@@ -2923,12 +2922,13 @@ static void compile(){
             case eIDENT:
                 if ((var=var_search(token.str))){
                     if ((var->vtype==eVAR_SUB)||(var->vtype==eVAR_FUNC)){
-                        adr=(uint32_t)var->adr;
+                        adr=(uint32_t)&var->adr;
                         if (var->vtype==eVAR_FUNC){
                             _litc(0);
                         } 
                         parse_arg_list(var->dim);
                         lit(adr);
+                        bytecode(IFETCH);
                         bytecode(ICALL);
                         if (var->vtype==eVAR_FUNC){
                             bytecode(IDROP); //jette la valeur de retour
@@ -3031,8 +3031,12 @@ void BASIC_shell(unsigned basic_heap, unsigned option, const char* file_or_strin
         sram_file->fsize=len;
         sram_write_block(0,file_or_string,len);
         reader_init(activ_reader,eDEV_SPIRAM,sram_file);
-        compile();
-        exec_basic();
+        if (!setjmp(failed)){
+            compile();
+            exec_basic();
+        }else{
+            clear();
+        }
         free(activ_reader);
         free(sram_file);
         if (option==EXEC_STAY){

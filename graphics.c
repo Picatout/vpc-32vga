@@ -93,8 +93,8 @@ void box (int x0, int y0, int width, int height){
     int x;
     width+=x0;
     height+=y0;
-    for (y0;y0<width;y0++){
-        for (x=x0;x<height;x++){
+    for (y0;y0<height;y0++){
+        for (x=x0;x<width;x++){
             xorPixel(x,y0);
         }
     }

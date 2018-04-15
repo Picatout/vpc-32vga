@@ -1,3 +1,14 @@
+2018-04-15
+----------
+1. Modification de vm:mslash, ne requière plus math:mdiv(), le module math a été supprimé du projet.
+2. Modification de basic:TONE pour ajouter un 3ième paramètre d'attente. TONE(freq,durée,attend)
+3. Corrigé bogue dans BASIS_shell(), pour les options EXEC_STRING et EXEC_STAY, setjmp() n'était
+   pas initialisé, causant un crash de l'ordinateur en cas d'appel throw().
+4. Corrigé bogue dans graphics:box(), arguments height et widht étaient inversés dans
+   le contrôle de limite des boucles for().
+5. Corrigé bogue dans basic:compile(). Le code compilant les appels de sous-routine
+   était incorrect.
+
 2018-04-14
 ----------
 1. Corrigé bogue dans vt_clear_screen()

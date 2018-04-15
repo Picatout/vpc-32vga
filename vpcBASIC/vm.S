@@ -48,7 +48,6 @@
 //math 
 .extern srand    
 .extern rnd
-.extern mdiv    
 // fonctios virgule flottante    
 .extern print_float
 .extern sinf
@@ -550,10 +549,14 @@ star:   // '*' ( n1 n2 -- n1*n2 ) multiplication signé, résultat simple précisio
 _dict MDIV,"mdiv"
 // multiplication avec résultat conservé sur 64 bits suivit d'une division
 // retourne un entier 32 bits    
-mslash: // ( n1 n2 n3 -- n3 )  n4=n1*n2/n3    
+mslash: // ( n1 n2 n3 -- n4 )  n4=((long long)n1*(long long)n2)/n3    
     lw a0,-2*CELL_SIZE(dp)
     lw a1,-CELL_SIZE(dp)
-    jal mdiv
+    mult a0,a1
+    mflo a0
+    mfhi a1
+    sra a3,T,31
+    jal __divdi3 // division 64bits/64bits.
     move a2,T
     addiu dp,dp,-2*CELL_SIZE
     b next
@@ -1016,14 +1019,19 @@ trunc: // ( f -- i)
     move T, v0
 
 _dict TONE, "tone"
-beep: // ( freq,duration -- ) fait entendre une tonalitée
-    move a1,T
-    _dpop
-    move a0,T
+beep: // ( freq,duration,f -- ) fait entendre une tonalitée
+    lw a0,-2*CELL_SIZE(dp)
     jal tone
-    addiu dp,dp,-CELL_SIZE
-    b next
+    lw a1,-CELL_SIZE(dp)
+    addiu dp,dp,-3*CELL_SIZE
+    beqz T,next
     lw T,0(dp)
+    la t1,duration
+1:  lw t0,0(t1)
+    bne t0,zero,1b
+    nop
+    b next
+    nop
   
 _dict TUNE ,"tune"   
 melody: // ( addr -- ) fait entendre la mélodie contenue dans le tableau
@@ -1288,7 +1296,7 @@ vm_rectangle: // ( x0,y0,x1,y1 -- )
  
 _dict BOX ,"box"   
 // dessine une boite.    
-vm_box:  // ( x0,y0,x1,y1 -- )
+vm_box:  // ( x0,y0,w,h -- )
     lw a0,-3*CELL_SIZE(dp)
     lw a1,-2*CELL_SIZE(dp)
     lw a2,-CELL_SIZE(dp)

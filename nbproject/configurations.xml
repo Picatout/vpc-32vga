@@ -48,7 +48,6 @@
       <itemPath>reader.h</itemPath>
       <itemPath>vt100.h</itemPath>
       <itemPath>ascii.h</itemPath>
-      <itemPath>math.h</itemPath>
     </logicalFolder>
     <logicalFolder name="LinkerScript"
                    displayName="Linker Files"
@@ -102,7 +101,6 @@
       <itemPath>shell.c</itemPath>
       <itemPath>reader.c</itemPath>
       <itemPath>editor.c</itemPath>
-      <itemPath>math.c</itemPath>
     </logicalFolder>
     <logicalFolder name="ExternalFiles"
                    displayName="Important Files"
