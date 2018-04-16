@@ -166,6 +166,7 @@ SFR_CLEAR=4
 SFR_SET=8
 SFR_INV=12
 
+.global f_trace    
 .data
 f_trace: .word 0
     
@@ -219,14 +220,14 @@ next:
     nop
     addiu v0,v0,-DSTACK_SIZE
     bltz v0, 1f
-    addiu v0,zero,ERR_OV_DSTACK
+    addiu v0,zero,ERR_DSTACK_OVF
     b bye2
     nop
     jal rdepth
     nop
     addiu v0,v0,-RSTACK_SIZE
     bltz v0, 1f
-    addiu v0,zero,ERR_OV_RSTACK
+    addiu v0,zero,ERR_RSTACK_OVF
     b bye2
     nop
 #endif    
@@ -253,7 +254,7 @@ next:
 #ifdef _CHECK_OPCODE    
 vm_bad_op:
     b bye2
-    addiu v0,zero,ERR_BADOP
+    addiu v0,zero,ERR_BAD_OPCODE
 #endif   
 
 _dict ABORT,"abort"    
@@ -267,7 +268,7 @@ bye:   // 'bye' ( -- ) exit virtual machine
     nop
     beq v0,zero,bye2
     nop
-    addiu v0,zero,ERR_DSTACK
+    addiu v0,zero,ERR_DSTACK_NOT_EMPTY
 bye2:
     lw  s0,36(sp)
     lw  s1,32(sp)

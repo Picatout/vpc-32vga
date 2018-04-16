@@ -399,8 +399,6 @@ static void print_token_info(){
 // messages d'erreurs correspondants à l'enumération BASIC_ERROR_CODES dans BASIC.h
 static  const char* error_msg[]={
     "Existing BASIC ",  
-    "VM bad operating code\n",
-    "VM exited with data stack not empty\n",
     "missing argument\n",
     "too much arguments\n",
     "bad argument\n",
@@ -418,6 +416,8 @@ static  const char* error_msg[]={
     "Can't use CONST inside sub-routine\n",
     "Unknow variable or constant\n",
     "File open error\n",
+    "VM bad operating code\n",
+    "VM exited with data stack not empty\n",
     "VM parameters stack overflow\n",
     "VM call stack overflow\n",
  };
@@ -426,11 +426,6 @@ static  const char* error_msg[]={
 static void throw(int error){
     char message[64];
     
-//    fat_close_all_files();
-    if (!error){
-        print(con,error_msg[error]);
-        
-    }else{
         crlf(con);
         if (activ_reader->device==eDEV_SDCARD){
             print(con,"line: ");
@@ -448,8 +443,7 @@ static void throw(int error){
         print_prog(program_end);
 #endif    
         activ_reader->eof=true;
-    }
-    longjmp(failed,error);
+        longjmp(failed,error);
 }
 
 
@@ -463,7 +457,7 @@ char* string_alloc(unsigned length){
     char *str;
     str=malloc(++length);
     if (!str){
-        throw(eERR_NO_STR);
+        throw(eERR_STR_ALLOC);
     }
     return str;
 }
@@ -606,7 +600,7 @@ static void patch_fore_jump(int slot_addr){
     int displacement;
     
     displacement=dptr-slot_addr-2;
-    if (displacement>32767){throw(eERR_OUT_RANGE);}
+    if (displacement>32767){throw(eERR_JUMP);}
     progspace[slot_addr++]=_byte0(displacement);
     progspace[slot_addr]=_byte1(displacement);
 }//f
@@ -618,32 +612,32 @@ static void patch_back_jump(int target_addr){
     int displacement;
     
     displacement=target_addr-dptr-2;
-    if (displacement<-32768){throw(eERR_OUT_RANGE);}
+    if (displacement<-32768){throw(eERR_JUMP);}
     progspace[dptr++]=_byte0(displacement);
     progspace[dptr++]=_byte1(displacement);
 }
 
 void cpush(uint32_t n){
-    if (csp==CTRL_STACK_SIZE){throw(eERR_STACK_OVER);}
+    if (csp==CTRL_STACK_SIZE){throw(eERR_CSTACK_OVER);}
     ctrl_stack[csp++]=n;
 }
 
 uint32_t cpop(){
-    if (!csp) {throw(eERR_STACK_UNDER);}
+    if (!csp) {throw(eERR_CSTACK_UNDER);}
     return ctrl_stack[--csp];
 }
 
 static void cdrop(){
-    if (!csp){throw(eERR_STACK_UNDER);}
+    if (!csp){throw(eERR_CSTACK_UNDER);}
     csp--;
 }
 
 // vérifie les limites de ctrl_stack
 static void ctrl_stack_check(){
     if (csp<0){
-        throw(eERR_STACK_UNDER);
+        throw(eERR_CSTACK_UNDER);
     }else if (csp==CTRL_STACK_SIZE){
-        throw(eERR_STACK_OVER);
+        throw(eERR_CSTACK_OVER);
     }
 }
 // rotation des 3 éléments supérieur de la pile de contrôle
@@ -1517,7 +1511,7 @@ static void kw_dim(){
     char var_name[32];
     var_t *new_var;
     
-    if (var_local) throw(eERR_NO_DIM);
+    if (var_local) throw(eERR_NOT_ARRAY);
     expect(eIDENT);
     while (token.id==eIDENT){
         if (var_search(token.str)) throw(eERR_REDEF);
@@ -1626,7 +1620,7 @@ static void kw_use(){
         activ_reader=old_reader;
         compiler_msg(COMP_END,NULL);
     }else{
-        throw(eERR_FILEOPEN);
+        throw(eERR_FILE_IO);
     }
 }//f
 
@@ -1656,7 +1650,7 @@ static void kw_const(){
     char name[32];
     var_t *var;
     
-    if (var_local) throw(eERR_NO_CONST);
+    if (var_local) throw(eERR_CONST_FORBID);
     expect(eIDENT);
     while (token.id==eIDENT){
         strcpy(name,token.str);
@@ -1760,10 +1754,11 @@ static void kw_timeout(){
 //quitte l'interpréteur
 static void kw_bye(){
     if (!complevel && (activ_reader->device==eDEV_KBD)){
+        print(con,error_msg[eERR_NONE]);
         exit_basic=true;
-        throw(eERR_NONE);
+    }else{
+        bytecode(IBYE);
     }
-    bytecode(IBYE);
 }//f
 
 // RETURN expression
@@ -2029,7 +2024,7 @@ static void compile_file(const char *file_name){
         run_it=true;
         compiler_msg(COMP_END,NULL);
     }else{
-        throw(eERR_FILEOPEN);
+        throw(eERR_FILE_IO);
     }
 }//f
 
@@ -2454,7 +2449,7 @@ static void array_let(char * name){
     char *adr;
     
     var=var_search(name);
-    if (!var || !var->array) throw(eERR_NOTARRAY);
+    if (!var || !var->array) throw(eERR_NOT_ARRAY);
     code_array_address(var);
     expect(eEQUAL);
     switch (var->vtype){
@@ -2708,7 +2703,7 @@ static void kw_let(){
     unget_token=true;
     if (token.id==eLPAREN){
         if (!var ||(var && !var->array)){
-            throw(eERR_NOTARRAY);
+            throw(eERR_NOT_ARRAY);
         }
     }
     if (!var){
@@ -2994,6 +2989,7 @@ static void print_cstack(){
 }
 #endif
 
+extern bool f_trace;
 
 void BASIC_shell(unsigned basic_heap, unsigned option, const char* file_or_string){
 
@@ -3021,27 +3017,28 @@ void BASIC_shell(unsigned basic_heap, unsigned option, const char* file_or_strin
         }
     }else if ((option==EXEC_STRING) || (option==EXEC_STAY)){
         sram_device_t *sram_file;
+        reader_t *sr_reader;
         int len;
 
         sram_file=malloc(sizeof(sram_device_t));
-        activ_reader=malloc(sizeof(reader_t));
+        sr_reader=malloc(sizeof(reader_t));
         sram_file->first=0;
         sram_file->pos=0;
         len=strlen(file_or_string)+1;
         sram_file->fsize=len;
         sram_write_block(0,file_or_string,len);
-        reader_init(activ_reader,eDEV_SPIRAM,sram_file);
+        reader_init(sr_reader,eDEV_SPIRAM,sram_file);
         if (!setjmp(failed)){
+            activ_reader=sr_reader;
             compile();
             exec_basic();
         }else{
             clear();
         }
-        free(activ_reader);
+        activ_reader=&std_reader;
         free(sram_file);
-        if (option==EXEC_STAY){
-            activ_reader=&std_reader;
-        }else{
+        free(sr_reader);
+        if (option==EXEC_STRING){
             exit_basic=true;
         }
     }
@@ -3064,9 +3061,7 @@ void BASIC_shell(unsigned basic_heap, unsigned option, const char* file_or_strin
         }// if (!setjump(failed))
     }//while(1)
     // désactive le mode trace avant de quitter.
-    _litc(0);
-    bytecode(ITRACE);
-    exec_basic();
+    f_trace=false;
     free_string_vars();
     free(progspace);
     free(pad);
