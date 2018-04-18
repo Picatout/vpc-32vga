@@ -94,6 +94,17 @@ FILINFO Finfo;
 // to be used on odd address fields
 #define ReadOddW( a, f) (*(a+f) + ( *(a+f+1) << 8))
 
+// files filter
+typedef enum {eNO_FILTER,eLIST_DIR,eACCEPT_END_WITH,eACCEPT_ANY_POS,
+        eACCEPT_SAME,eACCEPT_START_WITH} filter_enum;
+
+typedef struct{
+    char *subs; // sous-chaïne filtre.
+    filter_enum criteria; // critère
+}filter_t;
+
+extern const char *current_dir;
+
 // prototypes
 char mount(unsigned char);
 void unmount(void);
@@ -103,10 +114,16 @@ char isHidden(FILINFO file);
 char isSystem(FILINFO file);
 char isArchive(FILINFO file);
 
+//parse path and set filter and return directory part
+char* set_filter(filter_t *filter, char *path);
+//check  file_name against filter, return true if file accepted
+bool filter_accept(filter_t *filter,const char* text);
+
 //unsigned listTYPE(char *listname, long *listsize, int max, const char *ext);
 unsigned listTYPE(DIRTABLE *list, int max, const char *ext);
 //unsigned listTYPE(char *list, int max, const char *ext);
 
-unsigned listDir(const char *path);
+void print_fileinfo(FILINFO *fi);
+unsigned listDir(const char *path, filter_t *filter);
 
 #endif /* __FILEIO_H__ */

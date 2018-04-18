@@ -80,6 +80,15 @@ static void erase_var(env_var_t *var);
 static char* exec_script(const char *script);
 
 
+typedef struct{
+    const char *script; // chaîne à analyser
+    unsigned  len;  // longueur de la chaîne.
+    unsigned  next; // position du curseur de l'analyseur.
+    int err_pos;
+} parse_str_t;
+
+static void skip(parse_str_t *parse, const char *skip);
+
 static const char *ERR_MSG[]={
     "no error\n",
     "unknown command.\n",
@@ -114,19 +123,12 @@ void print_error_msg(SH_ERROR err_code,const char *detail,FRESULT io_code){
     }
 }//print_error_msg()
 
-typedef struct{
-    const char *script; // chaîne à analyser
-    unsigned  len;  // longueur de la chaîne.
-    unsigned  next; // position du curseur de l'analyseur.
-    int err_pos;
-} parse_str_t;
-
 
 static int nbr_cmd;
 
 typedef struct shell_cmd{
     char *name;
-    char *(*fn)(int,const char**);
+    char *(*fn)(int, char**);
 }shell_cmd_t;
 
 static const shell_cmd_t commands[];
@@ -155,7 +157,7 @@ static int search_command(const char *target){
     return i;
 }//search_command()
 
-static char* cmd_help(int tok_count, const char **tok_list){
+static char* cmd_help(int tok_count, char  **tok_list){
     int i;
     text_coord_t pos;
     for(i=0;i<nbr_cmd;i++){
@@ -172,14 +174,14 @@ static char* cmd_help(int tok_count, const char **tok_list){
     return NULL;
 }
 
-static char* cmd_cls(int tok_count, const char **tok_list){
+static char* cmd_cls(int tok_count, char  **tok_list){
     clear_screen(con);
     return NULL;
 }
 
 // calibration oscillateur du RTCC
 // +-127 ppm
-static char* cmd_clktrim(int tok_count, const char **tok_list){
+static char* cmd_clktrim(int tok_count, char  **tok_list){
     int trim;
     char fmt[64];
     if (tok_count>1){
@@ -201,7 +203,7 @@ static char* cmd_clktrim(int tok_count, const char **tok_list){
 
 // imprime le temps depuis
 // le démarrage de l'ordinateur
-static char* cmd_uptime(int tok_count, const char **tok_list){
+static char* cmd_uptime(int tok_count, char  **tok_list){
     unsigned sys_ticks;
     unsigned day,hour,min,sec,remainder;
     char fmt[32];
@@ -220,7 +222,7 @@ static char* cmd_uptime(int tok_count, const char **tok_list){
 }
 
 
-static char* cmd_format(int tok_count, const char **tok_list){
+static char* cmd_format(int tok_count, char  **tok_list){
     if (tok_count==2){
         print_error_msg(ERR_NOT_DONE,NULL,0);
     }else{
@@ -241,7 +243,7 @@ static void cmd_basic_help(){
 
 // basic [-h n] [fichier.bas]
 // -h -> espace réservé pour l'allocation dynamique 4096 octets par défaut.
-static char* cmd_basic(int tok_count, const char **tok_list){
+static char* cmd_basic(int tok_count, char  **tok_list){
     char *fmt=NULL, *basic_file=NULL;
     int i;
     unsigned heap=DEFAULT_HEAP;
@@ -281,7 +283,7 @@ static char* cmd_basic(int tok_count, const char **tok_list){
     return fmt;
 }
 
-static char* cmd_cd(int tok_count, const char **tok_list){ // change le répertoire courant.
+static char* cmd_cd(int tok_count, char  **tok_list){ // change le répertoire courant.
     char *path;
     if (!SDCardReady){
         if (!mount(0)){
@@ -309,7 +311,7 @@ static char* cmd_cd(int tok_count, const char **tok_list){ // change le répertoi
     return NULL;
 }//cmd_cd()
 
-static char* cmd_del(int tok_count, const char **tok_list){ // efface un fichier
+static char* cmd_del(int tok_count, char  **tok_list){ // efface un fichier
     FILINFO *fi;
     if (!SDCardReady){
         if (!mount(0)){
@@ -345,7 +347,7 @@ static char* cmd_del(int tok_count, const char **tok_list){ // efface un fichier
     return NULL;
 }//del()
 
-static char* cmd_ren(int tok_count, const char **tok_list){ // renomme un fichier
+static char* cmd_ren(int tok_count, char  **tok_list){ // renomme un fichier
     if (!SDCardReady){
         if (!mount(0)){
             print_error_msg(ERR_NO_SDCARD,NULL,0);
@@ -362,7 +364,7 @@ static char* cmd_ren(int tok_count, const char **tok_list){ // renomme un fichie
     return NULL;
 }//ren
 
-static char* cmd_copy(int tok_count, const char **tok_list){ // copie un fichier
+static char* cmd_copy(int tok_count, char  **tok_list){ // copie un fichier
     FIL *fsrc, *fnew;
     char *buff;
     int n;
@@ -410,7 +412,7 @@ static char* cmd_copy(int tok_count, const char **tok_list){ // copie un fichier
     return NULL;
 }//copy()
 
-static char* cmd_send(int tok_count, const char **tok_list){ // envoie un fichier via uart
+static char* cmd_send(int tok_count, char  **tok_list){ // envoie un fichier via uart
     // to do
    if (tok_count==2){
        print_error_msg(ERR_NOT_DONE,NULL,0);
@@ -420,7 +422,7 @@ static char* cmd_send(int tok_count, const char **tok_list){ // envoie un fichie
    return NULL;
 }//cmd_send()
 
-static char* cmd_receive(int tok_count, const char **tok_list){ // reçois un fichier via uart
+static char* cmd_receive(int tok_count, char  **tok_list){ // reçois un fichier via uart
     // to do
    if (tok_count==2){
        print_error_msg(ERR_NOT_DONE,NULL,0);
@@ -430,7 +432,7 @@ static char* cmd_receive(int tok_count, const char **tok_list){ // reçois un fic
    return NULL;
 }//cmd_receive()
 
-static char* cmd_hdump(int tok_count, const char **tok_list){ // affiche un fichier en hexadécimal
+static char* cmd_hdump(int tok_count, char  **tok_list){ // affiche un fichier en hexadécimal
     FIL *fh;
     unsigned char *fmt, *buff, *rbuff, c,key,line[18];
     int n,col=0,scr_line=0;
@@ -508,7 +510,7 @@ static char* cmd_hdump(int tok_count, const char **tok_list){ // affiche un fich
     return NULL;
 }//f
 
-static char* cmd_mount(int tok_count, const char **tok_list){// mount SDcard drive
+static char* cmd_mount(int tok_count, char  **tok_list){// mount SDcard drive
     if (!SDCardReady){
         if (!mount(0)){
             print_error_msg(ERR_NO_SDCARD,NULL,0);
@@ -520,14 +522,14 @@ static char* cmd_mount(int tok_count, const char **tok_list){// mount SDcard dri
     return NULL;
 }
 
-static char* cmd_umount(int tok_count, const char **tok_list){
+static char* cmd_umount(int tok_count, char  **tok_list){
     unmountSD();
     SDCardReady=FALSE;
     return NULL;
 }
 
 // affiche à l'écran le contenu d'un fichier texte
-static char* cmd_more(int tok_count, const char **tok_list){
+static char* cmd_more(int tok_count, char  **tok_list){
     FIL *fh;
     char *fmt, *buff, *rbuff, c, prev,key;
     int n,lcnt,colcnt=0;
@@ -591,7 +593,7 @@ static char* cmd_more(int tok_count, const char **tok_list){
     return NULL;
 }//more
 
-static char* cmd_edit(int tok_count, const char **tok_list){ // lance l'éditeur de texte
+static char* cmd_edit(int tok_count, char  **tok_list){ // lance l'éditeur de texte
     if (tok_count>1){
         editor(tok_list[1]);
     }else{
@@ -600,7 +602,7 @@ static char* cmd_edit(int tok_count, const char **tok_list){ // lance l'éditeur 
     return NULL;
 }//f
 
-static char* cmd_mkdir(int tok_count, const char **tok_list){
+static char* cmd_mkdir(int tok_count, char  **tok_list){
     FRESULT error=FR_OK;
     char *fmt;
     if (!SDCardReady){
@@ -629,48 +631,74 @@ static char* cmd_mkdir(int tok_count, const char **tok_list){
     return NULL;
 }// mkdir()
 
-static char* cmd_dir(int tok_count, const char **tok_list){
+
+// liste les fichiers 
+// S'il n'y a pas de spécification après la commande DIR affiche
+// les fichiers du répertoire courant.
+// S'il y a une spécification et qu'il s'agit d'un chemin de répertoire
+// affiche les fichiers de ce répertoire.
+// Si le chemin se termine par un filtre seul les fichiers
+// correspondant à ce filtre sont affichés.
+// filtre:
+//   *chaîne   Affiche les fichiers dont le nom se termine par "chaîne"
+//   chaîne*   Affiche les fichiers dont le nom débute par "chaîne"
+//   *chaîne*  Affiche les fichiers dont le nom contient "chaîne"
+//   chaine    Affiche les spécifications de ce fichier unique.
+static char* cmd_dir(int tok_count, char **tok_list){
     FRESULT error;
-    FIL *fh;
+    DIR *dir;
+    FILINFO *fi;
+    char *path;
+    
     char fmt[55];
+    filter_t *filter;
+    
     if (!SDCardReady){
         if (!mount(0)){
             print_error_msg(ERR_NO_SDCARD,NULL,0);
-            return;
+            return NULL;
         }else{
             SDCardReady=TRUE;
         }
     }
-    if (tok_count>1){
-        error=listDir(tok_list[1]);
-        if (error==FR_NO_PATH){// not a directory, try file
-            fh=malloc(sizeof(FIL));
-            if (fh && ((error=f_open(fh,tok_list[1],FA_READ))==FR_OK)){
-                sprintf(fmt,"File: %s, size %d bytes\n",tok_list[1],fh->fsize);
-                print(con,fmt);
-                f_close(fh);
-                free(fh);
-            }
-        }
-    }else{
-        error=listDir(".");
+    filter=malloc(sizeof(filter_t));
+    dir=malloc(sizeof(DIR));
+    fi=malloc(sizeof(FILINFO));
+    if (!(filter && dir && fi)){
+        free(dir);
+        free(filter);
+        print_error_msg(ERR_ALLOC,NULL,0);
+        return NULL;
     }
+    filter->criteria=eNO_FILTER;
+    if (tok_count>1){
+        path=set_filter(filter,tok_list[1]);// println(con,path); println(con,filter->subs);
+    }else{
+        path=current_dir;
+    }
+    error=listDir(path,filter);
+    if ((error==FR_NO_PATH) && (error=f_stat(path,fi)==FR_OK)){
+        print_fileinfo(fi);
+    }
+    free(fi);
+    free(dir);
+    free(filter);
     if (error) print_error_msg(ERR_FIO,"",error);
     return NULL;
 }//list_directory()
 
-static char* cmd_puts(int tok_count, const char **tok_list){
+static char* cmd_puts(int tok_count, char  **tok_list){
     print(con, "puts, to be done.\n");
     return NULL;
 }//puts()
 
-static char* cmd_expr(int tok_count, const char **tok_list){
+static char* cmd_expr(int tok_count, char  **tok_list){
     print(con, "expr, to be done.\n");
     return NULL;
 }//expr()
 
 //display heap status
-static char* cmd_free(int tok_count, const char **tok_list){
+static char* cmd_free(int tok_count, char  **tok_list){
     char *free_ram;
     free_ram=calloc(sizeof(char),80);
     sprintf(free_ram,"free RAM %d/%d BYTES\n",free_heap(),heap_size);
@@ -719,7 +747,7 @@ static void parse_date(char *date_str,sdate_t *date){
 
 // affiche ou saisie de la date
 // format saisie: [yy]yy/mm/dd
-static char* cmd_date(int tok_count, const char **tok_list){
+static char* cmd_date(int tok_count, char  **tok_list){
     char *fmt;
     sdate_t date;
     
@@ -736,7 +764,7 @@ static char* cmd_date(int tok_count, const char **tok_list){
 
 // affiche ou saisie de  l'heure
 // format saisie:  hh:mm:ss
-static char* cmd_time(int tok_count, const char **tok_list){
+static char* cmd_time(int tok_count, char  **tok_list){
     char *fmt;
     stime_t t;
     
@@ -774,7 +802,7 @@ static void report_alarms_state(){
     
 }
 
-static char* cmd_alarm(int tok_count, const char **tok_list){
+static char* cmd_alarm(int tok_count, char **tok_list){
     sdate_t date;
     stime_t time;
     char msg[32];
@@ -807,7 +835,7 @@ static char* cmd_alarm(int tok_count, const char **tok_list){
     return NULL;
 }
 
-static char* cmd_echo(int tok_count, const char **tok_list){
+static char* cmd_echo(int tok_count, char  **tok_list){
     int j;
     
     for (j=1;j<tok_count;j++){
@@ -817,7 +845,7 @@ static char* cmd_echo(int tok_count, const char **tok_list){
     return NULL;
 }
 
-static char* cmd_reboot(int tok_count, const char **tok_list){
+static char* cmd_reboot(int tok_count, char  **tok_list){
     asm("lui $t0, 0xbfc0"); // _on_reset
     asm("j  $t0\n nop");
 }
@@ -871,7 +899,7 @@ static void list_vars(){
     }
 }
 
-static char* cmd_set(int tok_count, const char **tok_list){
+static char* cmd_set(int tok_count, char  **tok_list){
     env_var_t *var;
     char *name, *value;
     if (tok_count>=2){
@@ -908,23 +936,23 @@ static char* cmd_set(int tok_count, const char **tok_list){
     return NULL;
 }
 
-static char *cmd_con(int tok_count, const char** tokens){
+static char *cmd_con(int tok_count, char** tok_list){
 #define DISPLAY_NAME (-2)
     char *result;
     int console_id=-1;
     
     result=malloc(80);
     if (tok_count==2){
-        if (!strcmp("local",tokens[1])){
+        if (!strcmp("local",tok_list[1])){
             console_id=VGA_CONSOLE;
-        }else if (!strcmp("serial",tokens[1])){
+        }else if (!strcmp("serial",tok_list[1])){
             if (vt_init()){
                 console_id=SERIAL_CONSOLE;
             }else{
                 sprintf(result,"switching console failed, VT terminal not ready\n");
                 return result;
             }
-        }else if (!strcmp("-n",tokens[1])){
+        }else if (!strcmp("-n",tok_list[1])){
             console_id=DISPLAY_NAME;
         }
     }
@@ -947,36 +975,46 @@ static char *cmd_con(int tok_count, const char** tokens){
     return result;
 }
 
-//charge compile et exécute
-// un fichier basic
-static char  *cmd_run(){
-//    struct fat_file_struct *fh;
-//    
-//    parse_filter();
-//    if (token.id==eNONE){
-//        if (!program_loaded)
-//            throw(eERR_MISSING_ARG);
-//        else
-//            run_it=true;
-//        return;
-//    }
-//    if (strchr(token.str,'*')) throw(eERR_BAD_ARG);
-//    if ((fh=fs_open_file(token.str))){
-//        reader_init(&file_reader,eDEV_SDCARD,fh);
-//        activ_reader=&file_reader;
-//        cmd_clear();
-//        compiler_msg(COMPILING,token.str);
-//        line_count=1;
-//        compile();
-//        fs_close_file(fh);
-//        activ_reader=&std_reader;
-//        program_loaded=true;
-//        program_end=dp;
-//        run_it=true;
-//        compiler_msg(COMP_END,NULL);
-//    }else{
-//        compiler_msg(COMP_FILE_ERROR,token.str);
-//    }
+static inline bool try_file_type(char *file_name,const char *ext){
+    return strstr(file_name,ext);
+}
+
+// run file
+// exécute un fichier basic (*.bas) ou binaire (*.com)
+// revient au shell de commandes à la sortie du programme.
+static char  *cmd_run(int tok_count, char** tok_list){
+    int err;
+    char fmt[80];
+    FILINFO fi;
+    FRESULT res;
+    
+    if (tok_count<2){
+        println(con,"missing argument");
+        println(con,"USAGE: run file_name");
+        return NULL;
+    }
+    uppercase(tok_list[1]);
+    if (try_file_type(tok_list[1],".BAS")){
+        BASIC_shell(DEFAULT_HEAP,EXEC_FILE,tok_list[1]);
+    }else if (try_file_type(tok_list[1],".COM")){
+        //to be done
+    }else{ 
+        if (!strchr(tok_list[1],'.')){
+            sprintf(fmt,"%s%s",tok_list[1],".BAS");
+            res=f_stat(fmt,&fi);
+            if (!res){
+                BASIC_shell(DEFAULT_HEAP,EXEC_FILE,fmt);
+            }else{
+                sprintf(fmt,"%s%s",tok_list[1],".COM");
+                res=f_stat(fmt,&fi);
+                if (!res){
+                    // to be done
+                }else{
+                    print_error_msg(ERR_NOT_CMD,tok_list[0],0);
+                }
+            }
+        }
+    } 
     return NULL;
 }//f
 
@@ -1018,14 +1056,26 @@ static const shell_cmd_t commands[]={
 static int nbr_cmd=sizeof(commands)/sizeof(shell_cmd_t);
 
 
-static char* execute_cmd(int tok_count, const char  **tok_list){
+static char *try_file(int tok_count, char **tok_list){
+    FILINFO fi;
+    FRESULT res;
+    
+    if (tok_count==1){
+        tok_list[1]=tok_list[0];
+        return cmd_run(2,tok_list);
+    }else{
+        print_error_msg(ERR_NOT_CMD,tok_list[0],0);
+    }
+    return NULL;
+}
+
+static char* execute_cmd(int tok_count, char  **tok_list){
     int cmd;
         cmd=search_command(tok_list[0]);
         if (cmd>=0){
             return commands[cmd].fn(tok_count,tok_list);
         }else{
-            print_error_msg(ERR_NOT_CMD,tok_list[0],0);
-            return NULL;
+            return try_file(tok_count,tok_list);
         }
 }// execute_cmd()
 
@@ -1315,7 +1365,7 @@ static char* exec_script(const char *script){
 
     tokens=tokenize(&tok_count,script);
     if (tok_count && tokens) {
-        result=execute_cmd(tok_count,(const char**)tokens);
+        result=execute_cmd(tok_count,(char **)tokens);
         free_tokens(tok_count,tokens);
         return result;
     } // if

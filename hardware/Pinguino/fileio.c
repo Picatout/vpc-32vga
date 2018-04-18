@@ -156,6 +156,100 @@ char SD_present(unsigned char pin) {
 	}
 }
 
+
+
+// retourne l'adresse du dernier slash ou NULL
+static char *last_slash(char *path){
+    int i=0;
+    char *last=NULL;
+    
+    while (path[i]){
+        if (path[i]=='/'){
+            last=&path[i];
+        }
+        i++;
+    }
+    return last;    
+}
+
+const char *current_dir=".";
+
+char* set_filter(filter_t *filter, char *path){
+    char *star, *slash, *file_spec;
+    
+    filter->criteria=eLIST_DIR;
+    
+    uppercase(path);
+    star=strchr(path,'*');
+    slash=last_slash(path);
+    if (!star && !slash){
+        return path;
+    }
+    if (star==path && path[1]==0){
+        path[0]='.';
+        return path;
+    }
+    if (slash){
+        file_spec=slash+1;
+        *slash=0;
+    }else{
+        file_spec=path;
+        path=current_dir;
+    }
+    if (file_spec[0]=='*'){
+        filter->criteria++;
+    }else{
+        filter->criteria=eACCEPT_SAME;
+    }
+    if (file_spec[strlen(file_spec)-1]=='*'){
+        file_spec[strlen(file_spec)-1]=0;
+        filter->criteria++;
+    }
+    switch(filter->criteria){
+        case eACCEPT_START_WITH:
+        case eACCEPT_SAME:
+            filter->subs=file_spec;
+            break;
+        case eACCEPT_END_WITH:
+        case eACCEPT_ANY_POS:
+            filter->subs=&file_spec[1];
+            break;
+        case eNO_FILTER:
+        case eLIST_DIR:
+            break;
+    }//switch
+    return path;
+}//f()
+
+
+bool filter_accept(filter_t *filter,const char* text){
+    bool result=false;
+    char temp[32];
+    
+    strcpy(temp,text);
+    uppercase(temp);
+    switch (filter->criteria){
+        case eACCEPT_SAME:
+            if (!strcmp(filter->subs,temp)) result=true;
+            break;
+        case eACCEPT_START_WITH:
+            if (strstr(temp,filter->subs)==temp) result=true;
+            break;
+        case eACCEPT_END_WITH:
+            if (strstr(temp,filter->subs)==temp+strlen(temp)-strlen(filter->subs)) result=true;
+            break;
+        case eACCEPT_ANY_POS:
+            if (strstr(temp,filter->subs)) result=true;
+            break;
+        case eLIST_DIR:
+        case eNO_FILTER:
+            result=true;
+            break;
+    }
+    return result;
+}//f()
+
+
 /*	----------------------------------------------------------------------------
  Scans the current disk and compiles a list of files with a given extension
  list     array of file names max * 8
@@ -173,8 +267,36 @@ unsigned listTYPE(DIRTABLE *list, int max, const char *ext)
 	return 0;
 } // listTYPE
 
+// imprime les informations sur le fichier
+void print_fileinfo(FILINFO *fi){
+    char fmt[64];
+    
+// what about other outputs ?
+    sprintf(fmt,"%c%c%c%c%c ",
+            (fi->fattrib & AM_DIR) ? 'D' : '-',
+            (fi->fattrib & AM_RDO) ? 'R' : '-',
+            (fi->fattrib & AM_HID) ? 'H' : '-',
+            (fi->fattrib & AM_SYS) ? 'S' : '-',
+            (fi->fattrib & AM_ARC) ? 'A' : '-');
+            print(con, fmt);
+    sprintf(fmt,"%u/%02u/%02u %02u:%02u ",
+            (fi->fdate >> 9) + 1980,
+            (fi->fdate >> 5) & 15, fi->fdate & 31, (fi->ftime >> 11),
+            (fi->ftime >> 5) & 63);
+            print(con, fmt);
+            sprintf(fmt," %9u ", fi->fsize);
+            print(con, fmt);
+    sprintf(fmt, " %-12s %s\n", fi->fname,
+#if _USE_LFN
+	Lfname);
+#else
+    "");
+#endif
+    print(con,fmt);
+}
+
 /* Prints the directory contents */
-unsigned listDir(const char *path) {
+unsigned listDir(const char *path, filter_t *filter) {
 	//TODO: remove all CDC references
 	long p1;
 	PF_BYTE res, b;
@@ -196,50 +318,31 @@ unsigned listDir(const char *path) {
             return res;
         }
         while (!res) {
-		res = f_readdir(&dir, &Finfo);
+            res = f_readdir(&dir, &Finfo);
 #ifdef SD_DEBUG
-//		put_rc(res);
+//          put_rc(res);
 #endif
-		if ((res != FR_OK) || !Finfo.fname[0]) {
-			break;
-		}
-		if (Finfo.fattrib & AM_DIR) {
-			s2++;
-		} else {
-			s1++;
-			p1 += Finfo.fsize;
-		}
-// what about other outputs ?
-		sprintf(fmt,"%c%c%c%c%c ",
-                (Finfo.fattrib & AM_DIR) ? 'D' : '-',
-				(Finfo.fattrib & AM_RDO) ? 'R' : '-',
-				(Finfo.fattrib & AM_HID) ? 'H' : '-',
-				(Finfo.fattrib & AM_SYS) ? 'S' : '-',
-				(Finfo.fattrib & AM_ARC) ? 'A' : '-');
-                print(con, fmt);
-		sprintf(fmt,"%u/%02u/%02u %02u:%02u ",
-                (Finfo.fdate >> 9) + 1980,
-				(Finfo.fdate >> 5) & 15, Finfo.fdate & 31, (Finfo.ftime >> 11),
-				(Finfo.ftime >> 5) & 63);
-                print(con, fmt);
-                sprintf(fmt," %9u ", Finfo.fsize);
-                print(con, fmt);
-		sprintf(fmt, " %-12s %s\n", Finfo.fname,
-#if _USE_LFN
-				Lfname);
-#else
-				"");
-#endif
-                print(con,fmt);
-	}
+            if ((res != FR_OK) || !Finfo.fname[0]) {
+                break;
+            }
+            if (filter_accept(filter,Finfo.fname)){
+                if (Finfo.fattrib & AM_DIR) {
+                    s2++;
+                } else {
+                    s1++;
+                    p1 += Finfo.fsize;
+                }
+                print_fileinfo(&Finfo);
+            }
+        }// while (!res)
+        if (res=FR_NO_FILE){
+            res=FR_OK;
+        }
         if (!res){
             sprintf(fmt, "\nfile count %d\ndirectory count %d\ntotal size %d\n",s1,s2,p1);
             print(con, fmt);
         }else{
-            if (fmt){
-                    sprintf(fmt,"file i/o error code: %d\n", res);
-                    print(con, fmt);
-            }else{
+            if (!fmt){
                 print(con,"Memory allocation error.\n");
             }
         }

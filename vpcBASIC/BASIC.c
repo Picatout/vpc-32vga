@@ -3010,6 +3010,7 @@ void BASIC_shell(unsigned basic_heap, unsigned option, const char* file_or_strin
     if (option==EXEC_FILE){
         if (!setjmp(failed)){
             run_file(file_or_string);
+            exit_basic=true;
         }else{
             clear();
             reader_init(&std_reader,eDEV_KBD,NULL);

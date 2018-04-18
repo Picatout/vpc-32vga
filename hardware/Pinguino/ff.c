@@ -2941,7 +2941,7 @@ FILINFO *fno /* Pointer to file information to return */
 			res = dir_read(dj); /* Read an directory item */
 			if (res == FR_NO_FILE) { /* Reached end of dir */
 				dj->sect = 0;
-				res = FR_OK;
+			//	res = FR_OK;
 			}
 			if (res == FR_OK) { /* A valid entry is found */
 				get_fileinfo(dj, fno); /* Get the object information */

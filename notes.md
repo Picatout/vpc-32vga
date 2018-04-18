@@ -1,3 +1,15 @@
+2018-04-17
+----------
+1. compléter modification à la commande shell:dir.
+2. apporté des modifications a fileio en déplacant les fonctions filtre dans ce module.
+
+2018-04-16
+----------
+1. Corrigé bogue dans **BASIC_shell()**. Modifier **kw_bye()**. Rendue la variable **vm:f_trace**
+   globale pour l'accéder directement dans BASIC_shell().
+2. Extrait de fileio:listDir() l'impression de Finfo pour en faire une procédure exportée. print_fileinfo().
+3. Modification de shell:cmd_dir() pour accepter le caractère wildcard dans les noms de fihiers.
+
 2018-04-15
 ----------
 1. Modification de vm:mslash, ne requière plus math:mdiv(), le module math a été supprimé du projet.

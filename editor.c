@@ -220,9 +220,12 @@ static void leave_editor(){
 }
  
 static void list_files(){
+    filter_t filter;
+    
+    filter.criteria=eNO_FILTER;
     clear_screen(con);
     invert_display(true);
-    listDir(".");
+    listDir(".",&filter);
     prompt_continue();
     invert_display(false);
     clear_screen(con);
