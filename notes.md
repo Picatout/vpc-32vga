@@ -1,3 +1,13 @@
+2018-04-18
+----------
+1. Ajout de la directive DECLARE dans vpcBASIC.
+2. Renommé PAUSE en SLEEP,  TONE en SOUND comme dans QBASIC
+3. Ajout de STR$() et VAL() pour conversion entre chaîne et numérique (i.e. QBASIC).
+4. Modification de arg_parse_list().
+5. Modification à var_t pour ajouter le champ **local**
+a faire: revoie la façon dont le compilateur traite les variables locales.
+a faire: Ajout du support pour les nombres à virgules flotantes dans vpcBASIC.
+
 2018-04-17
 ----------
 1. compléter modification à la commande shell:dir.

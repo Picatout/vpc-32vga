@@ -823,7 +823,7 @@ dot: // "." ( n -- ) imprime un entier en format libre
     move a2,zero
     _drop_b_next
     
-_dict PAUSE ,"pause"   
+_dict SLEEP ,"sleep"   
 delay: // 'delay' ( msec -- ) delais en millisecondes
     jal delay_ms
     move a0,T
@@ -1019,8 +1019,8 @@ trunc: // ( f -- i)
     b next
     move T, v0
 
-_dict TONE, "tone"
-beep: // ( freq,duration,f -- ) fait entendre une tonalitée
+_dict SOUND, "sound"
+sound: // ( freq,duration,f -- ) fait entendre une tonalitée
     lw a0,-2*CELL_SIZE(dp)
     jal tone
     lw a1,-CELL_SIZE(dp)
@@ -1066,7 +1066,7 @@ trace: // ( f -- )
     sw T,0(t0)
     _drop_b_next
   
-_dict STRADR , "adr!"   
+_dict STRADR , "$adr"   
 // retourne l'adresse de la chaîne imbriquée dans le code
 // ip pointe la chaîne
 str_adr: // ( -- addr )    
@@ -1112,6 +1112,30 @@ to_int: // addr -- n )
     b next
     move T,v0
 
+_dict STR,"str$"
+// convertie un entier en chaîne    
+to_str: // ( n buf -- str* )
+    li a2,10
+    lw a1,-CELL_SIZE(dp)
+    jal itoa
+    move a0,T
+    move T,v0
+    jal strlen
+    move a0,v0
+    jal malloc
+    addiu a0,v0,1
+    beqz v0,1f
+    move a0,v0
+    jal strcpy
+    move a1,T
+    addiu dp,dp,-CELL_SIZE
+    b next
+    move T,v0
+1:  // échec de malloc
+    b abort
+    addiu T,zero,ERR_ALLOC
+   
+    
 _dict ALLOC, "var_alloc"    
 // alloue de la mémoire dans l'espace progamme.
 // n taille en octets
@@ -1580,7 +1604,7 @@ opcodes_table:
 .word equal,nequal, less, greater,lteq,gteq,forsave,forrest,for,fortest,fornext
 .word randomize,random
 .word key,qrx,emit,prt_str,cr,dot,type,vm_spaces
-.word beep,melody,clr_scr,array_bound    
+.word sound,melody,clr_scr,array_bound    
 .word local_store,local_fetch,local_addr,set_frame,sr_call,leave,lc_space
 .word trace,str_adr,str_len,readln,to_int,alloc,str_alloc,str_free,str_cpy
 .word curline,curcolon,setcursor
@@ -1588,7 +1612,7 @@ opcodes_table:
 .word get_pixel,put_pixel,xor_pixel,vm_line,vm_rectangle,vm_box,vm_circle,vm_ellipse
 .word vm_polygon,vm_fill,put_sprite,vgacls    
 .word sram_clear,sram_read,sram_write,save_screen,rest_screen,vm_sram_load,vm_sram_save
-.word mslash
+.word mslash,to_str
     
     
 bad_op: 

@@ -85,6 +85,9 @@ static char *pad; // tampon de travail
 
 extern int complevel;
 
+// utilisé comme code par défaut pour les DECLARE SUB|FUNC
+const uint8_t undefined_sub[3]={ICLIT,eERR_NOT_DEFINED,IABORT};
+
 static uint8_t *progspace; // espace programme.
 static unsigned dptr; //data pointer
 static void* endmark; // pointeur dernière variable globale
@@ -125,7 +128,7 @@ typedef struct{
 
 
 
-typedef enum {eVAR_INT,eVAR_STR,eVAR_SUB,eVAR_FUNC,eVAR_LOCAL,eVAR_BYTE,eVAR_FLOAT
+typedef enum {eVAR_INT,eVAR_STR,eVAR_SUB,eVAR_FUNC,eVAR_BYTE,eVAR_FLOAT
              }var_type_e;
 
 typedef struct _var{
@@ -133,7 +136,8 @@ typedef struct _var{
     uint16_t len:5; // longueur du nom
     uint16_t ro:1; // booléen, c'est une constante
     uint16_t array:1; // booléen, c'est un tableau
-    uint16_t vtype:4; // var_type_e
+    uint16_t local:1; // bookéen, c'est une variable locale.
+    uint16_t vtype:3; // var_type_e
     uint16_t dim:5; // nombre de dimension du tableau ou nombre arguments FUNC|SUB
     char *name;  // nom de la variable
     union{
@@ -176,6 +180,7 @@ static void kw_cls();
 static void kw_const();
 static void kw_curcol();
 static void kw_curline();
+static void kw_declare();
 static void kw_dim();
 static void kw_do();
 static void kw_ellipse();
@@ -202,7 +207,6 @@ static void kw_max();
 static void kw_mdiv();
 static void kw_min();
 static void kw_next();
-static void kw_pause();
 static void kw_polygon();
 static void kw_print();
 static void kw_putc();
@@ -222,22 +226,25 @@ static void kw_setpixel();
 static void kw_set_timer();
 static void kw_shl();
 static void kw_shr();
+static void kw_sleep();
+static void kw_sound();
 static void kw_sprite();
 static void kw_srclear();
 static void kw_srload();
 static void kw_srread();
 static void kw_srsave();
 static void kw_srwrite();
+static void kw_string();
 static void kw_sub();
 static void kw_then();
 static void kw_ticks();
 static void kw_timeout();
-static void kw_tone();
 static void kw_tkey();
 static void kw_trace();
 static void kw_tune();
 static void kw_ubound();
 static void kw_use();
+static void kw_val();
 static void kw_vgacls();
 static void kw_waitkey();
 static void kw_wend();
@@ -260,6 +267,8 @@ void string_free(char *);
 static void compile();
 static void bool_expression();
 static void compile_file(const char *file_name);
+static var_t *var_search(const char* name);
+static void literal_string(char *lit_str);
 
 #ifdef DEBUG
 static void print_prog(int start);
@@ -269,15 +278,17 @@ static void print_cstack();
 //identifiant KEYWORD doit-être dans le même ordre que
 //dans la liste KEYWORD
 enum {eKW_ABS,eKW_AND,eKW_BOX,eKW_BTEST,eKW_BYE,eKW_CASE,eKW_CIRCLE,eKW_CLEAR,eKW_CLS,
-      eKW_CONST,eKW_CURCOL,eKW_CURLINE,eKW_DIM,eKW_DO,eKW_ELLIPSE,eKW_ELSE,eKW_END,eKW_EXIT,eKW_FILL,
+      eKW_CONST,eKW_CURCOL,eKW_CURLINE,eKW_DECLARE,eKW_DIM,eKW_DO,eKW_ELLIPSE,eKW_ELSE,
+      eKW_END,eKW_EXIT,eKW_FILL,
       eKW_FOR,eKW_FREE,eKW_FUNC,eKW_GETPIXEL,eKW_IF,eKW_INPUT,eKW_INSERTLN,eKW_INVVID,eKW_KEY,eKW_LEN,
       eKW_LET,eKW_LINE,eKW_LOCAL,eKW_LOCATE,eKW_LOOP,eKW_MAX,eKW_MDIV,eKW_MIN,eKW_NEXT,
-      eKW_NOT,eKW_OR,eKW_PAUSE,eKW_POLYGON,
+      eKW_NOT,eKW_OR,eKW_POLYGON,
       eKW_PRINT,eKW_PUTC,eKW_RANDOMISIZE,eKW_RECT,eKW_REF,eKW_REM,eKW_RESTSCR,
       eKW_RETURN,eKW_RND,eKW_RUN,eKW_SAVESCR,eKW_SCRLUP,eKW_SCRLDN,
-      eKW_SELECT,eKW_SETPIXEL,eKW_SETTMR,eKW_SHL,eKW_SHR,
-      eKW_SPRITE,eKW_SRCLEAR,eKW_SRLOAD,eKW_SRREAD,eKW_SRSSAVE,eKW_SRWRITE,eKW_SUB,eKW_THEN,eKW_TICKS,
-      eKW_TIMEOUT,eKW_TONE,eKW_TKEY,eKW_TRACE,eKW_TUNE,eKW_UBOUND,eKW_UNTIL,eKW_USE,eKW_VGACLS,
+      eKW_SELECT,eKW_SETPIXEL,eKW_SETTMR,eKW_SHL,eKW_SHR,eKW_SLEEP,eKW_SOUND,
+      eKW_SPRITE,eKW_SRCLEAR,eKW_SRLOAD,eKW_SRREAD,eKW_SRSSAVE,eKW_SRWRITE,eKW_STR,
+      eKW_SUB,eKW_THEN,eKW_TICKS,
+      eKW_TIMEOUT,eKW_TKEY,eKW_TRACE,eKW_TUNE,eKW_UBOUND,eKW_UNTIL,eKW_USE,eKW_VAL,eKW_VGACLS,
       eKW_WAITKEY,eKW_WEND,eKW_WHILE,eKW_XOR,eKW_XORPIXEL
 };
 
@@ -295,6 +306,7 @@ static const dict_entry_t KEYWORD[]={
     {kw_const,5,"CONST"},
     {kw_curcol,6+FUNCTION,"CURCOL"},
     {kw_curline,7+FUNCTION,"CURLINE"},
+    {kw_declare,7,"DECLARE"},
     {kw_dim,3,"DIM"},
     {kw_do,2,"DO"},
     {kw_ellipse,7,"ELLIPSE"},
@@ -323,7 +335,6 @@ static const dict_entry_t KEYWORD[]={
     {kw_next,4,"NEXT"},
     {bad_syntax,3,"NOT"},
     {bad_syntax,2,"OR"},
-    {kw_pause,5,"PAUSE"},
     {kw_polygon,7,"POLYGON"},
     {kw_print,5,"PRINT"},
     {kw_putc,4,"PUTC"},
@@ -343,23 +354,26 @@ static const dict_entry_t KEYWORD[]={
     {kw_set_timer,6,"SETTMR"},
     {kw_shl,3+FUNCTION,"SHL"},
     {kw_shr,3+FUNCTION,"SHR"},
+    {kw_sleep,5,"SLEEP"},
+    {kw_sound,5,"SOUND"},
     {kw_sprite,6,"SPRITE"},
     {kw_srclear,7,"SRCLEAR"},
     {kw_srload,6+FUNCTION,"SRLOAD"},
     {kw_srread,6,"SRREAD"},
     {kw_srsave,6+FUNCTION,"SRSAVE"},
     {kw_srwrite,7,"SRWRITE"},
+    {kw_string,4+FUNCTION,"STR$"},
     {kw_sub,3,"SUB"},
     {kw_then,4,"THEN"},
     {kw_ticks,5+FUNCTION,"TICKS"},
     {kw_timeout,7+FUNCTION,"TIMEOUT"},
-    {kw_tone,4,"TONE"},
     {kw_tkey,4+FUNCTION,"TKEY"},
     {kw_trace,5,"TRACE"},
     {kw_tune,4,"TUNE"},
     {kw_ubound,6+FUNCTION,"UBOUND"},
     {bad_syntax,5,"UNTIL"},
     {kw_use,3,"USE"},
+    {kw_val,3+FUNCTION,"VAL"},
     {kw_vgacls,6,"VGACLS"},
     {kw_waitkey,7+FUNCTION,"WAITKEY"},
     {kw_wend,4,"WEND"},
@@ -414,6 +428,9 @@ static  const char* error_msg[]={
     "no more string space available\n",
     "Can't use DIM inside sub-routine\n",
     "Can't use CONST inside sub-routine\n",
+    "Duplicate identifier\n",
+    "Call to an undefined sub-routine\n",
+    "Parameters count disagree with DECLARE\n",
     "Unknow variable or constant\n",
     "File open error\n",
     "VM bad operating code\n",
@@ -519,8 +536,11 @@ static var_t *var_create(char *name, void *value){
     var_t *newvar=NULL;
     void *varname=NULL;
     
-    len=min(31,strlen(name));
-    
+    len=strlen(name);
+    newvar=var_search(name);
+    if (newvar){
+        throw(eERR_DUPLICATE);
+    }
     newend=endmark;
     newvar=alloc_var_space(sizeof(var_t));
     newend=newvar;
@@ -530,32 +550,44 @@ static var_t *var_create(char *name, void *value){
     newvar->ro=false;
     newvar->array=false;
     newvar->dim=0;
-    if (name[strlen(name)-1]=='$'){ // variable chaine
-        if (value){
-            newvar->str=alloc_var_space(strlen(value)+1);
-            newend=newvar->adr;
-            strcpy(newvar->str,value);
+    newvar->local=false;
+    if (var_local){
+        newvar->local=true;
+        newvar->n=*(int*)value;
+        switch(name[len-1]){
+            case '$':
+                newvar->vtype=eVAR_STR;
+                break;
+            case '#':
+                newvar->vtype=eVAR_BYTE;
+                break;
+            default:
+                newvar->vtype=eVAR_INT;
         }
-        else{
-            newvar->str=NULL;
-        }
-        newvar->vtype=eVAR_STR;
-    }else if (name[strlen(name)-1]=='#'){ // variable octet
-        newvar->vtype=eVAR_BYTE;
-        if (value)
-            newvar->byte=*((uint8_t*)value);
-        else
-            newvar->byte=0;
-    }else{// entier 32 bits
-        if (var_local){ 
-            newvar->vtype=eVAR_LOCAL;
-        }else{ 
+    }else{
+        if (name[len-1]=='$'){ // variable chaine
+            if (value){
+                newvar->str=alloc_var_space(strlen(value)+1);
+                newend=newvar->adr;
+                strcpy(newvar->str,value);
+            }
+            else{
+                newvar->str=NULL;
+            }
+            newvar->vtype=eVAR_STR;
+        }else if (name[len-1]=='#'){ // variable octet
+            newvar->vtype=eVAR_BYTE;
+            if (value)
+                newvar->byte=*((uint8_t*)value);
+            else
+                newvar->byte=0;
+        }else{// entier 32 bits
             newvar->vtype=eVAR_INT;
-        }
-        if (value){
-            newvar->n=*((int*)value);
-        }else{
-            newvar->n=0;
+            if (value){
+                newvar->n=*((int*)value);
+            }else{
+                newvar->n=0;
+            }
         }
     }
     endmark=newend;
@@ -1089,39 +1121,79 @@ static void code_array_address(var_t *var){
 static void code_var_address(var_t *var){
     if (var->array){
         code_array_address(var);
+        bytecode((uint8_t)var->n);
     }else{
-        switch(var->vtype){
-            case eVAR_STR:
-                lit((uint32_t)&var->str);
-                break;
-            case eVAR_INT:
-            case eVAR_BYTE:
-            case eVAR_FLOAT:
-                lit((uint32_t)&var->n);
-                break;
-            case eVAR_LOCAL:
-                bytecode(ILCADR);
-                bytecode((uint8_t)var->n);
-                break;
-            case eVAR_SUB:
-            case eVAR_FUNC:
-                lit(((uint32_t)&var->adr));
-                break;
+        if (var->local){
+            bytecode(ILCADR);
+            bytecode((uint8_t)var->n);
+        }else{
+            lit((uint32_t)&var->adr);
         }
+//        switch(var->vtype){
+//            case eVAR_STR:
+//                lit((uint32_t)&var->str);
+//                break;
+//            case eVAR_INT:
+//            case eVAR_BYTE:
+//            case eVAR_FLOAT:
+//                lit((uint32_t)&var->n);
+//                break;
+//            case eVAR_LOCAL:
+//                bytecode(ILCADR);
+//                bytecode((uint8_t)var->n);
+//                break;
+//            case eVAR_SUB:
+//            case eVAR_FUNC:
+//                lit(((uint32_t)&var->adr));
+//                break;
+//        }
     }
+}
+
+//vérifie si le dernier token est une variable chaîne.
+// compile l'adresse de la chaîne si c'est le cas et retourne vrai.
+// sinon retourne faux.
+static bool try_string_var(){
+    var_t *var;
+    
+    var=var_search(token.str);
+    if (var && (var->vtype==eVAR_STR)){
+        code_var_address(var);
+        bytecode(IFETCH);
+        return true;
+    }
+    return false;
 }
 
 static void parse_arg_list(unsigned arg_count){
     int count=0;
     expect(eLPAREN);
     next_token();
+    char *lit_str;
+    
     if (token.id==eRPAREN){
         if (arg_count) throw(eERR_MISSING_ARG);
         return;
     }
-    unget_token=true;
+    //unget_token=true;
     do{
-        expression();
+        switch (token.id){
+            case eIDENT:
+                if (!try_string_var()){
+                    unget_token=true;
+                    expression();
+                }
+                break;
+            case eSTRING:
+                lit_str=alloc_var_space(strlen(token.str)+1);
+                strcpy(lit_str,token.str);
+                lit((uint32_t)lit_str);
+                break;
+            default:
+                unget_token=true;
+                expression();
+                break;
+        }
         count++;
         next_token();
     }while (token.id==eCOMMA);
@@ -1160,7 +1232,6 @@ static void factor(){
                         code_var_address(var);
                         bytecode(ICFETCH);
                         break;
-                    case eVAR_LOCAL:
                     case eVAR_INT:
                     case eVAR_FLOAT:
                         code_var_address(var);
@@ -1549,6 +1620,50 @@ static void kw_dim(){
     unget_token=true;
 }//f
 
+static int count_arg(){
+    int count=0;
+    expect(eLPAREN);
+    next_token();
+    while (token.id!=eRPAREN){
+        if (token.id!=eIDENT){
+            throw(eERR_SYNTAX);
+        }
+        count++;
+        next_token();
+        if (token.id==eCOMMA){
+            next_token();
+        }else if (token.id!=eRPAREN){
+            throw(eERR_SYNTAX);
+        }
+    }
+    return count;
+}
+
+// DECLARE  SUB|FUNC name(liste-arg)
+static void kw_declare(){
+    char *name;
+    var_t *var;
+    int var_type;
+    
+    expect(eKWORD);
+    switch(token.n){
+        case eKW_SUB:
+            var_type=eVAR_SUB;
+            break;
+        case eKW_FUNC:
+            var_type=eVAR_FUNC;
+            break;
+        default:
+            throw(eERR_SYNTAX);
+    }
+    expect(eIDENT);
+    var=var_create(token.str,NULL);
+    var->vtype=var_type;
+    var->adr=(void*)undefined_sub;
+    var->dim=count_arg();
+}
+
+
 //passe une variable par référence
 static void kw_ref(){
     var_t *var;
@@ -1705,11 +1820,11 @@ static void kw_btest(){
     bytecode(IBTEST);
 }//f
 
-//TONE(freq,msec,attend)
+//SOUND(freq,msec,attend)
 //fait entendre un note de la gamme tempérée
-static void kw_tone(){
+static void kw_sound(){
     parse_arg_list(3);
-    bytecode(ITONE);
+    bytecode(ISOUND);
 }//f
 
 //TUNE(@array)
@@ -1719,12 +1834,12 @@ static void kw_tune(){
     bytecode(ITUNE);
 }
 
-//PAUSE(msec)
+//SLEEP(msec)
 // suspend exécution
 // argument en millisecondes
-static void kw_pause(){
+static void kw_sleep(){
     parse_arg_list(1);
-    bytecode(IDELAY);
+    bytecode(ISLEEP);
 }//f
 
 //TICKS()
@@ -2240,12 +2355,13 @@ static void kw_for(){
     bytecode(IFOR); // sauvegarde limit et step qui sont sur la pile
     var=var_search(name);
     cpush(dptr);  // adresse cible instruction FORTEST de la boucle for.
-    if (var->vtype==eVAR_LOCAL){
-        bytecode(ILCADR);
-        bytecode(var->n);
-    }else{
-        lit((uint32_t)&var->n);
-    }
+    code_var_address(var);
+//    if (var->vtype==eVAR_LOCAL){
+//        bytecode(ILCADR);
+//        bytecode(var->n);
+//    }else{
+//        lit((uint32_t)&var->n);
+//    }
     bytecode(IFETCH);
     bytecode(IFORTEST);
     bytecode(IQBRAZ);
@@ -2259,13 +2375,14 @@ static void kw_next(){
     
     expect(eIDENT);
     var=var_search(token.str);
-    if (!(var && ((var->vtype==eVAR_INT) || (var->vtype==eVAR_LOCAL)))) throw(eERR_BAD_ARG);
-    if (var->vtype==eVAR_LOCAL){
-        bytecode(ILCADR);
-        bytecode(var->n);
-    }else{
-        lit((uint32_t)&var->adr);
-    }
+    if (!(var && ((var->vtype==eVAR_INT)))) throw(eERR_BAD_ARG);
+    code_var_address(var);
+//    if (var->vtype==eVAR_LOCAL){
+//        bytecode(ILCADR);
+//        bytecode(var->n);
+//    }else{
+//        lit((uint32_t)&var->adr);
+//    }
     bytecode(IFORNEXT);
     bytecode(IBRA);
     patch_back_jump(_cnext()); //saut arrière vers FORTEST
@@ -2481,17 +2598,12 @@ static void store_integer(var_t *var){
     if (var->ro){
         throw(eERR_REDEF);
     }
+    code_var_address(var);
     switch(var->vtype){
-        case eVAR_LOCAL:
-            bytecode(ILCSTORE);
-            bytecode(var->n);
-            break;
         case eVAR_INT:
-            lit(((uint32_t)(int*)&var->n));
             bytecode(ISTORE);
             break;
         case eVAR_BYTE:
-            lit(((uint32_t)(int*)&var->n));
             bytecode(ICSTORE);
             break;
         default:
@@ -2598,7 +2710,6 @@ static void kw_input(){
                 bytecode(ISWAP);
                 bytecode(ISTORE);
                 break;
-            case eVAR_LOCAL:
             case eVAR_INT:
             case eVAR_BYTE:
                 compile_input(var);
@@ -2676,6 +2787,13 @@ static void code_let_string(var_t *var){
             patch_fore_jump(cpop());
             patch_fore_jump(cpop());
             break;
+        case eKWORD:
+            if ((KEYWORD[token.n].len&FUNCTION) && !strcmp(KEYWORD[token.n].name,token.str)){
+                KEYWORD[token.n].cfn();
+            }else{
+                throw(eERR_SYNTAX);
+            }
+            break;
         default:
             throw(eERR_BAD_ARG);
     }//switch
@@ -2718,7 +2836,6 @@ static void kw_let(){
         case eVAR_INT: 
         case eVAR_BYTE:
         case eVAR_FLOAT:
-        case eVAR_LOCAL:
             expression();
             bytecode(ISWAP);
             if (var->vtype==eVAR_BYTE){
@@ -2775,9 +2892,21 @@ static void kw_print(){
             case eIDENT:
                 var=var_search(token.str);
                 if (!var) throw(eERR_UNKNOWN);
-                if (var->vtype==eVAR_STR){
+                if (var->vtype==eVAR_STR){ 
                     code_var_address(var);
                     bytecode(IFETCH);
+                    bytecode(ITYPE);
+                    _litc(1);
+                    bytecode(ISPACES);
+                }else{
+                    unget_token=true;
+                    expression();
+                    bytecode(IDOT);
+                }
+                break;
+            case eKWORD:
+                if (!strcmp(KEYWORD[token.n].name,"STR$")){
+                    KEYWORD[token.n].cfn();
                     bytecode(ITYPE);
                     _litc(1);
                     bytecode(ISPACES);
@@ -2857,22 +2986,36 @@ static uint8_t create_arg_list(){
 //du code.
 static void subrtn_create(int var_type, int blockend){
     var_t *var;
-
+    int arg_count;
+    bool declared=true;
+    
     if (var_local) throw(eERR_SYNTAX);
     expect(eIDENT);
     if (token.str[strlen(token.str)-1]=='$') throw(eERR_SYNTAX);
     var=var_search(token.str);
-    if (var) throw(eERR_REDEF);
-    var=var_create(token.str,NULL);
-    var->vtype=var_type;
-    var->adr=(void*)&progspace[dptr];
-    globals=varlist;
-    var_local=true;
-    cpush((uint32_t)endmark);
-    complevel++;
-    cpush(blockend);
-    cpush((uint32_t)var);
-    var->dim=create_arg_list();
+    if (!var){
+        var=var_create(token.str,NULL);
+        var->vtype=var_type;
+        var->adr=(void*)undefined_sub;
+        var->dim=0;
+        declared=false;
+    }
+    if ((var->vtype==var_type) && (var->adr==(void*)undefined_sub)){
+        var->adr=(void*)&progspace[dptr];
+        globals=varlist;
+        var_local=true;
+        cpush((uint32_t)endmark);
+        complevel++;
+        cpush(blockend);
+        cpush((uint32_t)var);
+        arg_count=create_arg_list();
+        if (declared && arg_count!=var->dim){
+            throw(eERR_BAD_ARG_COUNT);
+        }
+        var->dim=arg_count;
+    }else{
+        throw(eERR_DUPLICATE);
+    }
 }//f
 
 // FUNC identifier (arg_list)
@@ -2882,6 +3025,21 @@ static void subrtn_create(int var_type, int blockend){
 static void kw_func(){
     subrtn_create(eVAR_FUNC,eKW_FUNC);
 }//f
+
+//STR$(expression)
+//convertie une expression numérique en chaîne
+static void kw_string(){
+    parse_arg_list(1);
+    lit((uint32_t)pad);
+    bytecode(I2STR);
+}
+
+//VAL(chaîne|var$)
+// convertie une valeur châine en entier
+static void kw_val(){
+    parse_arg_list(1);
+    bytecode(I2INT);
+}
 
 // SUB idientifier (arg_list)
 //  bloc_instructions

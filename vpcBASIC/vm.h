@@ -45,7 +45,7 @@ enum OP_CODES{
  IBOOL_OR,
  IBOOL_AND,
  ITICKS ,
- IDELAY , 
+ ISLEEP, 
  IQDUP  , 
  IPLUS1 ,
  IMINUS1 ,
@@ -79,7 +79,7 @@ enum OP_CODES{
  IDOT,
  ITYPE, 
  ISPACES,
- ITONE,
+ ISOUND,
  ITUNE,
  ICLS, 
  IUBOUND, 
@@ -129,7 +129,8 @@ enum OP_CODES{
  ISRLOAD,
  ISRSAVE,
  IMDIV,
- 
+ I2STR,
+
  // IRFETCH ,
 // ITOR   , 
 // IRFROM , 
