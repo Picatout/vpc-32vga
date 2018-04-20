@@ -73,11 +73,11 @@
 #define CORE_TICK_RATE (mGetSystemClock()/2/1000) // system tick 1msec
 #define CLK_PER_USEC (SYSCLK/1000000L) // system clock ticks per microsecond.
 // memory regions
-#define FLASH_BEG			 	0x9D000000
+#define FLASH_BEGIN			 	0x9D000000
 #define FLASH_END			 	0x9D000000+BMXPFMSZ-1
-#define RAM_BEG				 	0xA0000000
+#define RAM_BEGIN			 	0xA0000000
 #define RAM_END				 	0xA0000000+BMXDRMSZ-1
-#define _is_ram_addr(addr) (((unsigned)addr>=RAM_BEG) && ((unsigned)addr<=RAM_END))
+#define _is_ram_addr(addr) (((unsigned)addr>=RAM_BEGIN) && ((unsigned)addr<=RAM_END))
 
 #define CS_RAM
 

@@ -130,7 +130,9 @@ enum OP_CODES{
  ISRSAVE,
  IMDIV,
  I2STR,
-
+ IASC,
+ ICHR,
+ 
  // IRFETCH ,
 // ITOR   , 
 // IRFROM , 

@@ -170,11 +170,13 @@ static bool unget_token=false;
 // prototypes des fonctions
 static void clear();
 static void kw_abs();
+static void kw_asc();
 static void bad_syntax();
 static void kw_box();
 static void kw_btest();
 static void kw_bye();
 static void kw_case();
+static void kw_chr();
 static void kw_circle();
 static void kw_cls();
 static void kw_const();
@@ -269,6 +271,7 @@ static void bool_expression();
 static void compile_file(const char *file_name);
 static var_t *var_search(const char* name);
 static void literal_string(char *lit_str);
+static bool string_func(var_t *var);
 
 #ifdef DEBUG
 static void print_prog(int start);
@@ -277,18 +280,21 @@ static void print_cstack();
 
 //identifiant KEYWORD doit-être dans le même ordre que
 //dans la liste KEYWORD
-enum {eKW_ABS,eKW_AND,eKW_BOX,eKW_BTEST,eKW_BYE,eKW_CASE,eKW_CIRCLE,eKW_CLEAR,eKW_CLS,
+enum {eKW_ABS,eKW_AND,eKW_ASC,eKW_BOX,eKW_BTEST,eKW_BYE,eKW_CASE,eKW_CHR,eKW_CIRCLE,
+      eKW_CLEAR,eKW_CLS,
       eKW_CONST,eKW_CURCOL,eKW_CURLINE,eKW_DECLARE,eKW_DIM,eKW_DO,eKW_ELLIPSE,eKW_ELSE,
       eKW_END,eKW_EXIT,eKW_FILL,
-      eKW_FOR,eKW_FREE,eKW_FUNC,eKW_GETPIXEL,eKW_IF,eKW_INPUT,eKW_INSERTLN,eKW_INVVID,eKW_KEY,eKW_LEN,
+      eKW_FOR,eKW_FREE,eKW_FUNC,eKW_GETPIXEL,eKW_IF,eKW_INPUT,eKW_INSERTLN,
+      eKW_INVVID,eKW_KEY,eKW_LEN,
       eKW_LET,eKW_LINE,eKW_LOCAL,eKW_LOCATE,eKW_LOOP,eKW_MAX,eKW_MDIV,eKW_MIN,eKW_NEXT,
       eKW_NOT,eKW_OR,eKW_POLYGON,
-      eKW_PRINT,eKW_PUTC,eKW_RANDOMISIZE,eKW_RECT,eKW_REF,eKW_REM,eKW_RESTSCR,
+      eKW_PRINT,eKW_PSET,eKW_PUTC,eKW_RANDOMISIZE,eKW_RECT,eKW_REF,eKW_REM,eKW_RESTSCR,
       eKW_RETURN,eKW_RND,eKW_RUN,eKW_SAVESCR,eKW_SCRLUP,eKW_SCRLDN,
-      eKW_SELECT,eKW_SETPIXEL,eKW_SETTMR,eKW_SHL,eKW_SHR,eKW_SLEEP,eKW_SOUND,
+      eKW_SELECT,eKW_SETTMR,eKW_SHL,eKW_SHR,eKW_SLEEP,eKW_SOUND,
       eKW_SPRITE,eKW_SRCLEAR,eKW_SRLOAD,eKW_SRREAD,eKW_SRSSAVE,eKW_SRWRITE,eKW_STR,
       eKW_SUB,eKW_THEN,eKW_TICKS,
-      eKW_TIMEOUT,eKW_TKEY,eKW_TRACE,eKW_TUNE,eKW_UBOUND,eKW_UNTIL,eKW_USE,eKW_VAL,eKW_VGACLS,
+      eKW_TIMEOUT,eKW_TKEY,eKW_TRACE,eKW_TUNE,eKW_UBOUND,eKW_UNTIL,eKW_USE,eKW_VAL,
+      eKW_VGACLS,
       eKW_WAITKEY,eKW_WEND,eKW_WHILE,eKW_XOR,eKW_XORPIXEL
 };
 
@@ -296,10 +302,12 @@ enum {eKW_ABS,eKW_AND,eKW_BOX,eKW_BTEST,eKW_BYE,eKW_CASE,eKW_CIRCLE,eKW_CLEAR,eK
 static const dict_entry_t KEYWORD[]={
     {kw_abs,3+FUNCTION,"ABS"},
     {bad_syntax,3,"AND"},
+    {kw_asc,3+FUNCTION,"ASC"},
     {kw_box,3,"BOX"},
     {kw_btest,5+FUNCTION,"BTEST"},
     {kw_bye,3,"BYE"},
     {kw_case,4,"CASE"},
+    {kw_chr,4+FUNCTION,"CHR$"},
     {kw_circle,6,"CIRCLE"},
     {clear,5,"CLEAR"},
     {kw_cls,3+AS_HELP,"CLS"},
@@ -337,6 +345,7 @@ static const dict_entry_t KEYWORD[]={
     {bad_syntax,2,"OR"},
     {kw_polygon,7,"POLYGON"},
     {kw_print,5,"PRINT"},
+    {kw_setpixel,4,"PSET"},
     {kw_putc,4,"PUTC"},
     {kw_randomize,9,"RANDOMIZE"},
     {kw_rect,4,"RECT"},
@@ -350,7 +359,6 @@ static const dict_entry_t KEYWORD[]={
     {kw_scrlup,6,"SCRLUP"},
     {kw_scrldown,6,"SCRLDN"},
     {kw_select,6,"SELECT"},
-    {kw_setpixel,8,"SETPIXEL"},
     {kw_set_timer,6,"SETTMR"},
     {kw_shl,3+FUNCTION,"SHL"},
     {kw_shr,3+FUNCTION,"SHR"},
@@ -479,13 +487,12 @@ char* string_alloc(unsigned length){
     return str;
 }
 
-
-// libération de l'espace réservée pour une chaîne asciiz.
+// libération de l'espace réservée pour une chaîne asciiz sur le heap.
 void string_free(char *str){
-    if (str) free(str);
+    if ((uint32_t)str>=RAM_BEGIN && (uint32_t)str<RAM_END){
+        free(str);
+    }
 }
-
-
 
 void free_string_vars(){
     var_t *var;
@@ -497,10 +504,10 @@ void free_string_vars(){
     limit=progspace+prog_size;
     var=varlist;
     while (var){
-        if (var->vtype==eVAR_STR){
+        if ((var->vtype==eVAR_STR) && ! (var->local)){
             if (!var->array){
                 string_free(var->str);
-            }else if ((var->vtype==eVAR_STR) && var->array){
+            }else{
                 str_array=(char**)var->adr;
                 count=*(unsigned*)str_array;
                 for (i=1;i<=count;i++){
@@ -538,7 +545,7 @@ static var_t *var_create(char *name, void *value){
     
     len=strlen(name);
     newvar=var_search(name);
-    if (newvar){
+    if ((!var_local && newvar)||(var_local && newvar && newvar->local)){
         throw(eERR_DUPLICATE);
     }
     newend=endmark;
@@ -608,6 +615,13 @@ static var_t *var_search(const char* name){
     }//while
     return link;
 }//f()
+
+
+// retourne vrai s'il s'agit d'une variable de type fonction
+// qui retourne l'adresse d'une chaîne.
+static bool string_func(var_t *var){
+    return (var->vtype==eVAR_FUNC) && (var->name[strlen(var->name)-1]=='$');
+}
 
 static void bytecode(uint8_t bc){
     if ((void*)&progspace[dptr]>=endmark) throw(eERR_PROGSPACE);
@@ -1175,8 +1189,9 @@ static void parse_arg_list(unsigned arg_count){
         if (arg_count) throw(eERR_MISSING_ARG);
         return;
     }
-    //unget_token=true;
+    unget_token=true;
     do{
+        next_token();
         switch (token.id){
             case eIDENT:
                 if (!try_string_var()){
@@ -1185,9 +1200,11 @@ static void parse_arg_list(unsigned arg_count){
                 }
                 break;
             case eSTRING:
-                lit_str=alloc_var_space(strlen(token.str)+1);
-                strcpy(lit_str,token.str);
-                lit((uint32_t)lit_str);
+                bytecode(ISTRADR);
+                literal_string(token.str);
+//                lit_str=alloc_var_space(strlen(token.str)+1);
+//                strcpy(lit_str,token.str);
+//                lit((uint32_t)lit_str);
                 break;
             default:
                 unget_token=true;
@@ -2211,7 +2228,7 @@ static void kw_getpixel(){
     bytecode(IGETPIXEL);
 }//f
 
-// SETPIXEL(x,y,p)
+// PSET(x,y,p)
 // fixe la couleur du pixel
 // en position x,y
 // p-> couleur {0,1}
@@ -2898,14 +2915,22 @@ static void kw_print(){
                     bytecode(ITYPE);
                     _litc(1);
                     bytecode(ISPACES);
-                }else{
-                    unget_token=true;
-                    expression();
-                    bytecode(IDOT);
-                }
+                }else if (string_func(var)){
+                        _litc(0);
+                        parse_arg_list(var->dim);
+                        lit((uint32_t)var->adr);
+                        bytecode(ICALL);
+                        bytecode(ITYPE);
+                        _litc(1);
+                        bytecode(ISPACES);
+                    }else{
+                        unget_token=true;
+                        expression();
+                        bytecode(IDOT);
+                    }
                 break;
             case eKWORD:
-                if (!strcmp(KEYWORD[token.n].name,"STR$")){
+                if (KEYWORD[token.n].name[strlen(KEYWORD[token.n].name)-1]=='$'){
                     KEYWORD[token.n].cfn();
                     bytecode(ITYPE);
                     _litc(1);
@@ -2991,7 +3016,7 @@ static void subrtn_create(int var_type, int blockend){
     
     if (var_local) throw(eERR_SYNTAX);
     expect(eIDENT);
-    if (token.str[strlen(token.str)-1]=='$') throw(eERR_SYNTAX);
+//    if (token.str[strlen(token.str)-1]=='$') throw(eERR_SYNTAX);
     var=var_search(token.str);
     if (!var){
         var=var_create(token.str,NULL);
@@ -3026,6 +3051,29 @@ static void kw_func(){
     subrtn_create(eVAR_FUNC,eKW_FUNC);
 }//f
 
+// SUB idientifier (arg_list)
+//  bloc_instructions
+// END SUB
+static void kw_sub(){
+    subrtn_create(eVAR_SUB,eKW_SUB);
+}//f
+
+
+//ASC("c")
+// retourne le code ASCII du premier caractère de la chaîne.
+static void kw_asc(){
+    parse_arg_list(1);
+    bytecode(IASC);
+}
+
+//CHR$(expression)
+// retourne une chaîne de 1 caractère correspondant à la valeur ASCII
+// de l'expression.
+static void kw_chr(){
+    parse_arg_list(1);
+    bytecode(ICHR);
+}
+
 //STR$(expression)
 //convertie une expression numérique en chaîne
 static void kw_string(){
@@ -3040,13 +3088,6 @@ static void kw_val(){
     parse_arg_list(1);
     bytecode(I2INT);
 }
-
-// SUB idientifier (arg_list)
-//  bloc_instructions
-// END SUB
-static void kw_sub(){
-    subrtn_create(eVAR_SUB,eKW_SUB);
-}//f
 
 // TRACE(expression)
 // active ou désactive le mode traçage

@@ -1,3 +1,11 @@
+2018-04-19
+----------
+1. Corrigé bogue régressif dans parse_arg_list().
+2. Renommé SETPIXEL en PSET conformément à QBASIC.
+3. Ajout des commandes BASIC  ASC() et CHR$(). 
+4. Corrigé bogue régressif, variable locale ne pouvait avoir le même nom qu'une
+   variable globale.
+
 2018-04-18
 ----------
 1. Ajout de la directive DECLARE dans vpcBASIC.

@@ -1113,7 +1113,8 @@ to_int: // addr -- n )
     move T,v0
 
 _dict STR,"str$"
-// convertie un entier en chaîne    
+// convertie un entier en chaîne
+// la chaîne est alloué dans progspace    
 to_str: // ( n buf -- str* )
     li a2,10
     lw a1,-CELL_SIZE(dp)
@@ -1122,19 +1123,34 @@ to_str: // ( n buf -- str* )
     move T,v0
     jal strlen
     move a0,v0
-    jal malloc
+    jal alloc_var_space
     addiu a0,v0,1
-    beqz v0,1f
     move a0,v0
     jal strcpy
     move a1,T
     addiu dp,dp,-CELL_SIZE
     b next
     move T,v0
-1:  // échec de malloc
-    b abort
-    addiu T,zero,ERR_ALLOC
-   
+
+// convertie le premier caractère de la chaîne en entier ASCII    
+_dict ASC,"ASC"
+to_asc: // ( addr -- n )
+    b next
+    lbu T,0(T)
+
+
+// Retourne une chaîne de longueur 1 correspondant au caractère ASCII de n.
+// La chaîne est allouée dans progspace.    
+_dict CHR,"CHR$"
+to_char: // ( n -- addr )
+    jal alloc_var_space
+    addiu a0,zero,2
+    sb T,0(v0)
+    move T,v0
+    b next
+    sb zero,1(T)
+    
+    
     
 _dict ALLOC, "var_alloc"    
 // alloue de la mémoire dans l'espace progamme.
@@ -1612,7 +1628,7 @@ opcodes_table:
 .word get_pixel,put_pixel,xor_pixel,vm_line,vm_rectangle,vm_box,vm_circle,vm_ellipse
 .word vm_polygon,vm_fill,put_sprite,vgacls    
 .word sram_clear,sram_read,sram_write,save_screen,rest_screen,vm_sram_load,vm_sram_save
-.word mslash,to_str
+.word mslash,to_str,to_asc,to_char
     
     
 bad_op: 
