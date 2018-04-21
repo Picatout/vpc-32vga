@@ -174,13 +174,11 @@ unsigned free_heap(){
 // also control TONE timer
 void __ISR(_CORE_TIMER_VECTOR, IPL2SOFT) CoreTimerHandler(void){
      sys_ticks++;
-//     __asm__("addiu $sp,$sp,-4");
-//     __asm__("sw $v0,0($sp)");
-     __asm__("mfc0 $v0, $11");
-     __asm__("addiu $v0,$v0,%0"::"I"(CORE_TICK_RATE));
-     __asm__("mtc0 $v0, $11");
-//     __asm__("lw $v0,0($sp)");
-//     __asm__("addiu $sp,$sp,4");
+     unsigned int ctimer;
+     
+     ctimer=_CP0_GET_COMPARE();
+     ctimer+=CORE_TICK_RATE;
+     _CP0_SET_COMPARE(ctimer);
      mCTClearIntFlag();
      if ((fSound & TONE_ON) && !(--duration)){
          fSound&=~TONE_ON;

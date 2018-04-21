@@ -1241,51 +1241,65 @@ left:// ( s1 n -- s2 )
     
 // insère la chaîne s2 dans la chaîne s1 à partir de la position n    
 _dict INSERT,"INSERT$"
-    dest=v0
-    src=t0
-    count=t1
+    dest=a0
+    src=a1
+    count=a2
 insert: // ( s1 s2 n -- s3 )
-    jal strlen // len(s1)?
+    addiu T,T,-1
+    bgtz T,1f
+    nop
+    addiu dp,dp,-CELL_SIZE
+    b prepend
+    lw T,0(dp)
+1:  jal strlen // len(s1)?
     lw a0,-2*CELL_SIZE(dp)
     _dpush
-    move T,v0  // ( s1 s2 n n1 --
-    jal strlen // len(s2)?
+    move T,v0  // ( s1 s2 n len(s1) --
+    // si n>len(s1) alors append(s1,s2)
+    lw a0,-CELL_SIZE(dp)
+    subu a0,a0,T // n-len(s1)
+    bltz a0, 1f
+    nop
+    addiu dp,dp,-2*CELL_SIZE
+    b append
+    lw T,0(dp)
+1:  // strlen(s2)  
+    jal strlen 
     lw a0,-2*CELL_SIZE(dp)
-    jal string_alloc // len(s1)+len(s2)
-    addu a0,T,v0   // ( s1 s2 n len(s2) ) a0=len(s3)
+    // string_alloc(len(s1)+len(s2))
+    jal string_alloc
+    addu a0,T,v0 
     move T, v0 //  s1 s2 n s3
+    // strncpy(s3,s1,n)
     lw src,-3*CELL_SIZE(dp)
-    move dest,v0  
     lw count,-CELL_SIZE(dp)
-    blez count,2f
-    addiu count,count,-1
-    // copie le début de la chaîne s1 dans s3
+    move dest,T
 1:  beqz count,2f
-    lbu a0,0(src)
-    beqz a0, 2f
-    sb a0,0(dest)
+    lbu v0,0(src)
+    sb  v0,0(dest)
     addiu src,src,1
     addiu dest,dest,1
     b 1b
     addiu count,count,-1
-    // copie s2 dans s3
-2:  move a1,src
+2:  sb zero,0(dest)
+    sw src,-3*CELL_SIZE(dp)
     lw src,-2*CELL_SIZE(dp)
-3:  lbu a0,0(src)
-    beqz a0,4f
-    sb a0,0(dest)
+3:  lbu v0,0(src)     
+    beqz v0,4f
+    sb v0,0(dest)
     addiu src,src,1
     b 3b
     addiu dest,dest,1
-4:  // copie le reste de s1 dans s3    
-    move src,a1
-    lbu a0,0(src)
-    beqz a0,5f
-    sb a0,0(dest)
+4:  
+    lw src,-3*CELL_SIZE(dp)
+5:  lbu v0,0(src)
+    beqz v0, 6f
+    sb v0,0(dest)
     addiu src,src,1
-    b 4b
+    b 5b
     addiu dest,dest,1
-5:  b next
+6:  
+    b next
     addiu dp,dp,-3*CELL_SIZE
     
 

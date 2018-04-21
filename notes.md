@@ -1,3 +1,8 @@
+2018-04-21
+----------
+1. débogué INSERT$
+2. Modification HardwareProfile.c:CoreTimerHandler()
+
 2018-04-20
 ----------
 1. Modifié graphics:sprite() pour que les sprites soient compatibles avec ceux utilisés

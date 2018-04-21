@@ -502,13 +502,13 @@ void __ISR(_TIMER_2_VECTOR,IPL7AUTO) tmr2_isr(void){
         default:
             if (video){
                 asm volatile(// jitter cancel code.
-                "la $v0,%0\n"
-                "lhu $a0, 0($v0)\n"
-                "andi $a0,$a0,7\n"
-                "sll $a0,$a0,2\n"
-                "la $v0, jit\n"
-                "addu $a0,$v0\n"
-                "jr $a0\n"
+                "la $k0,%0\n"
+                "lhu $k1, 0($k0)\n"
+                "andi $k1,$k1,7\n"
+                "sll $k1,$k1,2\n"
+                "la $k0, jit\n"
+                "addu $k0,$k0,$k1\n"
+                "jr $k0\n"
                 "jit:\n"
                 "nop\n nop\n nop\n nop\n nop\n nop\n nop\n nop\n"
                 ::"i"(&TMR2)
