@@ -36,12 +36,12 @@ int getPixel(int x, int y){
 }//getPixel()
 
 // fixe l'état d'un pixel, p{0,1}
-void putPixel(int x, int y, int p){
+void putPixel(int x, int y, int c){
     int h,ofs;
     if ((y>=VRES)||(y<0)||(x>=HRES)||(x<0)) return; // hors limites
     h= x/32;
     ofs = 31 - x&31;
-    if (p){
+    if (c){
         video_bmp[y][h]|= (1<<ofs);
     }else{
         video_bmp[y][h]&= ~(1<<ofs);
@@ -162,17 +162,23 @@ void polygon(const int points[], int vertices){
 }//polygon()
 
 // un sprite est un bitmap appliqué à l'écran en utilisant xorPixel()
+// le bitmap est un tableau d'octets. Chaque octet contient 2 pixels.
+// Chaque pixel est représenté par 4 bits pour être compatible avec les sprites
+// du BASIC de PV16SOG.
 // x{0..HRES-1}
 // y{0..VRES-1}
-// width{1..32}
+// width{1..32} doit-être pair.
 // height{1..VRES}
-void sprite( int x, int y, int width, int height, int* sp){
+void sprite( int x, int y, int width, int height, uint8_t* sp){
     int wx,wy,bshift;
-
+    int xofs,yofs;
+    
     for (wx=0;wx<width;wx++){
-        bshift=31-wx;
+        xofs=wx/2;
+        bshift=wx&1?0:4;
         for (wy=0;wy<height;wy++){
-            if (sp[wy]&(1<<bshift)){
+            yofs=wy*width/2;
+            if (sp[yofs+xofs]&(8<<bshift)){
                 xorPixel(x+wx,y+wy);
             }//if
         }//for y

@@ -24,10 +24,11 @@
 
 #ifndef GRAPHICS_H
 #define	GRAPHICS_H
+#include <stdint.h>
 #include "hardware/tvout/display.h"
 
 int getPixel(int x, int y);
-void putPixel(int x, int y, int p);
+void putPixel(int x, int y, int c);
 void xorPixel(int x, int y);
 void line(int x0, int y0, int x1, int y1);
 void rectangle(int x0, int y0, int width, int height);
@@ -35,7 +36,7 @@ void circle(int xc, int yc, int r);
 void ellipse (int x0, int y0, int x1, int y1);
 void polygon(const int points[],int vertices);
 void box (int x0, int y0, int width, int height);
-void sprite( int x, int y, int width, int height, int* sp);
+void sprite( int x, int y, int width, int height, uint8_t* sp);
 void saveScreen(unsigned addr);
 void restoreScreen(unsigned addr);
 

@@ -30,6 +30,8 @@
 extern "C" {
 #endif
 #include "../tvout/vga.h"
+ 
+#define CTRL_C 3
     
     enum VIRTUAL_KEY{
     VK_BACK =	8,

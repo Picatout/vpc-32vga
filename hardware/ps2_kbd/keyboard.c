@@ -101,15 +101,23 @@ unsigned char kbd_read_line(unsigned char *ibuff,unsigned char buf_len){
 
 #define ERROR_BITS (7<<1)
 
+extern bool abort_signal;
+
 // keyboard character reception
 void __ISR(_UART_1_VECTOR,IPL3SOFT) kbd_rx_isr(void){
+    char c;
     if (U1STA&ERROR_BITS){
         U1MODEbits.ON=0;
         U1MODEbits.ON=1;
         IFS1bits.U1EIF=0;
     }else{
-        kbd_queue[kbd_tail++]=U1RXREG;
-        kbd_tail&=KBD_QUEUE_SIZE-1;
+        c=U1RXREG;
+        if (c==CTRL_C){
+            abort_signal=true;
+        }else{
+            kbd_queue[kbd_tail++]=c;
+            kbd_tail&=KBD_QUEUE_SIZE-1;
+        }
         IFS1bits.U1RXIF=0;
     }
 } // kbd_rx_isr()

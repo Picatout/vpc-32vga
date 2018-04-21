@@ -35,6 +35,8 @@
 
 static int tab_width=4;
 
+bool abort_signal=false;
+
 void uppercase(char *str){// in situ uppercase
     while (*str){
         if (*str>='a' && *str<='z') *str-=32;
@@ -69,6 +71,7 @@ unsigned char get_key(dev_t dev){
         return vt_get_char();
     }
 }
+
  // attend réception d'un caractère
 unsigned char wait_key(dev_t dev){
     if (dev==VGA_CONSOLE){

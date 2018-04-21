@@ -170,6 +170,7 @@ static bool unget_token=false;
 // prototypes des fonctions
 static void clear();
 static void kw_abs();
+static void kw_append();
 static void kw_asc();
 static void bad_syntax();
 static void kw_box();
@@ -182,6 +183,7 @@ static void kw_cls();
 static void kw_const();
 static void kw_curcol();
 static void kw_curline();
+static void kw_date();
 static void kw_declare();
 static void kw_dim();
 static void kw_do();
@@ -196,9 +198,11 @@ static void kw_func();
 static void kw_getpixel();
 static void kw_if();
 static void kw_input();
+static void kw_insert();
 static void kw_insert_line();
 static void kw_invert_video();
 static void kw_key();
+static void kw_left();
 static void kw_len();
 static void kw_let();
 static void kw_line();
@@ -207,9 +211,11 @@ static void kw_locate();
 static void kw_loop();
 static void kw_max();
 static void kw_mdiv();
+static void kw_mid();
 static void kw_min();
 static void kw_next();
 static void kw_polygon();
+static void kw_prepend();
 static void kw_print();
 static void kw_putc();
 static void kw_randomize();
@@ -218,6 +224,7 @@ static void kw_ref();
 static void kw_rem();
 static void kw_restore_screen();
 static void kw_return();
+static void kw_right();
 static void kw_rnd();
 static void kw_run();
 static void kw_save_screen();
@@ -238,8 +245,10 @@ static void kw_srsave();
 static void kw_srwrite();
 static void kw_string();
 static void kw_sub();
+static void kw_subst();
 static void kw_then();
 static void kw_ticks();
+static void kw_time();
 static void kw_timeout();
 static void kw_tkey();
 static void kw_trace();
@@ -280,19 +289,21 @@ static void print_cstack();
 
 //identifiant KEYWORD doit-être dans le même ordre que
 //dans la liste KEYWORD
-enum {eKW_ABS,eKW_AND,eKW_ASC,eKW_BOX,eKW_BTEST,eKW_BYE,eKW_CASE,eKW_CHR,eKW_CIRCLE,
+enum {eKW_ABS,eKW_AND,eKW_APPEND,eKW_ASC,eKW_BOX,eKW_BTEST,eKW_BYE,eKW_CASE,
+      eKW_CHR,eKW_CIRCLE,
       eKW_CLEAR,eKW_CLS,
-      eKW_CONST,eKW_CURCOL,eKW_CURLINE,eKW_DECLARE,eKW_DIM,eKW_DO,eKW_ELLIPSE,eKW_ELSE,
+      eKW_CONST,eKW_CURCOL,eKW_CURLINE,eKW_DATE,eKW_DECLARE,eKW_DIM,eKW_DO,
+      eKW_ELLIPSE,eKW_ELSE,
       eKW_END,eKW_EXIT,eKW_FILL,
-      eKW_FOR,eKW_FREE,eKW_FUNC,eKW_GETPIXEL,eKW_IF,eKW_INPUT,eKW_INSERTLN,
-      eKW_INVVID,eKW_KEY,eKW_LEN,
-      eKW_LET,eKW_LINE,eKW_LOCAL,eKW_LOCATE,eKW_LOOP,eKW_MAX,eKW_MDIV,eKW_MIN,eKW_NEXT,
-      eKW_NOT,eKW_OR,eKW_POLYGON,
+      eKW_FOR,eKW_FREE,eKW_FUNC,eKW_GETPIXEL,eKW_IF,eKW_INPUT,eKW_INSERT,eKW_INSERTLN,
+      eKW_INVVID,eKW_KEY,eKW_LEFT,eKW_LEN,
+      eKW_LET,eKW_LINE,eKW_LOCAL,eKW_LOCATE,eKW_LOOP,eKW_MAX,eKW_MDIV,eKW_MID,eKW_MIN,eKW_NEXT,
+      eKW_NOT,eKW_OR,eKW_POLYGON,eKW_PREPEND,
       eKW_PRINT,eKW_PSET,eKW_PUTC,eKW_RANDOMISIZE,eKW_RECT,eKW_REF,eKW_REM,eKW_RESTSCR,
-      eKW_RETURN,eKW_RND,eKW_RUN,eKW_SAVESCR,eKW_SCRLUP,eKW_SCRLDN,
+      eKW_RETURN,eKW_RIGHT,eKW_RND,eKW_RUN,eKW_SAVESCR,eKW_SCRLUP,eKW_SCRLDN,
       eKW_SELECT,eKW_SETTMR,eKW_SHL,eKW_SHR,eKW_SLEEP,eKW_SOUND,
       eKW_SPRITE,eKW_SRCLEAR,eKW_SRLOAD,eKW_SRREAD,eKW_SRSSAVE,eKW_SRWRITE,eKW_STR,
-      eKW_SUB,eKW_THEN,eKW_TICKS,
+      eKW_SUB,eKW_SUBST,eKW_TIME,eKW_THEN,eKW_TICKS,
       eKW_TIMEOUT,eKW_TKEY,eKW_TRACE,eKW_TUNE,eKW_UBOUND,eKW_UNTIL,eKW_USE,eKW_VAL,
       eKW_VGACLS,
       eKW_WAITKEY,eKW_WEND,eKW_WHILE,eKW_XOR,eKW_XORPIXEL
@@ -303,6 +314,7 @@ static const dict_entry_t KEYWORD[]={
     {kw_abs,3+FUNCTION,"ABS"},
     {bad_syntax,3,"AND"},
     {kw_asc,3+FUNCTION,"ASC"},
+    {kw_append,7+FUNCTION,"APPEND$"},
     {kw_box,3,"BOX"},
     {kw_btest,5+FUNCTION,"BTEST"},
     {kw_bye,3,"BYE"},
@@ -314,6 +326,7 @@ static const dict_entry_t KEYWORD[]={
     {kw_const,5,"CONST"},
     {kw_curcol,6+FUNCTION,"CURCOL"},
     {kw_curline,7+FUNCTION,"CURLINE"},
+    {kw_date,5+FUNCTION,"DATE$"},
     {kw_declare,7,"DECLARE"},
     {kw_dim,3,"DIM"},
     {kw_do,2,"DO"},
@@ -325,12 +338,14 @@ static const dict_entry_t KEYWORD[]={
     {kw_for,3,"FOR"},
     {kw_free,4,"FREE"},
     {kw_func,4,"FUNC"},
-    {kw_getpixel,8+FUNCTION,"GETPIXEL"},
+    {kw_getpixel,4+FUNCTION,"PGET"},
     {kw_if,2,"IF"},
     {kw_input,5,"INPUT"},
+    {kw_insert,7+FUNCTION,"INSERT$"},
     {kw_insert_line,8,"INSERTLN"},
     {kw_invert_video,9,"INVERTVID"},
     {kw_key,3+FUNCTION,"KEY"},
+    {kw_left,5+FUNCTION,"LEFT$"},
     {kw_len,3+FUNCTION,"LEN"},
     {kw_let,3,"LET"},
     {kw_line,4,"LINE"},
@@ -339,11 +354,13 @@ static const dict_entry_t KEYWORD[]={
     {kw_loop,4,"LOOP"},
     {kw_max,3+FUNCTION,"MAX"},
     {kw_mdiv,4+FUNCTION,"MDIV"},
+    {kw_mid,4+FUNCTION,"MID$"},
     {kw_min,3+FUNCTION,"MIN"},
     {kw_next,4,"NEXT"},
     {bad_syntax,3,"NOT"},
     {bad_syntax,2,"OR"},
     {kw_polygon,7,"POLYGON"},
+    {kw_prepend,8+FUNCTION,"PREPEND$"},
     {kw_print,5,"PRINT"},
     {kw_setpixel,4,"PSET"},
     {kw_putc,4,"PUTC"},
@@ -353,6 +370,7 @@ static const dict_entry_t KEYWORD[]={
     {kw_rem,3,"REM"},
     {kw_restore_screen,7,"RESTSCR"},
     {kw_return,6,"RETURN"},
+    {kw_right,6+FUNCTION,"RIGHT$"},
     {kw_rnd,3+FUNCTION,"RND"},
     {kw_run,3,"RUN"},
     {kw_save_screen,7,"SAVESCR"},
@@ -372,7 +390,9 @@ static const dict_entry_t KEYWORD[]={
     {kw_srwrite,7,"SRWRITE"},
     {kw_string,4+FUNCTION,"STR$"},
     {kw_sub,3,"SUB"},
+    {kw_subst,6+FUNCTION,"SUBST$"},
     {kw_then,4,"THEN"},
+    {kw_time,5+FUNCTION,"TIME$"},
     {kw_ticks,5+FUNCTION,"TICKS"},
     {kw_timeout,7+FUNCTION,"TIMEOUT"},
     {kw_tkey,4+FUNCTION,"TKEY"},
@@ -386,7 +406,7 @@ static const dict_entry_t KEYWORD[]={
     {kw_waitkey,7+FUNCTION,"WAITKEY"},
     {kw_wend,4,"WEND"},
     {kw_while,5,"WHILE"},
-    {kw_xorpixel,8,"XORPIXEL"},
+    {kw_xorpixel,4,"PXOR"},
     {NULL,0,""}
 };
 
@@ -445,6 +465,7 @@ static  const char* error_msg[]={
     "VM exited with data stack not empty\n",
     "VM parameters stack overflow\n",
     "VM call stack overflow\n",
+    "Program aborted by user\n",
  };
  
  
@@ -452,18 +473,22 @@ static void throw(int error){
     char message[64];
     
         crlf(con);
-        if (activ_reader->device==eDEV_SDCARD){
-            print(con,"line: ");
-            print_int(con,line_count,0);
-            crlf(con);
-        }else{
-            print(con,"token#: ");
-            print_int(con,token_count,0);
-            crlf(con);
+        if (error<FIRST_VM_ERROR){
+            if (activ_reader->device==eDEV_SDCARD){
+                print(con,"line: ");
+                print_int(con,line_count,0);
+                crlf(con);
+            }else{
+                print(con,"token#: ");
+                print_int(con,token_count,0);
+                crlf(con);
+            }
         }
         strcpy(message,error_msg[error]);
         print(con,message);
-        print_token_info();
+        if (error<FIRST_VM_ERROR){
+            print_token_info();
+        }
 #ifdef DEBUG    
         print_prog(program_end);
 #endif    
@@ -2220,12 +2245,12 @@ static void kw_min(){
     bytecode(IMIN);
 }//f
 
-// GETPIXEL(x,y)
+// PGET(x,y)
 // retourne la couleur du pixel
 // en position {x,y}
 static void kw_getpixel(){
     parse_arg_list(2);
-    bytecode(IGETPIXEL);
+    bytecode(IPGET);
 }//f
 
 // PSET(x,y,p)
@@ -2234,14 +2259,14 @@ static void kw_getpixel(){
 // p-> couleur {0,1}
 static void kw_setpixel(){
     parse_arg_list(3);
-    bytecode(IPUTPIXEL);
+    bytecode(IPSET);
 }//f
 
-// XORPIXEL(x,y)
-// XOR le pixel
+// PXOR(x,y)
+// inverse le pixel à la position {x,y}
 static void kw_xorpixel(){
     parse_arg_list(2);
-    bytecode(IXORPIXEL);
+    bytecode(IPXOR);
 }//f
 
 // SCRLUP()
@@ -2765,7 +2790,7 @@ static void code_let_string(var_t *var){
     
     bytecode(IDUP);
     bytecode(IFETCH);
-    bytecode(ISTRFREE);
+    bytecode(ISWAP);
     next_token();
     switch (token.id){
         case eSTRING:
@@ -2805,7 +2830,7 @@ static void code_let_string(var_t *var){
             patch_fore_jump(cpop());
             break;
         case eKWORD:
-            if ((KEYWORD[token.n].len&FUNCTION) && !strcmp(KEYWORD[token.n].name,token.str)){
+            if ((KEYWORD[token.n].len&FUNCTION) && (token.str[strlen(token.str)-1]=='$')){
                 KEYWORD[token.n].cfn();
             }else{
                 throw(eERR_SYNTAX);
@@ -2816,6 +2841,7 @@ static void code_let_string(var_t *var){
     }//switch
     bytecode(ISWAP); 
     bytecode(ISTORE);
+    bytecode(ISTRFREE);
 }
 
 
@@ -2896,7 +2922,8 @@ static void kw_local(){
 // PRINT|? chaine|identifier|expression {,chaine|identifier|expression}
 static void kw_print(){
     var_t *var;
-
+    char *str;
+    
     while (!activ_reader->eof){
         next_token();
         switch (token.id){
@@ -2932,7 +2959,9 @@ static void kw_print(){
             case eKWORD:
                 if (KEYWORD[token.n].name[strlen(KEYWORD[token.n].name)-1]=='$'){
                     KEYWORD[token.n].cfn();
+                    bytecode(IDUP);
                     bytecode(ITYPE);
+                    bytecode(ISTRFREE);
                     _litc(1);
                     bytecode(ISPACES);
                 }else{
@@ -3080,6 +3109,63 @@ static void kw_string(){
     parse_arg_list(1);
     lit((uint32_t)pad);
     bytecode(I2STR);
+}
+
+//DATE$
+// commande qui retourne une chaîne date sous la forme AAAA/MM/JJ
+static void kw_date(){
+    bytecode(IDATE);
+}
+
+//TIME$
+// commande qui retourne une chaîne heure sous la forme HH:MM:SS
+static void kw_time(){
+    bytecode(ITIME);
+}
+
+//LEFT$(string,n)
+// extrait les n premier caractères de la chaîne
+static void kw_left(){
+    parse_arg_list(2);
+    bytecode(ILEFT);
+}
+//RIGHT$(string,n)
+static void kw_right(){
+    parse_arg_list(2);
+    bytecode(IRIGHT);
+}
+
+//MID$(string,n1,n2)
+static void kw_mid(){
+    parse_arg_list(3);
+    bytecode(IMID);
+}
+
+//SUBST$(s1,s2,n)
+static void kw_subst(){
+    parse_arg_list(3);
+    bytecode(ISUBST);
+}
+
+//APPEND$(string1,string2)
+// string1string2
+static void kw_append(){
+    parse_arg_list(2);
+    bytecode(IAPPEND);
+}
+
+//PREPEND$(string1,string2)
+// string2string1
+static void kw_prepend(){
+    parse_arg_list(2);
+    bytecode(IPREPEND);
+}
+
+//INSERT$(s1,s2,n)
+// insère s2 à la position n de s1
+static void kw_insert(){
+    parse_arg_list(3); // (s1 s2 n )
+    bytecode(IINSERT);
 }
 
 //VAL(chaîne|var$)

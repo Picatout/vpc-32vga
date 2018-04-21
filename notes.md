@@ -1,3 +1,13 @@
+2018-04-20
+----------
+1. Modifié graphics:sprite() pour que les sprites soient compatibles avec ceux utilisés
+   dans le projet PV16SOG.
+2. Ajouté un mécanisme permettant à l'utilisateur d'interrompre un programme BASIC par 
+   la combinaison de touches CTRL_C.
+3. Ajouté les commandes DATE$ et TIME$ dans BASIC.
+4. Ajouté les fonctions LEFT$,RIGHT$,MID$,APPEND$,PREPEND$ et SUBT$
+à faire: corrigé bogue dans INSERT$
+
 2018-04-19
 ----------
 1. Corrigé bogue régressif dans parse_arg_list().

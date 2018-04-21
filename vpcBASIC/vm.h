@@ -109,9 +109,9 @@ enum OP_CODES{
  ISCRLDN, 
  ISCRLUP,  
  IINSERTLN, 
- IGETPIXEL,
- IPUTPIXEL,
- IXORPIXEL,
+ IPGET,
+ IPSET,
+ IPXOR,
  ILINE,
  IRECT,
  IBOX,
@@ -132,6 +132,15 @@ enum OP_CODES{
  I2STR,
  IASC,
  ICHR,
+ IDATE,
+ ITIME,
+ IAPPEND,
+ IINSERT,
+ ILEFT,
+ IMID,
+ IPREPEND,
+ IRIGHT,
+ ISUBST,
  
  // IRFETCH ,
 // ITOR   , 
@@ -159,10 +168,10 @@ enum OP_CODES{
 
 
 
-#define CELL_SIZE (4)
+//#define CELL_SIZE (4)
 
-#define DSTACK_SIZE (32*CELL_SIZE)
-#define RSTACK_SIZE (32*CELL_SIZE)
+//#define DSTACK_SIZE (32*CELL_SIZE)
+//#define RSTACK_SIZE (32*CELL_SIZE)
 
 #ifndef _ASM_CODE_
 extern int StackVM(const uint8_t* prog_space);

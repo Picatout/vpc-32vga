@@ -48,6 +48,7 @@ typedef enum{
 }console_t;
     
 extern dev_t con;
+extern bool abort_signal;
 
 // fonctions de l'interface
 void uppercase(char *str);// in situ uppercase

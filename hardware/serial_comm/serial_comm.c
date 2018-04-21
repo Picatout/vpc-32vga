@@ -27,6 +27,7 @@
 #include <plib.h>
 #include "serial_comm.h"
 #include "../HardwareProfile.h"
+#include "../ps2_kbd//keyboard.h"
 
 #define QUEUE_SIZE (32)
 
@@ -83,6 +84,15 @@ char ser_get_char(){
     }
     return c;
 };
+
+// s'il y a un caractère en attente dans la file
+// le retourne sans l'extraire.
+char ser_pending_char(){
+    if (!count) return 0;
+    else{
+        return rx_queue[head];
+    }
+}
 
 // Attend un caractère du port sériel
 char ser_wait_char(){
@@ -143,20 +153,29 @@ void ser_flush_queue(){
     IEC1bits.U2RXIE=1;
 }
 
+extern bool abort_signal;
+
 #define ERROR_BITS (7<<1)
 // interruption sur réception ou erreur réception port sériel.
 void __ISR(_UART_2_VECTOR,IPL3SOFT) serial_rx_isr(void){
+    char c;
+    
     if (U2STA&ERROR_BITS){
         U2MODEbits.ON=0;
         U2MODEbits.ON=1;
         IFS1bits.U2EIF=0;
     }else{
-        rx_queue[tail++]=U2RXREG;
-        tail%=QUEUE_SIZE;
-        count++;
-        if (count>(QUEUE_SIZE/3)){
-            UARTSendDataByte(SERIO,XOFF);
-            rx_off=true;
+        c=U2RXREG;
+        if (c==CTRL_C){
+            abort_signal=true;
+        }else {
+            rx_queue[tail++]=c;
+            tail%=QUEUE_SIZE;
+            count++;
+            if (count>(QUEUE_SIZE/3)){
+                UARTSendDataByte(SERIO,XOFF);
+                rx_off=true;
+            }
         }
         IFS1bits.U2RXIF=0;
     }

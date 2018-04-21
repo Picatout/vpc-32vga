@@ -212,9 +212,22 @@ StackVM:  // VM initialization
     addiu frame,dp,CELL_SIZE
     sw zero,0(dp)
     sw zero,CELL_SIZE(dp)
+#ifdef _CHECK_USER_ABORT    
+    la a0,abort_signal
+    sw zero,0(a0)
+#endif
     
 // VM instruction loop
 next:
+#ifdef _CHECK_USER_ABORT
+    la a0,abort_signal
+    lw t0,0(a0)
+    beqz t0,1f
+    sw zero,0(a0)
+    b abort
+    addiu T,zero,ERR_USER_ABORT
+1:    
+#endif    
 #ifdef _CHECK_STACKS
     jal depth
     nop
@@ -810,10 +823,11 @@ prt_str: // IPSTR ( -- )
 
 _dict TYPE ,"type"   
 type: // ( addr -- ) // imprime la chaîne ascciz
+    beqz T, 1f
     _console
     jal print
     move a1,T
-    _drop_b_next
+1:  _drop_b_next
  
 _dict DOT  ,"dot"  
 dot: // "." ( n -- ) imprime un entier en format libre
@@ -1112,9 +1126,9 @@ to_int: // addr -- n )
     b next
     move T,v0
 
-_dict STR,"str$"
+_dict STR,"STR$"
 // convertie un entier en chaîne
-// la chaîne est alloué dans progspace    
+// la chaîne est alloué sur le heap   
 to_str: // ( n buf -- str* )
     li a2,10
     lw a1,-CELL_SIZE(dp)
@@ -1123,7 +1137,7 @@ to_str: // ( n buf -- str* )
     move T,v0
     jal strlen
     move a0,v0
-    jal alloc_var_space
+    jal string_alloc
     addiu a0,v0,1
     move a0,v0
     jal strcpy
@@ -1140,17 +1154,254 @@ to_asc: // ( addr -- n )
 
 
 // Retourne une chaîne de longueur 1 correspondant au caractère ASCII de n.
-// La chaîne est allouée dans progspace.    
+// La chaîne est allouée sur le heap.    
 _dict CHR,"CHR$"
 to_char: // ( n -- addr )
-    jal alloc_var_space
+    jal string_alloc
     addiu a0,zero,2
     sb T,0(v0)
     move T,v0
     b next
     sb zero,1(T)
+
+// retourne la chaîne dans buf "nom_jour AAAA/MM/JJ"
+// la mémoire pour buf est allouée sur le heap  
+_dict DATESTR,"DATE$"    
+datestr: //(  -- buf )
+    jal string_alloc
+    addiu a0,zero,32
+    _dpush
+    move T,v0
+    jal rtcc_get_date_str
+    move a0,v0
+    b next
+    nop
+    
+// retourne la chaîne heure dans buf "HH:MM:SS"
+// la mémoire est allouée sur le heap.
+_dict TIMESTR,"TIME$"    
+timestr: //(  -- buf )
+    jal string_alloc
+    addiu a0,zero,10
+    _dpush
+    move T,v0
+    jal rtcc_get_time_str
+    move a0,v0
+    b next
+    nop
+  
+// attache la chaîne s2 à la fin de s1
+// retourne l'adresse de la chaîne résultante.    
+_dict APPEND,"APPEND$"
+append: // ( s1 s2 -- s3 )
+    jal strlen
+    lw a0,-CELL_SIZE(dp)
+    _dpush
+    move T,v0 // ( s1 s2 len_s1 -- 
+    jal strlen
+    lw a0,-CELL_SIZE(dp)
+    jal string_alloc
+    addu a0,T,v0 
+    move T, v0  // ( s1 s2 s3 --
+    lw a1,-2*CELL_SIZE(dp)
+    jal strcpy
+    move a0,T
+    lw a1,-CELL_SIZE(dp)
+    jal strcat
+    move a0,T
+    b next
+    addiu dp,dp,-2*CELL_SIZE
+
+// retourne une chaîne contenant les n premier caractères de s1    
+_dict LEFT, "LEFT$"
+    dest=v0
+    count=t1
+    src=t2
+left:// ( s1 n -- s2 )    
+    beqz T, 3f
+    _rpush
+    move R,T
+    jal string_alloc
+    move a0,T  
+    move T, dest // T=S2
+    move count,R  // t1=n
+    _rpop
+    lw src,-CELL_SIZE(dp) // t2=s1
+1:  beqz count,2f
+    lbu a0,0(src)
+    sb  a0,0(dest)
+    addiu src,src,1
+    addiu dest,dest,1
+    b 1b
+    addiu count,count,-1
+2:  sb zero,0(dest)    
+3:  b next
+    addiu dp,dp,-CELL_SIZE 
     
     
+// insère la chaîne s2 dans la chaîne s1 à partir de la position n    
+_dict INSERT,"INSERT$"
+    dest=v0
+    src=t0
+    count=t1
+insert: // ( s1 s2 n -- s3 )
+    jal strlen // len(s1)?
+    lw a0,-2*CELL_SIZE(dp)
+    _dpush
+    move T,v0  // ( s1 s2 n n1 --
+    jal strlen // len(s2)?
+    lw a0,-2*CELL_SIZE(dp)
+    jal string_alloc // len(s1)+len(s2)
+    addu a0,T,v0   // ( s1 s2 n len(s2) ) a0=len(s3)
+    move T, v0 //  s1 s2 n s3
+    lw src,-3*CELL_SIZE(dp)
+    move dest,v0  
+    lw count,-CELL_SIZE(dp)
+    blez count,2f
+    addiu count,count,-1
+    // copie le début de la chaîne s1 dans s3
+1:  beqz count,2f
+    lbu a0,0(src)
+    beqz a0, 2f
+    sb a0,0(dest)
+    addiu src,src,1
+    addiu dest,dest,1
+    b 1b
+    addiu count,count,-1
+    // copie s2 dans s3
+2:  move a1,src
+    lw src,-2*CELL_SIZE(dp)
+3:  lbu a0,0(src)
+    beqz a0,4f
+    sb a0,0(dest)
+    addiu src,src,1
+    b 3b
+    addiu dest,dest,1
+4:  // copie le reste de s1 dans s3    
+    move src,a1
+    lbu a0,0(src)
+    beqz a0,5f
+    sb a0,0(dest)
+    addiu src,src,1
+    b 4b
+    addiu dest,dest,1
+5:  b next
+    addiu dp,dp,-3*CELL_SIZE
+    
+
+// extrait n2 caractères de la chaîne s1 -à partir de la position n1    
+_dict MID,"MID$"
+    dest=v0
+    src=t0
+    from=t1
+    count=t2
+mid: // ( s1 n1 n2 -- s2 )
+    beqz T,4f
+    nop
+    jal string_alloc
+    move a0,T
+    move count,T
+    move T,v0 // ( s1 n1 s2 --
+    lw from,-CELL_SIZE(dp)
+    blez from,1f
+    lw src,-2*CELL_SIZE(dp)
+    addiu from,from,-1
+    addu src,src,from
+1:  beqz count,3f    
+    lbu a0,0(src)
+    beqz a0,4f
+    sb a0,0(dest)
+    addiu src,src,1
+    addiu dest,dest,1
+    b 1b
+    addiu count,count,-1
+3:  sb zero,0(dest)    
+4:  b next
+    addiu dp,dp,-2*CELL_SIZE
+    
+// attache s2 au début de s1 retourne l'adresse de la chaîne résultante    
+_dict PREPEND,"PREPEND$"
+prepend: // ( s1 s2 -- s3 )
+    lw a0,-CELL_SIZE(dp)
+    sw T,-CELL_SIZE(dp)
+    b append
+    move T,a0
+
+// retourne n derniers caractères de s1    
+_dict RIGHT,"RIGHT$"
+    src=t0
+    dest=v0
+    count=t1
+right: // ( s1 n -- s2 )
+    bgtz T,2f
+    nop
+    b next
+    addiu dp,dp,-CELL_SIZE
+2:  jal strlen
+    lw a0,-CELL_SIZE(dp)
+    _dpush
+    subu v0,v0,T
+    addiu v0,v0,1
+    b mid
+    sw v0,-CELL_SIZE(dp)
+    
+
+// substitus les caractères de s1 par ceux de s2 à partir de la position n
+// s1 est rallongé au besoin.
+// si n>len(s1) s2 est attaché à la fin.    
+_dict SUBST,"SUBST$"
+    dest=v0
+    src=t0
+subst: // ( s1 s2 n -- s3 )    
+    lw a0,-CELL_SIZE(dp) // si s2 est NULL renvoie s1
+    bgtz a0, 1f
+    nop
+    lw T,-2*CELL_SIZE(dp)
+    b next
+    addiu dp,dp,-2*CELL_SIZE
+    // déterminer la longueur de s2+n-1
+    // comparer avec longeur de s1 et garder le plus grand des 2.
+1:  jal strlen
+    lw a0,-CELL_SIZE(dp) // len(s2)?
+    addu t1,v0,T
+    addiu t1,t1,-1 // t1=len(s2)+n-1
+    jal strlen
+    lw a0,-2*CELL_SIZE(dp) // len(s1)?
+    sub t0,t1,v0  // t0=t1-len(s1)
+    bgez t0, 2f
+    nop
+    move t0,v0 // 
+2:  jal string_alloc // alloue la nouvelle chaîne.
+    move a0,t0  // v0=s3
+    // copie de n-1 caractère de s1 dans s3
+    bgtz T, 3f
+    lw src,-2*CELL_SIZE(dp)
+    addiu T,zero,1
+3:  addiu T,T,-1
+    beqz T,4f
+    lbu a0,0(src)
+    beqz a0,4f
+    sb a0,0(dest)
+    addiu src,src,1
+    b 3b
+    addiu dest,dest,1
+4:  // copie s2 dans s3
+    move a0,dest
+    jal strcpy
+    lw a2,-CELL_SIZE(dp)
+    jal strlen
+    lw a0,-CELL_SIZE(dp)
+    addu src,src,v0
+    addu dest,dest,v0
+5:  lbu a0,0(src)
+    beqz a0,6f
+    sb a0,0(dest)
+    addiu src,src,1
+    b 5b
+    addiu dest,dest,1
+6:    
+    b next
+    addiu dp,dp,-2*CELL_SIZE
     
 _dict ALLOC, "var_alloc"    
 // alloue de la mémoire dans l'espace progamme.
@@ -1628,8 +1879,8 @@ opcodes_table:
 .word get_pixel,put_pixel,xor_pixel,vm_line,vm_rectangle,vm_box,vm_circle,vm_ellipse
 .word vm_polygon,vm_fill,put_sprite,vgacls    
 .word sram_clear,sram_read,sram_write,save_screen,rest_screen,vm_sram_load,vm_sram_save
-.word mslash,to_str,to_asc,to_char
-    
+.word mslash,to_str,to_asc,to_char,datestr,timestr
+.word append,insert,left,mid,prepend,right,subst    
     
 bad_op: 
 .word rfetch,tor,rfrom    

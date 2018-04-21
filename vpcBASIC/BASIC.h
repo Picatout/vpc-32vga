@@ -3,9 +3,15 @@
 
 #define DEFAULT_HEAP 4096
 
+/////////////////////////////////
 //options de compilation de vm.S
+/////////////////////////////////
+// sortie contrôlée de la VM sur mauvais code opérationnel
 #define _CHECK_OPCODE
+// sortie contrôlée de la VM sur débordement de dstack ou rstack
 #define _CHECK_STACKS
+// sortie contrôlée de la VM sur requête utiliseur CTRL_C
+#define _CHECK_USER_ABORT
 
 #ifndef _ASM_CODE_
 
@@ -42,10 +48,12 @@ enum ERROR_CODES{
     eERR_BADOP,
     eERR_DSTACK_NOT_EMPTY,
     eERR_DSTACK_OVF,
-    eERR_RSTACK_OVF
+    eERR_RSTACK_OVF,
+    eERR_USER_ABORT
     };
 
-
+#define FIRST_VM_ERROR 21
+    
 #else
     FIRST_VM_ERROR=21
     ERR_NONE=0
@@ -54,7 +62,7 @@ enum ERROR_CODES{
     ERR_DSTACK_NOT_EMPTY=FIRST_VM_ERROR+1
     ERR_DSTACK_OVF=FIRST_VM_ERROR+2
     ERR_RSTACK_OVF=FIRST_VM_ERROR+3
-        
+    ERR_USER_ABORT=FIRST_VM_ERROR+4    
         
 #endif //#ifndef _ASM_CODE_
 
