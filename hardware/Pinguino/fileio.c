@@ -16,7 +16,9 @@
 					and #endif in function mount() so that SDCS is set via mount 
 					for all cards.
 */
-
+/*
+ * Original code modified for this project.
+ */
 #ifndef __FILEIO_C__
 #define __FILEIO_C__
 

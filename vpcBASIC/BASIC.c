@@ -110,20 +110,24 @@ static uint32_t program_end;
 
 #define NAME_MAX 32 //longueur maximale nom incluant zéro terminal
 #define LEN_MASK 0x1F   // masque longueur nom.
-#define STRING 0x20 // fonction qui retourne une chaîne
-#define FUNCTION 0x40 // ce mot est une fonction
-#define AS_HELP 0x80 //commande avec aide
 #define ADR  (void *)
 
 
 
 typedef void (*fnptr)();
 
+enum FN_TYPE{
+    eFN_NOT, // ce n'est pas une fonction
+    eFN_INT, // la fonction retourne un entier 32 bits ou un octet non signé
+    eFN_STR, // la fonction retourne une chaîne
+    eFN_FPT  // la fonction retourne un nombre virgule flottante, float32
+};
 
 //entrée de commande dans liste
 typedef struct{
     fnptr cfn; // pointeur fonction commande
-    uint8_t len; // longueur nom commande, + flags FUNCTION,AS_HEALP et STRING 
+    uint8_t len:5;//longueur du nom.
+    uint8_t fntype:3; // type de donnée retourné par la fonction. 
     char *name; // nom de la commande
 } dict_entry_t;
 
@@ -160,7 +164,11 @@ typedef enum {eNONE,eSTOP,eCOLON,eIDENT,eNUMBER,eSTRING,ePLUS,eMINUS,eMUL,eDIV,
 // unité lexicale.              
 typedef struct _token{
    tok_id_t id;
-   int n; //  identifiant KEYWORD ou valeur si entier
+   union{
+        int n; //  entier
+        float f; // nombre virgule flottante 32bits
+        int kw; // indice dans le dictionnaire KEYWORD
+   };
    char str[MAX_LINE_LEN]; // chaîne représentant le jeton.
 }token_t;
 
@@ -314,104 +322,104 @@ enum {eKW_ABS,eKW_AND,eKW_APPEND,eKW_ASC,eKW_BOX,eKW_BTEST,eKW_BYE,eKW_CASE,
 
 //mots réservés BASIC
 static const dict_entry_t KEYWORD[]={
-    {kw_abs,3+FUNCTION,"ABS"},
-    {bad_syntax,3,"AND"},
-    {kw_asc,3+FUNCTION,"ASC"},
-    {kw_append,7+FUNCTION+STRING,"APPEND$"},
-    {kw_box,3,"BOX"},
-    {kw_btest,5+FUNCTION,"BTEST"},
-    {kw_bye,3,"BYE"},
-    {kw_case,4,"CASE"},
-    {kw_chr,4+FUNCTION+STRING,"CHR$"},
-    {kw_circle,6,"CIRCLE"},
-    {clear,5,"CLEAR"},
-    {kw_cls,3+AS_HELP,"CLS"},
-    {kw_const,5,"CONST"},
-    {kw_curcol,6+FUNCTION,"CURCOL"},
-    {kw_curline,7+FUNCTION,"CURLINE"},
-    {kw_date,5+FUNCTION+STRING,"DATE$"},
-    {kw_declare,7,"DECLARE"},
-    {kw_dim,3,"DIM"},
-    {kw_do,2,"DO"},
-    {kw_ellipse,7,"ELLIPSE"},
-    {kw_else,4,"ELSE"},
-    {kw_end,3,"END"},
-    {kw_exit,4,"EXIT"},
-    {kw_fill,4,"FILL"},
-    {kw_for,3,"FOR"},
-    {kw_free,4,"FREE"},
-    {kw_func,4,"FUNC"},
-    {kw_getpixel,4+FUNCTION,"PGET"},
-    {kw_if,2,"IF"},
-    {kw_input,5,"INPUT"},
-    {kw_instr,5+FUNCTION,"INSTR"},
-    {kw_insert,7+FUNCTION+STRING,"INSERT$"},
-    {kw_insert_line,8,"INSERTLN"},
-    {kw_invert_video,9,"INVERTVID"},
-    {kw_key,3+FUNCTION,"KEY"},
-    {kw_left,5+FUNCTION+STRING,"LEFT$"},
-    {kw_len,3+FUNCTION,"LEN"},
-    {kw_let,3,"LET"},
-    {kw_line,4,"LINE"},
-    {kw_local,5,"LOCAL"},
-    {kw_locate,6,"LOCATE"},
-    {kw_loop,4,"LOOP"},
-    {kw_max,3+FUNCTION,"MAX"},
-    {kw_mdiv,4+FUNCTION,"MDIV"},
-    {kw_mid,4+FUNCTION+STRING,"MID$"},
-    {kw_min,3+FUNCTION,"MIN"},
-    {kw_next,4,"NEXT"},
-    {bad_syntax,3,"NOT"},
-    {bad_syntax,2,"OR"},
-    {kw_polygon,7,"POLYGON"},
-    {kw_prepend,8+FUNCTION+STRING,"PREPEND$"},
-    {kw_print,5,"PRINT"},
-    {kw_setpixel,4,"PSET"},
-    {kw_putc,4,"PUTC"},
-    {kw_randomize,9,"RANDOMIZE"},
-    {kw_rect,4,"RECT"},
-    {kw_ref,1+FUNCTION,"@"},
-    {kw_rem,3,"REM"},
-    {kw_restore_screen,7,"RESTSCR"},
-    {kw_return,6,"RETURN"},
-    {kw_right,6+FUNCTION+STRING,"RIGHT$"},
-    {kw_rnd,3+FUNCTION,"RND"},
-    {kw_run,3,"RUN"},
-    {kw_save_screen,7,"SAVESCR"},
-    {kw_scrlup,6,"SCRLUP"},
-    {kw_scrldown,6,"SCRLDN"},
-    {kw_select,6,"SELECT"},
-    {kw_set_timer,6,"SETTMR"},
-    {kw_shl,3+FUNCTION,"SHL"},
-    {kw_shr,3+FUNCTION,"SHR"},
-    {kw_sleep,5,"SLEEP"},
-    {kw_sound,5,"SOUND"},
-    {kw_sprite,6,"SPRITE"},
-    {kw_srclear,7,"SRCLEAR"},
-    {kw_srload,6+FUNCTION,"SRLOAD"},
-    {kw_srread,6,"SRREAD"},
-    {kw_srsave,6+FUNCTION,"SRSAVE"},
-    {kw_srwrite,7,"SRWRITE"},
-    {kw_string,4+FUNCTION+STRING,"STR$"},
-    {kw_sub,3,"SUB"},
-    {kw_subst,6+FUNCTION+STRING,"SUBST$"},
-    {kw_then,4,"THEN"},
-    {kw_time,5+FUNCTION+STRING,"TIME$"},
-    {kw_ticks,5+FUNCTION,"TICKS"},
-    {kw_timeout,7+FUNCTION,"TIMEOUT"},
-    {kw_tkey,4+FUNCTION,"TKEY"},
-    {kw_trace,5,"TRACE"},
-    {kw_tune,4,"TUNE"},
-    {kw_ubound,6+FUNCTION,"UBOUND"},
-    {bad_syntax,5,"UNTIL"},
-    {kw_use,3,"USE"},
-    {kw_val,3+FUNCTION,"VAL"},
-    {kw_vgacls,6,"VGACLS"},
-    {kw_waitkey,7+FUNCTION,"WAITKEY"},
-    {kw_wend,4,"WEND"},
-    {kw_while,5,"WHILE"},
-    {kw_xorpixel,4,"PXOR"},
-    {NULL,0,""}
+    {kw_abs,3,eFN_INT,"ABS"},
+    {bad_syntax,3,eFN_NOT,"AND"},
+    {kw_asc,3,eFN_INT,"ASC"},
+    {kw_append,7,eFN_STR,"APPEND$"},
+    {kw_box,3,eFN_NOT,"BOX"},
+    {kw_btest,5,eFN_INT,"BTEST"},
+    {kw_bye,3,eFN_NOT,"BYE"},
+    {kw_case,4,eFN_NOT,"CASE"},
+    {kw_chr,4,eFN_STR,"CHR$"},
+    {kw_circle,6,eFN_NOT,"CIRCLE"},
+    {clear,5,eFN_NOT,"CLEAR"},
+    {kw_cls,3,eFN_NOT,"CLS"},
+    {kw_const,5,eFN_NOT,"CONST"},
+    {kw_curcol,6,eFN_INT,"CURCOL"},
+    {kw_curline,7,eFN_INT,"CURLINE"},
+    {kw_date,5,eFN_STR,"DATE$"},
+    {kw_declare,7,eFN_NOT,"DECLARE"},
+    {kw_dim,3,eFN_NOT,"DIM"},
+    {kw_do,2,eFN_NOT,"DO"},
+    {kw_ellipse,7,eFN_NOT,"ELLIPSE"},
+    {kw_else,4,eFN_NOT,"ELSE"},
+    {kw_end,3,eFN_NOT,"END"},
+    {kw_exit,4,eFN_NOT,"EXIT"},
+    {kw_fill,4,eFN_NOT,"FILL"},
+    {kw_for,3,eFN_NOT,"FOR"},
+    {kw_free,4,eFN_NOT,"FREE"},
+    {kw_func,4,eFN_NOT,"FUNC"},
+    {kw_getpixel,4,eFN_INT,"PGET"},
+    {kw_if,2,eFN_NOT,"IF"},
+    {kw_input,5,eFN_NOT,"INPUT"},
+    {kw_instr,5,eFN_INT,"INSTR"},
+    {kw_insert,7,eFN_STR,"INSERT$"},
+    {kw_insert_line,8,eFN_NOT,"INSERTLN"},
+    {kw_invert_video,9,eFN_NOT,"INVERTVID"},
+    {kw_key,3,eFN_INT,"KEY"},
+    {kw_left,5,eFN_STR,"LEFT$"},
+    {kw_len,3,eFN_INT,"LEN"},
+    {kw_let,3,eFN_NOT,"LET"},
+    {kw_line,4,eFN_NOT,"LINE"},
+    {kw_local,5,eFN_NOT,"LOCAL"},
+    {kw_locate,6,eFN_NOT,"LOCATE"},
+    {kw_loop,4,eFN_NOT,"LOOP"},
+    {kw_max,3,eFN_INT,"MAX"},
+    {kw_mdiv,4,eFN_INT,"MDIV"},
+    {kw_mid,4,eFN_STR,"MID$"},
+    {kw_min,3,eFN_INT,"MIN"},
+    {kw_next,4,eFN_NOT,"NEXT"},
+    {bad_syntax,3,eFN_NOT,"NOT"},
+    {bad_syntax,2,eFN_NOT,"OR"},
+    {kw_polygon,7,eFN_NOT,"POLYGON"},
+    {kw_prepend,8,eFN_STR,"PREPEND$"},
+    {kw_print,5,eFN_NOT,"PRINT"},
+    {kw_setpixel,4,eFN_NOT,"PSET"},
+    {kw_putc,4,eFN_NOT,"PUTC"},
+    {kw_randomize,9,eFN_NOT,"RANDOMIZE"},
+    {kw_rect,4,eFN_NOT,"RECT"},
+    {kw_ref,1,eFN_INT,"@"},
+    {kw_rem,3,eFN_NOT,"REM"},
+    {kw_restore_screen,7,eFN_NOT,"RESTSCR"},
+    {kw_return,6,eFN_NOT,"RETURN"},
+    {kw_right,6,eFN_STR,"RIGHT$"},
+    {kw_rnd,3,eFN_INT,"RND"},
+    {kw_run,3,eFN_NOT,"RUN"},
+    {kw_save_screen,7,eFN_NOT,"SAVESCR"},
+    {kw_scrlup,6,eFN_NOT,"SCRLUP"},
+    {kw_scrldown,6,eFN_NOT,"SCRLDN"},
+    {kw_select,6,eFN_NOT,"SELECT"},
+    {kw_set_timer,6,eFN_NOT,"SETTMR"},
+    {kw_shl,3,eFN_INT,"SHL"},
+    {kw_shr,3,eFN_INT,"SHR"},
+    {kw_sleep,5,eFN_NOT,"SLEEP"},
+    {kw_sound,5,eFN_NOT,"SOUND"},
+    {kw_sprite,6,eFN_NOT,"SPRITE"},
+    {kw_srclear,7,eFN_NOT,"SRCLEAR"},
+    {kw_srload,6,eFN_INT,"SRLOAD"},
+    {kw_srread,6,eFN_NOT,"SRREAD"},
+    {kw_srsave,6,eFN_INT,"SRSAVE"},
+    {kw_srwrite,7,eFN_NOT,"SRWRITE"},
+    {kw_string,4,eFN_STR,"STR$"},
+    {kw_sub,3,eFN_NOT,"SUB"},
+    {kw_subst,6,eFN_STR,"SUBST$"},
+    {kw_then,4,eFN_NOT,"THEN"},
+    {kw_time,5,eFN_STR,"TIME$"},
+    {kw_ticks,5,eFN_INT,"TICKS"},
+    {kw_timeout,7,eFN_INT,"TIMEOUT"},
+    {kw_tkey,4,eFN_INT,"TKEY"},
+    {kw_trace,5,eFN_NOT,"TRACE"},
+    {kw_tune,4,eFN_NOT,"TUNE"},
+    {kw_ubound,6,eFN_INT,"UBOUND"},
+    {bad_syntax,5,eFN_NOT,"UNTIL"},
+    {kw_use,3,eFN_NOT,"USE"},
+    {kw_val,3,eFN_INT,"VAL"},
+    {kw_vgacls,6,eFN_NOT,"VGACLS"},
+    {kw_waitkey,7,eFN_INT,"WAITKEY"},
+    {kw_wend,4,eFN_NOT,"WEND"},
+    {kw_while,5,eFN_NOT,"WHILE"},
+    {kw_xorpixel,4,eFN_NOT,"PXOR"},
+    {NULL,0,eFN_NOT,""}
 };
 
 
@@ -423,7 +431,7 @@ static int dict_search(const  dict_entry_t *dict){
     
     len=strlen(token.str);
     while (dict[i].len){
-        if (((dict[i].len&LEN_MASK)==len) && 
+        if ((dict[i].len==len) && 
                 !strcmp((const unsigned char*)token.str,dict[i].name)){
             break;
         }
@@ -801,6 +809,7 @@ static void parse_string(){
 static void parse_identifier(){
     char c;
     int i=1;
+
     while (!activ_reader->eof){
         c=reader_getc(activ_reader);
         if (!(isalnum(c) || c=='_'  || c=='$' || c=='#')){
@@ -814,7 +823,7 @@ static void parse_identifier(){
     token.str[i]=0;                  
     if ((i=dict_search(KEYWORD))>-1){
         token.id=eKWORD;
-        token.n=i;
+        token.kw=i;
     }else{
         token.id=eIDENT;
     }
@@ -880,7 +889,7 @@ static void next_token(){
                 break;
             case '\'': // commentaire
                 token.id=eKWORD;
-                token.n=eKW_REM;
+                token.kw=eKW_REM;
                 token.str[0]='\'';
                 token.str[1]=0;
                 break;
@@ -979,13 +988,13 @@ static void next_token(){
                 break;
             case '?': // alias pour PRINT
                 token.id=eKWORD;
-                token.n=eKW_PRINT;
+                token.kw=eKW_PRINT;
                 token.str[0]='?';
                 token.str[1]=0;
                 break;
             case '@': // référence
                 token.id=eKWORD;
-                token.n=eKW_REF;
+                token.kw=eKW_REF;
                 token.str[0]='@';
                 token.str[1]=0;
                 break;
@@ -1193,11 +1202,12 @@ static void code_var_address(var_t *var){
     }
 }
 
-//vérifie si le dernier token est une variable chaîne.
+//vérifie si le dernier token est une variable chaîne ou une fonction chaîne.
 // compile l'adresse de la chaîne si c'est le cas et retourne vrai.
 // sinon retourne faux.
 static bool try_string_var(){
     var_t *var;
+    int i;
     
     var=var_search(token.str);
     if (var && (var->vtype==eVAR_STR)){
@@ -1235,6 +1245,14 @@ static void parse_arg_list(unsigned arg_count){
 //                strcpy(lit_str,token.str);
 //                lit((uint32_t)lit_str);
                 break;
+            case eKWORD:
+                if (KEYWORD[token.kw].fntype==eFN_STR){
+                    KEYWORD[token.kw].cfn();
+                }else{
+                    unget_token=true;
+                    expression();
+                }
+                break;
             default:
                 unget_token=true;
                 expression();
@@ -1260,8 +1278,8 @@ static void factor(){
     next_token(); // print(con,token.str);
     switch(token.id){
         case eKWORD:
-            if ((KEYWORD[token.n].len&FUNCTION)){ //print_prog(program_end);
-                KEYWORD[token.n].cfn();
+            if ((KEYWORD[token.kw].fntype==eFN_INT)){ //print_prog(program_end);
+                KEYWORD[token.kw].cfn();
             }else  throw(eERR_SYNTAX);
             break;
         case eIDENT:
@@ -2834,7 +2852,7 @@ static void code_let_string(var_t *var){
             patch_fore_jump(cpop());
             break;
         case eKWORD:
-            if ((KEYWORD[token.n].len&FUNCTION) && (token.str[strlen(token.str)-1]=='$')){
+            if ((KEYWORD[token.n].fntype==eFN_STR)){
                 KEYWORD[token.n].cfn();
             }else{
                 throw(eERR_SYNTAX);
@@ -2961,7 +2979,7 @@ static void kw_print(){
                     }
                 break;
             case eKWORD:
-                if (KEYWORD[token.n].name[strlen(KEYWORD[token.n].name)-1]=='$'){
+                if (KEYWORD[token.n].fntype==eFN_STR){
                     KEYWORD[token.n].cfn();
                     bytecode(IDUP);
                     bytecode(ITYPE);
@@ -3194,6 +3212,14 @@ static void kw_instr(){
                 bytecode(ISTRADR);
                 literal_string(token.str);
                 break;
+            case eKWORD:
+                if (KEYWORD[token.kw].fntype==eFN_STR){
+                    KEYWORD[token.kw].cfn();
+                }else{
+                    unget_token=true;
+                    expression();
+                }
+                break;
             default:
                 unget_token=true;
                 expression();
@@ -3236,11 +3262,11 @@ static void compile(){
         next_token(); 
         switch(token.id){ 
             case eKWORD:
-                if ((KEYWORD[token.n].len&FUNCTION)==FUNCTION){
-                    KEYWORD[token.n].cfn();
+                if (KEYWORD[token.kw].fntype>eFN_NOT){
+                    KEYWORD[token.kw].cfn();
                     bytecode(IDROP); // jette la valeur de retour
                 }else{
-                    KEYWORD[token.n].cfn();
+                    KEYWORD[token.kw].cfn();
                 }
                 break;
             case eIDENT:

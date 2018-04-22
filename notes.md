@@ -1,3 +1,13 @@
+2018-04-22
+----------
+1. Modification de dict_entry_t pour séparer l'entier uint8_t len en 2 champs,
+   len et fntype. Création de l'énumération FN_TYPE. Modification du code pour
+   l'utilisation de cette nouvelle structure.
+2. Modifié dict_search pour qu'il retourne un pointeur dict_entry_t* au lieu de l'indice.
+3. Modification de la structure token_t et du code pour tenir compte de la nouvelle
+   structure.
+4. Corrigé parse_arg_list() qui ne tenait pas compte des fonctions retournant une chaîne.
+
 2018-04-21
 ----------
 1. débogué INSERT$
