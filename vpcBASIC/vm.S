@@ -514,6 +514,15 @@ rot: // ( n3 n2 n1 -- n2 n1 n3)
     b next
     sw t1, -2*CELL_SIZE(dp)
 
+_dict NROT,"-rot"
+nrot: // ( n3 n2 n1 -- n1 n3 n2 )
+    move v0,T
+    lw T,-CELL_SIZE(dp)
+    lw v1,-2*CELL_SIZE(dp)
+    sw v1, -CELL_SIZE(dp)
+    b next
+    sw v0,-2*CELL_SIZE(dp)
+    
 _dict INVERT, "invert"    
 invert: // ( n -- -n)  
     b next
@@ -1215,27 +1224,30 @@ append: // ( s1 s2 -- s3 )
 // retourne une chaîne contenant les n premier caractères de s1    
 _dict LEFT, "LEFT$"
     dest=v0
-    count=t1
-    src=t2
+    byte=a0
+    count=a1
+    src=a2
 left:// ( s1 n -- s2 )    
-    beqz T, 3f
-    _rpush
-    move R,T
-    jal string_alloc
-    move a0,T  
-    move T, dest // T=S2
-    move count,R  // t1=n
-    _rpop
-    lw src,-CELL_SIZE(dp) // t2=s1
-1:  beqz count,2f
-    lbu a0,0(src)
-    sb  a0,0(dest)
+    bgtz T, 1f
+    nop
+    addu T,zero,zero
+    b next
+    addiu dp,dp,-CELL_SIZE
+1:  jal string_alloc
+    move a0,T
+    move count,T
+    move T,v0
+    lw src,-CELL_SIZE(dp)
+2:  beqz count, 3f
+    lbu byte,0(src)
+    beqz byte, 3f
+    sb  byte,0(dest)
     addiu src,src,1
     addiu dest,dest,1
-    b 1b
+    b 2b
     addiu count,count,-1
-2:  sb zero,0(dest)    
-3:  b next
+3:  sb zero,0(dest)  
+    b next
     addiu dp,dp,-CELL_SIZE 
     
     
@@ -1310,8 +1322,12 @@ _dict MID,"MID$"
     from=t1
     count=t2
 mid: // ( s1 n1 n2 -- s2 )
-    beqz T,4f
+    bgtz T,1f
     nop
+    addu T,zero,zero
+    b next
+    addiu dp,dp,-2*CELL_SIZE
+1:
     jal string_alloc
     move a0,T
     move count,T
@@ -1343,77 +1359,97 @@ prepend: // ( s1 s2 -- s3 )
 
 // retourne n derniers caractères de s1    
 _dict RIGHT,"RIGHT$"
-    src=t0
-    dest=v0
-    count=t1
 right: // ( s1 n -- s2 )
     bgtz T,2f
     nop
+    addu T,zero,zero
     b next
     addiu dp,dp,-CELL_SIZE
 2:  jal strlen
     lw a0,-CELL_SIZE(dp)
     _dpush
     subu v0,v0,T
-    addiu v0,v0,1
     b mid
     sw v0,-CELL_SIZE(dp)
     
 
 // substitus les caractères de s1 par ceux de s2 à partir de la position n
-// s1 est rallongé au besoin.
-// si n>len(s1) s2 est attaché à la fin.    
+// arrête la substition au premier caractère null rencontré soit dans s1 ou s2  
 _dict SUBST,"SUBST$"
     dest=v0
-    src=t0
+    src1=a0
+    count=a1
+    byte=a2
+    src2=a3
 subst: // ( s1 s2 n -- s3 )    
-    lw a0,-CELL_SIZE(dp) // si s2 est NULL renvoie s1
-    bgtz a0, 1f
+    bgtz T, 2f
     nop
-    lw T,-2*CELL_SIZE(dp)
+1:  addu T,zero,zero // mauvais arguments retourne pointeur NULL
     b next
     addiu dp,dp,-2*CELL_SIZE
-    // déterminer la longueur de s2+n-1
-    // comparer avec longeur de s1 et garder le plus grand des 2.
-1:  jal strlen
-    lw a0,-CELL_SIZE(dp) // len(s2)?
-    addu t1,v0,T
-    addiu t1,t1,-1 // t1=len(s2)+n-1
-    jal strlen
-    lw a0,-2*CELL_SIZE(dp) // len(s1)?
-    sub t0,t1,v0  // t0=t1-len(s1)
-    bgez t0, 2f
+2:  jal strlen
+    lw a0,-2*CELL_SIZE(dp)
+    blez v0, 1b // mauvais argument chaîne s1 de longueur nulle.
     nop
-    move t0,v0 // 
-2:  jal string_alloc // alloue la nouvelle chaîne.
-    move a0,t0  // v0=s3
-    // copie de n-1 caractère de s1 dans s3
-    bgtz T, 3f
-    lw src,-2*CELL_SIZE(dp)
-    addiu T,zero,1
-3:  addiu T,T,-1
-    beqz T,4f
-    lbu a0,0(src)
-    beqz a0,4f
-    sb a0,0(dest)
-    addiu src,src,1
+    // alloue l'espace pour s3
+2:  jal string_alloc
+    move a0,v0
+    move count,T
+    move T,v0  // met s3 dans T
+    lw src1,-2*CELL_SIZE(dp)
+    lw src2,-CELL_SIZE(dp)
+1:  addiu count,count,-1
+    beqz count,3f
+    lbu byte,0(src1)
+    beqz byte,6f
+    sb byte,0(dest)
+    addiu src1,src1,1
+    b 1b
+    addiu dest,dest,1
+3:  
+    lbu byte,0(src1)
+    beqz byte,5f
+    lbu byte,0(src2)
+    beqz byte, 6f
+    sb byte,0(dest)
+    addiu src1,src1,1
+    addiu src2,src2,1
     b 3b
     addiu dest,dest,1
-4:  // copie s2 dans s3
-    move a0,dest
-    jal strcpy
-    lw a2,-CELL_SIZE(dp)
+5:  sb zero,0(dest)    
+6:    
+    b next
+    addiu dp,dp,-2*CELL_SIZE
+ 
+
+// retourne la position de s2 dans s1 ou 0 si non trouvé
+// la recherche se fait à partir de n0    
+_dict INSTR,"INSTR"
+instr: // ( n0 s1 s2 -- n )
     jal strlen
     lw a0,-CELL_SIZE(dp)
-    addu src,src,v0
-    addu dest,dest,v0
-5:  lbu a0,0(src)
-    beqz a0,6f
-    sb a0,0(dest)
-    addiu src,src,1
-    b 5b
-    addiu dest,dest,1
-6:    
+    lw a0,-2*CELL_SIZE(dp)
+    bgtz a0, 2f
+    nop
+1:  addu T,zero,zero
+    b next
+    addiu dp,dp,-2*CELL_SIZE
+2:  // si n0>len(s1) retourne NULL
+    subu t0,v0,a0
+    bgez t0,3f
+    nop
+    b 1b 
+3:  addiu a0,a0,-1
+    lw a1,-CELL_SIZE(dp)
+    addu a0,a0,a1
+    jal strstr
+    move a1,T
+    move T,v0
+    beqz T, 1b
+    nop
+    lw a0,-CELL_SIZE(dp)
+    subu T,v0,a0
+    addiu T,T,1
     b next
     addiu dp,dp,-2*CELL_SIZE
     
@@ -1880,7 +1916,7 @@ opcodes_table:
 .word plus,minus,star,slash,modulo,ltz
 .word zequal,bitand,bitor,bitxor,bitnot,bool_not,bool_or,bool_and
 .word ticks, delay
-.word qdup,oneplus, oneminus,plusstore, rot
+.word qdup,oneplus, oneminus,plusstore, rot,nrot
 .word  min, max, abs, lshift, rshift, qbraz, dcnt
 .word equal,nequal, less, greater,lteq,gteq,forsave,forrest,for,fortest,fornext
 .word randomize,random
@@ -1894,7 +1930,7 @@ opcodes_table:
 .word vm_polygon,vm_fill,put_sprite,vgacls    
 .word sram_clear,sram_read,sram_write,save_screen,rest_screen,vm_sram_load,vm_sram_save
 .word mslash,to_str,to_asc,to_char,datestr,timestr
-.word append,insert,left,mid,prepend,right,subst    
+.word append,insert,left,mid,prepend,right,subst,instr    
     
 bad_op: 
 .word rfetch,tor,rfrom    

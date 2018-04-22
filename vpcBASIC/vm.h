@@ -51,6 +51,7 @@ enum OP_CODES{
  IMINUS1 ,
  IPLUSSTR ,
  IROT  ,  
+ INROT,
  IMIN ,
  IMAX , 
  IABS ,
@@ -141,6 +142,7 @@ enum OP_CODES{
  IPREPEND,
  IRIGHT,
  ISUBST,
+ IINSTR,
  
  // IRFETCH ,
 // ITOR   , 

@@ -2,6 +2,9 @@
 ----------
 1. débogué INSERT$
 2. Modification HardwareProfile.c:CoreTimerHandler()
+3. Débogué SUBST$
+4. Ajout de INSTR
+5. Modificication de dict_entry_t, utilisation à revoir.
 
 2018-04-20
 ----------

@@ -110,7 +110,7 @@ static uint32_t program_end;
 
 #define NAME_MAX 32 //longueur maximale nom incluant zéro terminal
 #define LEN_MASK 0x1F   // masque longueur nom.
-#define HIDDEN 0x20 // mot caché
+#define STRING 0x20 // fonction qui retourne une chaîne
 #define FUNCTION 0x40 // ce mot est une fonction
 #define AS_HELP 0x80 //commande avec aide
 #define ADR  (void *)
@@ -119,10 +119,11 @@ static uint32_t program_end;
 
 typedef void (*fnptr)();
 
+
 //entrée de commande dans liste
 typedef struct{
     fnptr cfn; // pointeur fonction commande
-    uint8_t len; // longueur nom commande, flags IMMED, HIDDEN
+    uint8_t len; // longueur nom commande, + flags FUNCTION,AS_HEALP et STRING 
     char *name; // nom de la commande
 } dict_entry_t;
 
@@ -200,6 +201,7 @@ static void kw_if();
 static void kw_input();
 static void kw_insert();
 static void kw_insert_line();
+static void kw_instr();
 static void kw_invert_video();
 static void kw_key();
 static void kw_left();
@@ -295,7 +297,8 @@ enum {eKW_ABS,eKW_AND,eKW_APPEND,eKW_ASC,eKW_BOX,eKW_BTEST,eKW_BYE,eKW_CASE,
       eKW_CONST,eKW_CURCOL,eKW_CURLINE,eKW_DATE,eKW_DECLARE,eKW_DIM,eKW_DO,
       eKW_ELLIPSE,eKW_ELSE,
       eKW_END,eKW_EXIT,eKW_FILL,
-      eKW_FOR,eKW_FREE,eKW_FUNC,eKW_GETPIXEL,eKW_IF,eKW_INPUT,eKW_INSERT,eKW_INSERTLN,
+      eKW_FOR,eKW_FREE,eKW_FUNC,eKW_GETPIXEL,eKW_IF,eKW_INPUT,eKW_INSERT,eKW_INSTR,
+      eKW_INSERTLN,
       eKW_INVVID,eKW_KEY,eKW_LEFT,eKW_LEN,
       eKW_LET,eKW_LINE,eKW_LOCAL,eKW_LOCATE,eKW_LOOP,eKW_MAX,eKW_MDIV,eKW_MID,eKW_MIN,eKW_NEXT,
       eKW_NOT,eKW_OR,eKW_POLYGON,eKW_PREPEND,
@@ -314,19 +317,19 @@ static const dict_entry_t KEYWORD[]={
     {kw_abs,3+FUNCTION,"ABS"},
     {bad_syntax,3,"AND"},
     {kw_asc,3+FUNCTION,"ASC"},
-    {kw_append,7+FUNCTION,"APPEND$"},
+    {kw_append,7+FUNCTION+STRING,"APPEND$"},
     {kw_box,3,"BOX"},
     {kw_btest,5+FUNCTION,"BTEST"},
     {kw_bye,3,"BYE"},
     {kw_case,4,"CASE"},
-    {kw_chr,4+FUNCTION,"CHR$"},
+    {kw_chr,4+FUNCTION+STRING,"CHR$"},
     {kw_circle,6,"CIRCLE"},
     {clear,5,"CLEAR"},
     {kw_cls,3+AS_HELP,"CLS"},
     {kw_const,5,"CONST"},
     {kw_curcol,6+FUNCTION,"CURCOL"},
     {kw_curline,7+FUNCTION,"CURLINE"},
-    {kw_date,5+FUNCTION,"DATE$"},
+    {kw_date,5+FUNCTION+STRING,"DATE$"},
     {kw_declare,7,"DECLARE"},
     {kw_dim,3,"DIM"},
     {kw_do,2,"DO"},
@@ -341,11 +344,12 @@ static const dict_entry_t KEYWORD[]={
     {kw_getpixel,4+FUNCTION,"PGET"},
     {kw_if,2,"IF"},
     {kw_input,5,"INPUT"},
-    {kw_insert,7+FUNCTION,"INSERT$"},
+    {kw_instr,5+FUNCTION,"INSTR"},
+    {kw_insert,7+FUNCTION+STRING,"INSERT$"},
     {kw_insert_line,8,"INSERTLN"},
     {kw_invert_video,9,"INVERTVID"},
     {kw_key,3+FUNCTION,"KEY"},
-    {kw_left,5+FUNCTION,"LEFT$"},
+    {kw_left,5+FUNCTION+STRING,"LEFT$"},
     {kw_len,3+FUNCTION,"LEN"},
     {kw_let,3,"LET"},
     {kw_line,4,"LINE"},
@@ -354,13 +358,13 @@ static const dict_entry_t KEYWORD[]={
     {kw_loop,4,"LOOP"},
     {kw_max,3+FUNCTION,"MAX"},
     {kw_mdiv,4+FUNCTION,"MDIV"},
-    {kw_mid,4+FUNCTION,"MID$"},
+    {kw_mid,4+FUNCTION+STRING,"MID$"},
     {kw_min,3+FUNCTION,"MIN"},
     {kw_next,4,"NEXT"},
     {bad_syntax,3,"NOT"},
     {bad_syntax,2,"OR"},
     {kw_polygon,7,"POLYGON"},
-    {kw_prepend,8+FUNCTION,"PREPEND$"},
+    {kw_prepend,8+FUNCTION+STRING,"PREPEND$"},
     {kw_print,5,"PRINT"},
     {kw_setpixel,4,"PSET"},
     {kw_putc,4,"PUTC"},
@@ -370,7 +374,7 @@ static const dict_entry_t KEYWORD[]={
     {kw_rem,3,"REM"},
     {kw_restore_screen,7,"RESTSCR"},
     {kw_return,6,"RETURN"},
-    {kw_right,6+FUNCTION,"RIGHT$"},
+    {kw_right,6+FUNCTION+STRING,"RIGHT$"},
     {kw_rnd,3+FUNCTION,"RND"},
     {kw_run,3,"RUN"},
     {kw_save_screen,7,"SAVESCR"},
@@ -388,11 +392,11 @@ static const dict_entry_t KEYWORD[]={
     {kw_srread,6,"SRREAD"},
     {kw_srsave,6+FUNCTION,"SRSAVE"},
     {kw_srwrite,7,"SRWRITE"},
-    {kw_string,4+FUNCTION,"STR$"},
+    {kw_string,4+FUNCTION+STRING,"STR$"},
     {kw_sub,3,"SUB"},
-    {kw_subst,6+FUNCTION,"SUBST$"},
+    {kw_subst,6+FUNCTION+STRING,"SUBST$"},
     {kw_then,4,"THEN"},
-    {kw_time,5+FUNCTION,"TIME$"},
+    {kw_time,5+FUNCTION+STRING,"TIME$"},
     {kw_ticks,5+FUNCTION,"TICKS"},
     {kw_timeout,7+FUNCTION,"TIMEOUT"},
     {kw_tkey,4+FUNCTION,"TKEY"},
@@ -3166,6 +3170,46 @@ static void kw_prepend(){
 static void kw_insert(){
     parse_arg_list(3); // (s1 s2 n )
     bytecode(IINSERT);
+}
+
+//INSTR([start,]texte,cible)
+// recherche la chaîne "cible" dans le texte
+// l'argument facultatif [start], indique la position de départ dans le texte.
+// Puisque le premier paramètre est facultatif on ne peut utiliser parse_arg_list().
+static void kw_instr(){
+    var_t *var;
+    int count=0;
+    
+    expect(eLPAREN);
+    do{
+        next_token();
+        switch (token.id){
+            case eIDENT:
+                if (!try_string_var()){
+                    unget_token=true;
+                    expression();
+                }
+                break;
+            case eSTRING:
+                bytecode(ISTRADR);
+                literal_string(token.str);
+                break;
+            default:
+                unget_token=true;
+                expression();
+                break;
+        }
+        count++;
+        next_token();
+    }while (token.id==eCOMMA);
+    if (token.id!=eRPAREN) throw(eERR_SYNTAX);
+    if (count==2){
+        _litc(1);
+        bytecode(INROT);
+        count++;
+    }
+    if (count!=3) throw(eERR_SYNTAX);
+    bytecode(IINSTR);
 }
 
 //VAL(chaîne|var$)
