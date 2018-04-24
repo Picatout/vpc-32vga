@@ -674,7 +674,7 @@ static char* cmd_dir(int tok_count, char **tok_list){
     if (tok_count>1){
         path=set_filter(filter,tok_list[1]);// println(con,path); println(con,filter->subs);
     }else{
-        path=current_dir;
+        path=(char*)current_dir;
     }
     error=listDir(path,filter);
     if ((error==FR_NO_PATH) && (error=f_stat(path,fi)==FR_OK)){

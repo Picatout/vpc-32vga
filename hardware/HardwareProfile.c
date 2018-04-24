@@ -180,11 +180,12 @@ void __ISR(_CORE_TIMER_VECTOR, IPL2SOFT) CoreTimerHandler(void){
      ctimer+=CORE_TICK_RATE;
      _CP0_SET_COMPARE(ctimer);
      mCTClearIntFlag();
-     if ((fSound & TONE_ON) && !(--duration)){
+     if ((fSound & TONE_ON) && !(--audible)){
          fSound&=~TONE_ON;
          mTone_off();
      }
-     if (timer) timer--;
+     if (duration){duration--;}
+     if (timer){ timer--;}
 }
 
 

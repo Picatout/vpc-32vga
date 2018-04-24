@@ -30,7 +30,10 @@
 #ifdef	__cplusplus
 extern "C" {
 #endif
-
+#include <stdbool.h>
+#include <stdint.h>
+    
+    
 // flags in fSound variable
 #define TONE_ON  (1)  // tone active
 #define PLAY_TUNE (2) // play tune active
@@ -39,14 +42,48 @@ extern "C" {
 #define mTone_on()  (OC3CONbits.ON=1)
 
 extern volatile unsigned char fSound; // flags variable
-extern volatile unsigned int duration; // sound duration
+extern volatile unsigned int duration; // durée totale de la note
+extern volatile unsigned int audible; // durée audible de la note.
+
+typedef struct note{
+    float freq; // fréquence
+    unsigned  duration; // durée en milisecondes
+}note_t;
+
+typedef enum TONE_FRACTION{
+    eTONE_PAUSE,   // silence
+    eTONE_SHORT,    // 1/2        
+    eTONE_STACCATO, // 3/4
+    eTONE_NORMAL, // 7/8
+    eTONE_LEGATO, // 1/1
+}tone_mode_t;
+
+enum MUSIC_CTRL_CODE{
+    ePLAY_PAUSE,         // "Pn"
+    eNOTE_LENGTH,       // "Ln"
+    eOCTAVE_DOWN,  // '<' 
+    eOCTAVE_UP,    // '>'
+    eOCTAVE,       // "On"
+    eTEMPO,        // "Tn"
+    ePLAY_STOP,         // fin de la mélodie
+};
 
 // initialisation son
 int sound_init();
-// generate a tone
-void tone(unsigned int freq, unsigned int duration);
+// fait entendre un son. Le son est joué en arrière-plan.
+void tone(float freq, unsigned int duration);
 // play a sequence of tones.
-void tune(const unsigned int *buffer);
+void tune(const note_t *buffer);
+// fait entendre un son cours de 1000 hertz
+void beep();
+//fait jouer une mélodie
+void play(const char *melody,bool backtround);
+//ajuste le tempo {32..255}
+void set_tempo(uint8_t t);
+//ajuste le mode des notes
+void set_tone_mode(tone_mode_t m);
+// définie l'octave actif {0..6}    
+void set_octave(unsigned o);
 
 #ifdef	__cplusplus
 }

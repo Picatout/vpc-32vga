@@ -59,7 +59,7 @@
 #define MAX_SIZE (ED_BUFF_SIZE)
 #define STATUS_LINE (LINE_PER_SCREEN-1)
 
-#define _beep()  tone(500,100)
+
 
 #define MODE_INSERT 1
 #define MODE_OVERWR 0
@@ -174,7 +174,7 @@ static void ask_save_changes(){
     char key;
     
     if (state->flags.modified){
-        _beep();
+        beep();
         invert_display(true);
         print(con,"Save changes (y/n)?");
         key= wait_key(con);
@@ -290,7 +290,7 @@ static void search_next(){
     
     if (!search_info->target[0] || (!search_info->loop && 
             _string_too_short(state->tail+1))){
-        _beep();
+        beep();
         return;
     }
     if (search_info->found && (search_info->file_line==state->file_line) && 
@@ -324,7 +324,7 @@ static void search_next(){
     if (search_info->found){
         mark_target();
     }else{
-        _beep();
+        beep();
     }
 }//search_next()
 
@@ -353,32 +353,32 @@ static bool parse_search_line(){
             case 'l':
             case 'L':
                 if (prev!='-'){
-                    _beep();
+                    beep();
                     return false;
                 }
                 search_info->loop=true;
                 options|=1; 
                 if (str[pos+1] && str[pos+1]!=' '){
-                    _beep();
+                    beep();
                     return false;
                 }
                 break;
             case 'i':
             case 'I':
                 if (prev!='-'){
-                    _beep();
+                    beep();
                     return false;
                 }
                 search_info->ignore_case=true;
                 options|=2;
                 uppercase(str);
                 if (str[pos+1] && str[pos+1]!=' '){
-                    _beep();
+                    beep();
                     return false;
                 }
                 break;
             default:
-                _beep();
+                beep();
                 return false;
         }//switch
         prev=str[pos];
@@ -719,7 +719,7 @@ void editor(const char* file_name){
                 if ((key>=32)&(key<FONT_SIZE+32)){
                     insert_char(key);
                 }else{
-                    _beep();
+                    beep();
                 }
             }//switch
     }//while
@@ -1061,7 +1061,7 @@ static void delete_left(){
     if (char_left()){
         delete_at();
     }else{
-        _beep();
+        beep();
     }
 } //f()
 
@@ -1097,7 +1097,7 @@ static void delete_at(){
         }
         state->flags.modified=true;
     }else{
-        _beep();
+        beep();
         return;
     }
     
@@ -1167,7 +1167,7 @@ static void insert_char(char c){
         set_curpos(con,state->scr_col,state->scr_line);
         state->flags.modified=true;
     }else{
-        _beep();
+        beep();
         return;
     }
 }//f()
@@ -1217,7 +1217,7 @@ static void line_end(){
          fill_screen();
          state->flags.modified=true;
      }else{
-         _beep();
+         beep();
      }
 }//f()
 

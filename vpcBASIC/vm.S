@@ -44,6 +44,8 @@
 .extern string_free
 .extern delay_ms
 .extern sprite
+.extern beep
+.extern play
     
 //math 
 .extern srand    
@@ -832,8 +834,9 @@ prt_str: // IPSTR ( -- )
 
 _dict TYPE ,"type"   
 type: // ( addr -- ) // imprime la chaîne ascciz
+    la a0,con
     beqz T, 1f
-    _console
+    lw a0,0(a0)
     jal print
     move a1,T
 1:  _drop_b_next
@@ -1042,7 +1045,7 @@ trunc: // ( f -- i)
     b next
     move T, v0
 
-_dict SOUND, "sound"
+_dict SOUND, "SOUND"
 sound: // ( freq,duration,f -- ) fait entendre une tonalitée
     lw a0,-2*CELL_SIZE(dp)
     jal tone
@@ -1056,8 +1059,16 @@ sound: // ( freq,duration,f -- ) fait entendre une tonalitée
     nop
     b next
     nop
-  
-_dict TUNE ,"tune"   
+
+//produit un son de 1000khz d'une durée de 40msec.    
+_dict BEEP,"BEEP"
+vm_beep: // ( -- )     
+    jal beep
+    nop
+    b next
+    nop
+    
+_dict TUNE ,"TUNE"   
 melody: // ( addr -- ) fait entendre la mélodie contenue dans le tableau
     move a0,T
     jal tune
@@ -1065,7 +1076,18 @@ melody: // ( addr -- ) fait entendre la mélodie contenue dans le tableau
     b next
     lw T,0(dp)
  
-_dict CLS ,"cls"   
+_dict PLAY,"PLAY"
+// joue une mélodie codée dans une chaîne de caractère.
+// si f est vrai joue en arrière plan.
+vm_play: // ( saddr f -- )
+    lw a0,-CELL_SIZE(dp)
+    jal play
+    move a1,T
+    addiu dp,dp,-2*CELL_SIZE
+    b next
+    lw T,0(dp)
+    
+_dict CLS ,"CLS"   
 clr_scr: // ( -- ) efface l'écran
     la a0,con
     jal clear_screen
@@ -1921,7 +1943,7 @@ opcodes_table:
 .word equal,nequal, less, greater,lteq,gteq,forsave,forrest,for,fortest,fornext
 .word randomize,random
 .word key,qrx,emit,prt_str,cr,dot,type,vm_spaces
-.word sound,melody,clr_scr,array_bound    
+.word sound,vm_beep,melody,vm_play,clr_scr,array_bound    
 .word local_store,local_fetch,local_addr,set_frame,sr_call,leave,lc_space
 .word trace,str_adr,str_len,readln,to_int,alloc,str_alloc,str_free,str_cpy
 .word curline,curcolon,setcursor

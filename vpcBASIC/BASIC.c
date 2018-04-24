@@ -182,6 +182,7 @@ static void kw_abs();
 static void kw_append();
 static void kw_asc();
 static void bad_syntax();
+static void kw_beep();
 static void kw_box();
 static void kw_btest();
 static void kw_bye();
@@ -224,6 +225,7 @@ static void kw_mdiv();
 static void kw_mid();
 static void kw_min();
 static void kw_next();
+static void kw_play();
 static void kw_polygon();
 static void kw_prepend();
 static void kw_print();
@@ -299,7 +301,7 @@ static void print_cstack();
 
 //identifiant KEYWORD doit-être dans le même ordre que
 //dans la liste KEYWORD
-enum {eKW_ABS,eKW_AND,eKW_APPEND,eKW_ASC,eKW_BOX,eKW_BTEST,eKW_BYE,eKW_CASE,
+enum {eKW_ABS,eKW_AND,eKW_APPEND,eKW_ASC,eKW_BEEP,eKW_BOX,eKW_BTEST,eKW_BYE,eKW_CASE,
       eKW_CHR,eKW_CIRCLE,
       eKW_CLEAR,eKW_CLS,
       eKW_CONST,eKW_CURCOL,eKW_CURLINE,eKW_DATE,eKW_DECLARE,eKW_DIM,eKW_DO,
@@ -309,7 +311,7 @@ enum {eKW_ABS,eKW_AND,eKW_APPEND,eKW_ASC,eKW_BOX,eKW_BTEST,eKW_BYE,eKW_CASE,
       eKW_INSERTLN,
       eKW_INVVID,eKW_KEY,eKW_LEFT,eKW_LEN,
       eKW_LET,eKW_LINE,eKW_LOCAL,eKW_LOCATE,eKW_LOOP,eKW_MAX,eKW_MDIV,eKW_MID,eKW_MIN,eKW_NEXT,
-      eKW_NOT,eKW_OR,eKW_POLYGON,eKW_PREPEND,
+      eKW_NOT,eKW_OR,eKW_PLAY,eKW_POLYGON,eKW_PREPEND,
       eKW_PRINT,eKW_PSET,eKW_PUTC,eKW_RANDOMISIZE,eKW_RECT,eKW_REF,eKW_REM,eKW_RESTSCR,
       eKW_RETURN,eKW_RIGHT,eKW_RND,eKW_RUN,eKW_SAVESCR,eKW_SCRLUP,eKW_SCRLDN,
       eKW_SELECT,eKW_SETTMR,eKW_SHL,eKW_SHR,eKW_SLEEP,eKW_SOUND,
@@ -326,6 +328,7 @@ static const dict_entry_t KEYWORD[]={
     {bad_syntax,3,eFN_NOT,"AND"},
     {kw_asc,3,eFN_INT,"ASC"},
     {kw_append,7,eFN_STR,"APPEND$"},
+    {kw_beep,4,eFN_NOT,"BEEP"},
     {kw_box,3,eFN_NOT,"BOX"},
     {kw_btest,5,eFN_INT,"BTEST"},
     {kw_bye,3,eFN_NOT,"BYE"},
@@ -371,6 +374,7 @@ static const dict_entry_t KEYWORD[]={
     {kw_next,4,eFN_NOT,"NEXT"},
     {bad_syntax,3,eFN_NOT,"NOT"},
     {bad_syntax,2,eFN_NOT,"OR"},
+    {kw_play,4,eFN_NOT,"PLAY"},
     {kw_polygon,7,eFN_NOT,"POLYGON"},
     {kw_prepend,8,eFN_STR,"PREPEND$"},
     {kw_print,5,eFN_NOT,"PRINT"},
@@ -1884,6 +1888,12 @@ static void kw_btest(){
     bytecode(IBTEST);
 }//f
 
+//BEEP
+//produit un son à la fréquence de 1Khz pour 20msec.
+static void kw_beep(){
+    bytecode(IBEEP);
+}
+
 //SOUND(freq,msec,attend)
 //fait entendre un note de la gamme tempérée
 static void kw_sound(){
@@ -1896,6 +1906,14 @@ static void kw_sound(){
 static void kw_tune(){
     parse_arg_list(1);
     bytecode(ITUNE);
+}
+
+//PLAY(STRING,BACKGROUND)
+//joue une mélodie contenue dans un chaîne.
+//Si BACKGROUND est vrai, joue en arrière plan.
+static void kw_play(){
+    parse_arg_list(2);
+    bytecode(IPLAY);
 }
 
 //SLEEP(msec)

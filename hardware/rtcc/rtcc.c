@@ -490,7 +490,7 @@ void rtcc_power_down_stamp(alm_state_t *pdown){
 }
 
 static void alarm_msg(char *msg){
-static  const unsigned int ring_tone[8]={329,250,523,250,329,250,0,0};
+static  const note_t ring_tone[8]={{329,250},{523,250},{329,250},{ePLAY_STOP,0}};
     text_coord_t cpos;
     uint8_t scr_save[HRES];
     BOOL active,invert;

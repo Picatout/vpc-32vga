@@ -196,7 +196,7 @@ char* set_filter(filter_t *filter, char *path){
         *slash=0;
     }else{
         file_spec=path;
-        path=current_dir;
+        path=(char*)current_dir;
     }
     if (file_spec[0]=='*'){
         filter->criteria++;

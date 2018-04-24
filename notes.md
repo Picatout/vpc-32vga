@@ -1,3 +1,13 @@
+2018-04-23
+----------
+1. Travail sur sound.c, un 3ìeme argument indique la portion de la durée
+   qui est jouée par rapport à la durée totale. L'énumération TONE_FRACTION a
+   été créer à cet effet.
+2. Ajout de **void beep()**.
+3. Ajout de **void sound(unsigned int frq, unsigned duration)**
+4. Débuté travail sur commande BASIC PLAY().
+
+
 2018-04-22
 ----------
 1. Modification de dict_entry_t pour séparer l'entier uint8_t len en 2 champs,

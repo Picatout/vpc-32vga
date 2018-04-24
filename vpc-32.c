@@ -126,13 +126,13 @@ void graphics_test(){ // test des fonctions graphiques
 
 #endif
 
-const unsigned int e3k[]={ // rencontre du 3ième type
-784,500, // sol4
-880,500, // la4
-698,500, // fa4
-349,500, // fa3
-523,500, // do4
-0,0
+const note_t e3k[]={ // rencontre du 3ième type
+    {784.0,500}, // sol4
+    {880.0,500}, // la4
+    {698.5,500}, // fa4
+    {349.2,500}, // fa3
+    {523.3,500}, // do4
+    {ePLAY_STOP,0}
 };
 
 // affiche la date et l'heure
@@ -171,9 +171,6 @@ void init_msg(int output, int code, const char *msg){
 
 //__attribute__((mips16))
 void main(void) {
-#if defined _DEBUG_
-    debug=-1;
-#endif  
     cold_start_init();
     init_msg(SERIAL,ser_init(115200,DEFAULT_LINE_CTRL),"Serial port");
     vga_init();
@@ -181,80 +178,17 @@ void main(void) {
     vga_clear_screen();
     init_msg(SERIAL,rtcc_init(),"RTCC");
     heap_size=free_heap();
-#if defined _DEBUG_
-    test_pattern();
-#endif
     init_msg(SERIAL,sound_init(),"Sound");
-    tune((unsigned int*)&e3k[0]);
+    tune(e3k);
     init_msg(SERIAL,kbd_init(),"keyboard");
     text_coord_t cpos;
     init_msg(SERIAL,!mount(0),"SD card");
     init_msg(SERIAL,sram_init(),"SPI RAM");
-    //test_vm();
-#if defined _DEBUG_    
-    // sram test
-    circle(HRES/2,VRES/2,100);
-    delay_ms(1000);
-    sram_write_block(0,&video_bmp,HRES*VRES/8);
-    clear_screen();
-    delay_ms(1000);
-    sram_read_block(0,&video_bmp,HRES*VRES/8);
-    delay_ms(1000);
-    UartPrint("sound test.\r");
-#endif    
-//    set_cursor(CR_BLOCK); // sauvegare video_buffer dans SRAM
-//    clear_screen();
-//    unsigned char c;
-//    while (1){
-//        c=wait_key(VGA_CONSOLE);
-//        put_char(VGA_CONSOLE,c);
-//    }
-#if defined _DEBUG_
-    graphics_test();
-    set_curpos(0,LINE_PER_SCREEN-1);
-    print(comm_channel,"test");
-    sram_write_block(100000,video_bmp,BMP_SIZE);
-    delay_ms(1000);
-    clear_screen();
-    delay_ms(1000);
-    sram_read_block(100000,video_bmp,BMP_SIZE);
-    delay_ms(1000);
-    clear_screen();
-//    print(comm_channel,"heap_size: ");
-//    print_int(comm_channel,heap_size,0);
-//    crlf();
-#endif
-//    char fmt[40];
-//    text_coord_t curpos;
-//    vga_crlf();
-//    curpos=vga_get_curpos();
-//    while(1){
-//        vga_set_curpos(curpos.x,curpos.y);
-//        rtcc_get_date_str(fmt);
-//        vga_print(fmt);
-//        rtcc_get_time_str(fmt);
-//        vga_print(fmt);
-//        vga_put_char(CR);
-//        sprintf(fmt,"system ticks %d\r",ticks());
-//        vga_print(fmt);
-//        _usec_delay(3000);
-//    }
     print(con,"free RAM (bytes): ");
     print_int(con,free_heap(),0);
     crlf(con);
     last_shutdown();
     display_date_time();
-//    char c=0;
-//    vt_set_curpos(0,0);
-//    vga_set_curpos(0,0);
-//    while(1){
-//        delay_ms(1000);
-//        c++;
-//        vt_insert_line();
-//        print_int(SERIAL_CONSOLE,c,0);
-//        vga_insert_line();
-//        print_int(VGA_CONSOLE,c,0);
-//    }
     shell();
 } // main()
 
