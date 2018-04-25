@@ -127,12 +127,12 @@ void graphics_test(){ // test des fonctions graphiques
 #endif
 
 const note_t e3k[]={ // rencontre du 3ième type
-    {784.0,500}, // sol4
-    {880.0,500}, // la4
-    {698.5,500}, // fa4
-    {349.2,500}, // fa3
-    {523.3,500}, // do4
-    {ePLAY_STOP,0}
+    {784.0,500,eTONE_NORMAL}, // sol4
+    {880.0,500,eTONE_NORMAL}, // la4
+    {698.5,500,eTONE_NORMAL}, // fa4
+    {349.2,500,eTONE_NORMAL}, // fa3
+    {523.3,500,eTONE_NORMAL}, // do4
+    {0.0,0,0}
 };
 
 // affiche la date et l'heure

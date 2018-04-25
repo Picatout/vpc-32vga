@@ -1039,26 +1039,30 @@ random: // ( -- n )
     move T, v0
 
 _dict TRUNC ,"trunc"   
-trunc: // ( f -- i)
+trunc: // ( float -- i)
     move a0, T
     jal rintf
     b next
     move T, v0
 
+//  fait entendre une tonalitée, attend la fin.    
 _dict SOUND, "SOUND"
-sound: // ( freq,duration,f -- ) fait entendre une tonalitée
-    lw a0,-2*CELL_SIZE(dp)
+vm_sound: // ( freq,duration -- )
+    jal set_tone_fraction
+    addiu a0,zero,7
+    lw a0,-CELL_SIZE(dp)
+    jal __floatunsisf
+    nop
+    move a0,v0
     jal tone
-    lw a1,-CELL_SIZE(dp)
-    addiu dp,dp,-3*CELL_SIZE
-    beqz T,next
-    lw T,0(dp)
-    la t1,duration
-1:  lw t0,0(t1)
-    bne t0,zero,1b
+    move a1,T
+    la T,tone_play
+1:  lbu v0,0(T)
+    bne v0,zero,1b
     nop
+    addiu dp,dp,-2*CELL_SIZE
     b next
-    nop
+    lw T, 0(dp)
 
 //produit un son de 1000khz d'une durée de 40msec.    
 _dict BEEP,"BEEP"
@@ -1943,7 +1947,7 @@ opcodes_table:
 .word equal,nequal, less, greater,lteq,gteq,forsave,forrest,for,fortest,fornext
 .word randomize,random
 .word key,qrx,emit,prt_str,cr,dot,type,vm_spaces
-.word sound,vm_beep,melody,vm_play,clr_scr,array_bound    
+.word vm_sound,vm_beep,melody,vm_play,clr_scr,array_bound    
 .word local_store,local_fetch,local_addr,set_frame,sr_call,leave,lc_space
 .word trace,str_adr,str_len,readln,to_int,alloc,str_alloc,str_free,str_cpy
 .word curline,curcolon,setcursor

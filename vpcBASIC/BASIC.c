@@ -1894,10 +1894,10 @@ static void kw_beep(){
     bytecode(IBEEP);
 }
 
-//SOUND(freq,msec,attend)
-//fait entendre un note de la gamme tempérée
+//SOUND(freq,msec)
+//fait entendre une fréquence quelconque. Attend la fin de la note.
 static void kw_sound(){
-    parse_arg_list(3);
+    parse_arg_list(2);
     bytecode(ISOUND);
 }//f
 
@@ -1908,11 +1908,10 @@ static void kw_tune(){
     bytecode(ITUNE);
 }
 
-//PLAY(STRING,BACKGROUND)
+//PLAY(string|var$)
 //joue une mélodie contenue dans un chaîne.
-//Si BACKGROUND est vrai, joue en arrière plan.
 static void kw_play(){
-    parse_arg_list(2);
+    parse_arg_list(1);
     bytecode(IPLAY);
 }
 

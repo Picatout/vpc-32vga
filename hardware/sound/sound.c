@@ -23,7 +23,7 @@
  * rev: 2017-07-31
  */
 
-
+#include <string.h>
 #include <plib.h>
 #include "../HardwareProfile.h"
 #include "sound.h"
@@ -43,23 +43,30 @@ const float octave0[12]={
     61.74, // SI
 };
 
-const float tone_mode[]={
+const float tone_fraction[]={
     0.0, // eTONE_PAUSE
-    0.5, // eTONE_SHORT
+    0.25,
+    0.375,
+    0.5, 
+    0.625,
     0.75, // eTONE_STACCATO
     0.875, // eTONE_NORMAL
     1.0  // eTONE_LEGATO
 };
 
-static tone_mode_t mode=eTONE_NORMAL;
-static uint8_t tempo=120;
-static uint8_t octave=4; // {0..6}
 
-volatile unsigned char fSound=0; // flags
 volatile unsigned int duration;
 volatile unsigned int audible;
-static unsigned note_length=4;
 
+
+volatile unsigned char tone_play;
+volatile unsigned char tune_play;
+
+static unsigned time_signature=4;
+
+static tone_fraction_t fraction=eTONE_NORMAL;
+static uint8_t tempo=120;
+static uint8_t octave=4; // {0..6}
 volatile static note_t *tones_list;
 
 int sound_init(){
@@ -68,35 +75,36 @@ int sound_init(){
     T3CON=(3<<4); // timer 3 prescale 1/8.
     IPC3bits.T3IP=2; // timer interrupt priority
     IPC3bits.T3IS=0; // sub-priority
+    tone_play=0;
+    tune_play=0;
+    duration=0;
+    audible=0;
+    fraction=eTONE_NORMAL;
     return 0;
 }
 
-// retourne la fréquence en fonction de la note 
-// et de l'octave actif.
-static float frequency(unsigned note){
-    return (1<<octave)*octave0[note];
-}
-
-void tone(float freq, // frequency hertz
-          unsigned int msec) // duration  milliseconds
+void tone(float freq, // fréquence hertz
+          uint16_t msec) // durée  millisecondes
 {       float count;
-        //config OC3 for tone generation
-        OC3RS=0;
-        T3CONbits.ON=0;
-        if (freq<100.0){
-            count=(SYSCLK>>5)/freq;
-            T3CONbits.TCKPS=5;
-        }else{
-            count=(SYSCLK>>3)/freq;
-            T3CONbits.TCKPS=3;
-        }
-        PR3=(uint16_t)count-1;
-        OC3R=(uint16_t)(count/2);
-        duration=msec;
-        audible=duration*tone_mode[mode];
-        fSound |=TONE_ON;
-        mTone_on();
-        T3CONbits.ON=1;
+      
+    tone_play=0;
+    //configuration OC3 pour génération tonalité.
+    OC3RS=0;
+    T3CONbits.ON=0;
+    if (freq<100.0){
+        count=(SYSCLK>>5)/freq;
+        T3CONbits.TCKPS=5;
+    }else{
+        count=(SYSCLK>>3)/freq;
+        T3CONbits.TCKPS=3;
+    }
+    PR3=(uint16_t)count-1;
+    OC3R=(uint16_t)(count/2);
+    duration=msec;
+    audible=duration-msec*tone_fraction[fraction];
+    mTone_on();
+    T3CONbits.ON=1;
+    tone_play=1;
 } //tone();
 
 // play a sequence of tones
@@ -105,78 +113,217 @@ void tune(const note_t *buffer){
         tones_list=(note_t*)buffer;
         IFS0bits.T3IF=0;
         IEC0bits.T3IE=1;
-        fSound |= PLAY_TUNE;
+        //fSound |= PLAY_TUNE;
         tone(tones_list->freq,tones_list->duration);
+        tune_play=255;
         tones_list++;
     }
 }//tune()
 
-#define FRQ_BEEP 1000
+#define FRQ_BEEP 1000.0
 #define BEEP_MSEC 40
 void beep(){
+    set_tone_fraction(eTONE_LEGATO);
     tone(FRQ_BEEP,BEEP_MSEC);
 }
 
-// joue jusqu'à 32 notes en arrière plan.
-static unsigned int backplay[64];
-
-
+/*********************************
+ * fonction en support à play()
+ *********************************/
 void set_tempo(uint8_t t){
    tempo=t; 
 }
 
-void set_tone_mode(tone_mode_t m){
-    mode=m;
+void set_tone_fraction(tone_fraction_t f){
+    fraction=f&7;
 }
 
 // définie l'octave actif {0..6}    
 void set_octave(unsigned o){
-    octave=o;
+    octave=o%7;
+}
+
+const char note_name[]="CDEFGAB";
+static int note_order(char c){
+    char *adr;
+    adr=strchr("CDEFGAB",c);
+    if (!adr){
+        return -1;
+    }else{
+        return adr-note_name;
+    }
+}
+
+// calcule la durée de la note en fonction
+// de n et des altération.
+static unsigned calc_duration(int n,int alteration){
+    
+}
+
+// retourne la fréquence en fonction de la note 
+// et de l'octave actif.
+static float frequency(unsigned note){
+    return (1<<octave)*octave0[note];
+}
+
+static int number(char *nstr, int *i){
+    int n=0,inc=0;
+    while (isdigit(*nstr)){
+        n=n*10+(*nstr)-'0';
+        nstr++;
+        inc++;
+    }
+    *i=inc;
+    return n;
 }
 
 static bool free_play_list=false;
+static bool play_background=false;
 
 // joue la mélodie représentée par la chaîne de caractère
 // ref: https://en.wikibooks.org/wiki/QBasic/Full_Book_View#PLAY
-void play(const char *melody, bool background){
+void play(const char *melody){
 #define MAX_NOTES 32
-    int i=0;
-    char c;
-    note_t *play_list;
+    int i=0,n,inc,o,alteration;
+    char c, *play_str;
+    note_t *play_list,*first;
+    
     play_list=malloc(MAX_NOTES*sizeof(note_t));
+    first=play_list;
+    play_str=malloc(strlen(melody)+1);
+    strcpy(play_str,melody);
+    uppercase(play_str);
     free_play_list=true;
+    play_background=false;
     //compile la mélodie dans play_list
-    while ((i<MAX_NOTES)&&(c=*melody++)){
+    while ((i<MAX_NOTES)&&(c=*play_str++)){
         switch(c){
             case 'L':
-            case 'l':
+                n=number(play_str,&inc);
+                play_str+=inc;
+                if (n){
+                    play_list->freq=eNOTE_LENGTH;
+                    play_list->duration=n&255;
+                    i++;
+                    play_list++;
+                }
                 break;
             case 'M':
-            case 'm':
+                c=*play_str++;
+                switch (c){
+                    case 'B':
+                        play_background=true;
+                        break;
+                    case 'F':
+                        play_background=false;
+                        break;
+                    case 'S':
+                        play_list->freq=eNOTE_MODE;
+                        play_list->duration=eTONE_STACCATO;
+                        play_list++;
+                        i++;
+                        break;
+                    case 'L':
+                        play_list->freq=eNOTE_MODE;
+                        play_list->duration=eTONE_LEGATO;
+                        play_list++;
+                        i++;
+                        break;
+                    case 'N':
+                        play_list->freq=eNOTE_MODE;
+                        play_list->duration=eTONE_NORMAL;
+                        play_list++;
+                        i++;
+                        break;
+                    default:;
+                }//switch
                 break;
             case 'N':
-            case 'n':
+                n=number(play_str,&inc);
+                play_str+=inc;
+                if (n){
+                    o=octave;
+                    octave=n/12;
+                    play_list->freq=frequency(n%12);
+                    octave=o;
+                }else{
+                    play_list->freq=ePLAY_PAUSE;
+                }
+                play_list->duration=calc_duration(time_signature,0);
+                play_list++;
+                i++;
                 break;
             case 'O':
-            case 'o':
+                n=number(play_str,&inc);
+                play_str+=inc;
+                play_list->freq=eOCTAVE;
+                play_list->duration=n;
+                play_list++;
+                i++;
                 break;
             case 'P':
-            case 'p':
+                n=number(play_str,&inc);
+                play_str+=inc;
+                play_list->freq=ePLAY_PAUSE;
+                play_list->duration=calc_duration(n,0);
+                play_list++;
+                i++;
                 break;
             case 'T':
-            case 't':
+                n=number(play_str,&inc);
+                play_str+=inc;
+                if (n>=32 && n<256){
+                    play_list->freq=eTEMPO;
+                    play_list->duration=n;
+                    play_list++;
+                    i++;
+                }
                 break;
             case '<':
+                play_list->freq=eOCTAVE_DOWN;
+                play_list++;
+                i++;
                 break;
             case '>':
+                play_list->freq=eOCTAVE_UP;
+                play_list++;
+                i++;
                 break;
-            default:;
-                
+            case 'X': // joue une sous-chaîne
+                break;
+            default:
+                n=note_order(c);
+                if (n>-1){
+                    alteration=0;
+                    c=*play_str;
+                    switch(c){
+                        case '+':
+                        case '#':
+                            n++;
+                            play_str++;
+                            break;
+                        case '-':
+                            n--;
+                            play_str++;
+                            break;
+                        case '.':
+                            alteration=1;
+                            play_str++;
+                            break;
+                        default:
+                            if (isdigit(c)){
+                                n=number(play_str,&inc);
+                            }else{
+                                
+                            }
+                    }//swtich
+                }
         }//switch
     }
-    tune(play_list);
-    if (!background){
-        while (fSound&PLAY_TUNE);
+    free(play_str);
+    tune(first);
+    if (!play_background){
+        while (tune_play);
     }
 }
 
@@ -186,57 +333,23 @@ void play(const char *melody, bool background){
 // select next note to play
 void __ISR(_TIMER_3_VECTOR, IPL2SOFT)  T3Handler(void){
     float f;
-    unsigned d;
-    bool next=true;
+    uint16_t d;
     
        mT3ClearIntFlag();
-       if (fSound&PLAY_TUNE){
+       if (tune_play && !tone_play){
            f=tones_list->freq;
            d=tones_list->duration;
-           switch ((int)f){
-               case eOCTAVE_UP:
-                    if (octave<6) {octave++;}
-                    break;
-               case eOCTAVE_DOWN:
-                    if (octave){octave--;}
-                    break;
-               case eOCTAVE:
-                    octave=d;
-                    break;
-               case eNOTE_LENGTH:
-                    note_length=d;
-                    break;
-               case eTEMPO:
-                    tempo=d;
-                    break;
-               case ePLAY_PAUSE:
-                    if (!duration){
-                        duration=d;
-                        fSound|=TONE_ON;
-                    }else{
-                        next=false;
-                    }
-                    break;
-               case ePLAY_STOP:
-                    fSound&=~PLAY_TUNE;
-                    IEC0bits.T3IE=0;
-                    T3CONbits.ON=0;
-                    next=false;
-                    if (free_play_list){
-                        free((void*)tones_list);
-                        free_play_list=false;
-                    }
-                    break;
-               default:
-                   if (!duration){
-                        tone(f,d);
-                   }else{
-                       next=false;
-                   }
-           }//switch
-       }// if
-       if (next){
+           if (f>0.0){
+               set_tone_fraction(tones_list->fraction);
+               tone(f,d);
+           }else if (d>0){
+               duration=d;
+               audible=duration;
+               tone_play=1;
+           }else{
+               tune_play=0;
+           }
            tones_list++;
-       }
+       }// if
 }// T3Handler
 

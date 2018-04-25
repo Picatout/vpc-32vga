@@ -1,3 +1,8 @@
+2018-04-24
+----------
+1. Travail sur commande BASIC PLAY().
+2. Nombreuses modifications dans le module sound.c
+
 2018-04-23
 ----------
 1. Travail sur sound.c, un 3ìeme argument indique la portion de la durée

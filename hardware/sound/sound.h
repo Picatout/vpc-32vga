@@ -38,52 +38,61 @@ extern "C" {
 #define TONE_ON  (1)  // tone active
 #define PLAY_TUNE (2) // play tune active
     
-#define mTone_off() (OC3CONbits.ON=0)
-#define mTone_on()  (OC3CONbits.ON=1)
+#define mTone_off() OC3CONbits.ON=0
+#define mTone_on()  OC3CONbits.ON=1
 
-extern volatile unsigned char fSound; // flags variable
+extern volatile unsigned char tone_play;
+extern volatile unsigned char tune_play;
+//extern volatile unsigned char fSound; // flags variable
 extern volatile unsigned int duration; // durée totale de la note
 extern volatile unsigned int audible; // durée audible de la note.
 
 typedef struct note{
     float freq; // fréquence
-    unsigned  duration; // durée en milisecondes
+    uint16_t  duration; // durée totale en milisecondes
+    uint16_t  fraction; // durée audible de la note. 
 }note_t;
 
 typedef enum TONE_FRACTION{
-    eTONE_PAUSE,   // silence
-    eTONE_SHORT,    // 1/2        
-    eTONE_STACCATO, // 3/4
-    eTONE_NORMAL, // 7/8
-    eTONE_LEGATO, // 1/1
-}tone_mode_t;
+    eTONE_PAUSE,      // silence
+    eTONE_2ON8,       // 2/8
+    eTONE_3ON8,       // 3/8        
+    eTONE_4ON8,       // 4/8
+    eTONE_5ON8,       // 5/8        
+    eTONE_STACCATO,   // 6/8
+    eTONE_NORMAL,     // 7/8
+    eTONE_LEGATO,     // 8/8
+}tone_fraction_t;
 
 enum MUSIC_CTRL_CODE{
-    ePLAY_PAUSE,         // "Pn"
-    eNOTE_LENGTH,       // "Ln"
+    ePLAY_PAUSE,   // "Pn"
+    eNOTE_LENGTH,  // "Ln"
     eOCTAVE_DOWN,  // '<' 
     eOCTAVE_UP,    // '>'
     eOCTAVE,       // "On"
     eTEMPO,        // "Tn"
-    ePLAY_STOP,         // fin de la mélodie
+    eNOTE_MODE,    // "MS|ML|MN"
+    ePLAY_STOP,    // fin de la mélodie
 };
 
 // initialisation son
 int sound_init();
 // fait entendre un son. Le son est joué en arrière-plan.
-void tone(float freq, unsigned int duration);
+void tone(float freq, uint16_t duration);
 // play a sequence of tones.
 void tune(const note_t *buffer);
 // fait entendre un son cours de 1000 hertz
 void beep();
 //fait jouer une mélodie
-void play(const char *melody,bool backtround);
-//ajuste le tempo {32..255}
+void play(const char *melody);
+//défini le tempo {32..255}
 void set_tempo(uint8_t t);
-//ajuste le mode des notes
-void set_tone_mode(tone_mode_t m);
-// définie l'octave actif {0..6}    
+//défini la fraction audible de la note
+void set_tone_fraction(tone_fraction_t f);
+// défini l'octave actif {0..6}    
 void set_octave(unsigned o);
+// défini la mesure i.e  note par battement.
+void set_time_signature(unsigned);
 
 #ifdef	__cplusplus
 }
