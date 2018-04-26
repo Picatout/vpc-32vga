@@ -47,12 +47,6 @@ extern volatile unsigned char tune_play;
 extern volatile unsigned int duration; // durée totale de la note
 extern volatile unsigned int audible; // durée audible de la note.
 
-typedef struct note{
-    float freq; // fréquence
-    uint16_t  duration; // durée totale en milisecondes
-    uint16_t  fraction; // durée audible de la note. 
-}note_t;
-
 typedef enum TONE_FRACTION{
     eTONE_PAUSE,      // silence
     eTONE_2ON8,       // 2/8
@@ -64,16 +58,11 @@ typedef enum TONE_FRACTION{
     eTONE_LEGATO,     // 8/8
 }tone_fraction_t;
 
-enum MUSIC_CTRL_CODE{
-    ePLAY_PAUSE,   // "Pn"
-    eNOTE_LENGTH,  // "Ln"
-    eOCTAVE_DOWN,  // '<' 
-    eOCTAVE_UP,    // '>'
-    eOCTAVE,       // "On"
-    eTEMPO,        // "Tn"
-    eNOTE_MODE,    // "MS|ML|MN"
-    ePLAY_STOP,    // fin de la mélodie
-};
+typedef struct note{
+    float freq; // fréquence
+    uint16_t  duration; // durée totale en milisecondes
+    uint16_t  fraction; // durée audible de la note. 
+}note_t;
 
 // initialisation son
 int sound_init();
@@ -84,15 +73,7 @@ void tune(const note_t *buffer);
 // fait entendre un son cours de 1000 hertz
 void beep();
 //fait jouer une mélodie
-void play(const char *melody);
-//défini le tempo {32..255}
-void set_tempo(uint8_t t);
-//défini la fraction audible de la note
-void set_tone_fraction(tone_fraction_t f);
-// défini l'octave actif {0..6}    
-void set_octave(unsigned o);
-// défini la mesure i.e  note par battement.
-void set_time_signature(unsigned);
+bool play(const char *melody);
 
 #ifdef	__cplusplus
 }

@@ -1048,8 +1048,6 @@ trunc: // ( float -- i)
 //  fait entendre une tonalitée, attend la fin.    
 _dict SOUND, "SOUND"
 vm_sound: // ( freq,duration -- )
-    jal set_tone_fraction
-    addiu a0,zero,7
     lw a0,-CELL_SIZE(dp)
     jal __floatunsisf
     nop
@@ -1083,11 +1081,14 @@ melody: // ( addr -- ) fait entendre la mélodie contenue dans le tableau
 _dict PLAY,"PLAY"
 // joue une mélodie codée dans une chaîne de caractère.
 // si f est vrai joue en arrière plan.
-vm_play: // ( saddr f -- )
-    lw a0,-CELL_SIZE(dp)
+vm_play: // ( saddr -- )
     jal play
-    move a1,T
-    addiu dp,dp,-2*CELL_SIZE
+    move a0,T
+    bne v0,zero,1f
+    nop
+    b abort
+    addiu T,zero,ERR_PLAY
+1:  addiu dp,dp,-CELL_SIZE
     b next
     lw T,0(dp)
     

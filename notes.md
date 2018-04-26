@@ -1,3 +1,8 @@
+2018-04-25
+----------
+1. Travail sur commande BASIC PLAY().
+
+
 2018-04-24
 ----------
 1. Travail sur commande BASIC PLAY().

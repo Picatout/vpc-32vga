@@ -482,6 +482,7 @@ static  const char* error_msg[]={
     "VM parameters stack overflow\n",
     "VM call stack overflow\n",
     "Program aborted by user\n",
+    "Erreur dans la commande PLAY",
  };
  
  

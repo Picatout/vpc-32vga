@@ -49,7 +49,8 @@ enum ERROR_CODES{
     eERR_DSTACK_NOT_EMPTY,
     eERR_DSTACK_OVF,
     eERR_RSTACK_OVF,
-    eERR_USER_ABORT
+    eERR_USER_ABORT,
+    eERR_PLAY,
     };
 
 #define FIRST_VM_ERROR 21
@@ -63,7 +64,8 @@ enum ERROR_CODES{
     ERR_DSTACK_OVF=FIRST_VM_ERROR+2
     ERR_RSTACK_OVF=FIRST_VM_ERROR+3
     ERR_USER_ABORT=FIRST_VM_ERROR+4    
-        
+    ERR_PLAY=FIRST_VM_ERROR+5
+            
 #endif //#ifndef _ASM_CODE_
 
 
