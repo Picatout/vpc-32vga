@@ -293,6 +293,7 @@ static void compile_file(const char *file_name);
 static var_t *var_search(const char* name);
 static void literal_string(char *lit_str);
 static bool string_func(var_t *var);
+static void string_expression();
 
 #ifdef DEBUG
 static void print_prog(int start);
@@ -1216,8 +1217,9 @@ static bool try_string_var(){
     
     var=var_search(token.str);
     if (var && (var->vtype==eVAR_STR)){
-        code_var_address(var);
-        bytecode(IFETCH);
+        unget_token=true;
+        string_expression();
+//        bytecode(IFETCH);
         return true;
     }
     return false;
@@ -1244,15 +1246,18 @@ static void parse_arg_list(unsigned arg_count){
                 }
                 break;
             case eSTRING:
-                bytecode(ISTRADR);
-                literal_string(token.str);
+                unget_token=true;
+                string_expression();
+//                bytecode(ISTRADR);
+//                literal_string(token.str);
 //                lit_str=alloc_var_space(strlen(token.str)+1);
 //                strcpy(lit_str,token.str);
 //                lit((uint32_t)lit_str);
                 break;
             case eKWORD:
+                unget_token=true;
                 if (KEYWORD[token.kw].fntype==eFN_STR){
-                    KEYWORD[token.kw].cfn();
+                    string_expression();
                 }else{
                     unget_token=true;
                     expression();
@@ -2823,14 +2828,74 @@ static void kw_input(){
     unget_token=true;
 }//f
 
-static void code_let_string(var_t *var){
+//static void code_let_string(var_t *var){
+//    char *string;
+//    var_t *svar;
+//    int len;
+//    
+//    bytecode(IDUP);
+//    bytecode(IFETCH);
+//    bytecode(ISWAP);
+//    next_token();
+//    switch (token.id){
+//        case eSTRING:
+//            len=strlen(token.str);
+//            if (!len){
+//                _litc(0);
+//            }else{
+//                if (!(string=string_alloc(strlen(token.str)))){throw(eERR_ALLOC);}
+//                lit((uint32_t)strcpy(string,token.str));
+//            }
+//            break;
+//        case eIDENT:
+//            if (!(svar=var_search(token.str))){throw(eERR_UNKNOWN);}
+//            if (!svar->vtype==eVAR_STR){throw(eERR_BAD_ARG);}
+//            code_var_address(svar);
+//            bytecode(IFETCH);
+//            bytecode(IDUP);
+//            bytecode(IQBRAZ);
+//            cpush(dptr);
+//            dptr+=2;
+//            bytecode(IDUP);
+//            bytecode(ILEN);
+//            bytecode(IDUP);
+//            bytecode(IQBRAZ);
+//            cpush(dptr);
+//            dptr+=2;
+//            bytecode(ISTRALLOC);
+//            bytecode(IQDUP);
+//            bytecode(IQBRA);
+//            cpush(dptr);
+//            dptr+=2;
+//            _litc(eERR_ALLOC);
+//            bytecode(IABORT);
+//            patch_fore_jump(cpop());
+//            bytecode(ISTRCPY);
+//            patch_fore_jump(cpop());
+//            patch_fore_jump(cpop());
+//            break;
+//        case eKWORD:
+//            if ((KEYWORD[token.n].fntype==eFN_STR)){
+//                KEYWORD[token.n].cfn();
+//            }else{
+//                throw(eERR_SYNTAX);
+//            }
+//            break;
+//        default:
+//            throw(eERR_BAD_ARG);
+//    }//switch
+//    bytecode(ISWAP); 
+//    bytecode(ISTORE);
+//    bytecode(ISTRFREE);
+//}
+
+//compile un terme chaîne
+// string_term ::= chaîne_constante|variable_chaîne|fonction_chaîne.
+static void string_term(){
     char *string;
     var_t *svar;
     int len;
     
-    bytecode(IDUP);
-    bytecode(IFETCH);
-    bytecode(ISWAP);
     next_token();
     switch (token.id){
         case eSTRING:
@@ -2840,6 +2905,13 @@ static void code_let_string(var_t *var){
             }else{
                 if (!(string=string_alloc(strlen(token.str)))){throw(eERR_ALLOC);}
                 lit((uint32_t)strcpy(string,token.str));
+            }
+            break;
+        case eKWORD:
+            if ((KEYWORD[token.n].fntype==eFN_STR)){
+                KEYWORD[token.n].cfn();
+            }else{
+                throw(eERR_SYNTAX);
             }
             break;
         case eIDENT:
@@ -2869,21 +2941,24 @@ static void code_let_string(var_t *var){
             patch_fore_jump(cpop());
             patch_fore_jump(cpop());
             break;
-        case eKWORD:
-            if ((KEYWORD[token.n].fntype==eFN_STR)){
-                KEYWORD[token.n].cfn();
-            }else{
-                throw(eERR_SYNTAX);
-            }
-            break;
         default:
-            throw(eERR_BAD_ARG);
-    }//switch
-    bytecode(ISWAP); 
-    bytecode(ISTORE);
-    bytecode(ISTRFREE);
-}
+            throw(eERR_SYNTAX);
+    }
+}//string_term()
 
+//compile les expressions chaînes.
+// expression_chaîne::= string_term ['+' sring_term]*
+// le caractère '+' est un opérateur de concaténation
+static void string_expression(){
+    string_term();
+    next_token();
+    while (token.id==ePLUS){
+        string_term();
+        bytecode(IAPPEND);
+        next_token();
+    }
+    unget_token=true;
+}//string_expression()
 
 // LET varname=expression
 //assigne une valeur à une variable
@@ -2914,7 +2989,13 @@ static void kw_let(){
     expect(eEQUAL);
     switch(var->vtype){
         case eVAR_STR:
-            code_let_string(var);
+            bytecode(IDUP);
+            bytecode(IFETCH);
+            bytecode(ISWAP);
+            string_expression();
+            bytecode(ISWAP); 
+            bytecode(ISTORE);
+            bytecode(ISTRFREE);
             break;
         case eVAR_INT: 
         case eVAR_BYTE:
@@ -2968,44 +3049,25 @@ static void kw_print(){
         next_token();
         switch (token.id){
             case eSTRING:
-                bytecode(IPSTR);
-                literal_string(token.str);
+            case eIDENT:
+                unget_token=true;
+                string_expression();
+                bytecode(IDUP);
+                bytecode(ITYPE);
+                bytecode(ISTRFREE);
                 _litc(1);
                 bytecode(ISPACES);
                 break;
-            case eIDENT:
-                var=var_search(token.str);
-                if (!var) throw(eERR_UNKNOWN);
-                if (var->vtype==eVAR_STR){ 
-                    code_var_address(var);
-                    bytecode(IFETCH);
-                    bytecode(ITYPE);
-                    _litc(1);
-                    bytecode(ISPACES);
-                }else if (string_func(var)){
-                        _litc(0);
-                        parse_arg_list(var->dim);
-                        lit((uint32_t)var->adr);
-                        bytecode(ICALL);
-                        bytecode(ITYPE);
-                        _litc(1);
-                        bytecode(ISPACES);
-                    }else{
-                        unget_token=true;
-                        expression();
-                        bytecode(IDOT);
-                    }
-                break;
             case eKWORD:
+                unget_token=true;
                 if (KEYWORD[token.n].fntype==eFN_STR){
-                    KEYWORD[token.n].cfn();
+                    string_expression();
                     bytecode(IDUP);
                     bytecode(ITYPE);
                     bytecode(ISTRFREE);
                     _litc(1);
                     bytecode(ISPACES);
                 }else{
-                    unget_token=true;
                     expression();
                     bytecode(IDOT);
                 }

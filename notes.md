@@ -1,3 +1,11 @@
+2018-04-26
+----------
+1. Testé et débogué commande BASIC PLAY().
+2. Ajout de la concatenation des chaînes par opérateur '+'
+3. Corrigé bogue dans RIGHT$
+4. bogue à corriger le compilateur ne libère pas toutes les chaîne lors de la
+   compilation des expressions chaînes concaténées.
+
 2018-04-25
 ----------
 1. Travail sur commande BASIC PLAY().

@@ -227,9 +227,10 @@ static bool parse_note(){
     char c;
     int o=octave,note,nlen=note_len;
     int state=0;
-    bool alteration=0;
+    int alteration=0;
    
-    while (!syntax_error && (state<5) && (c=*play_str++)){
+    while (!syntax_error && (state<5) && (c=*play_str)){
+        play_str++;
         switch(state){
             case 0:
                 note=note_order(c);
@@ -258,13 +259,14 @@ static bool parse_note(){
                         state=2;
                         break;
                     case '.':
-                        play_str--;
+                        alteration++;
                         state=3;
                         break;
                     default:
                         if (isdigit(c)){
                             play_str--;
-                            state=2;
+                            nlen=number();
+                            state=3;
                         }else{
                             play_str--;
                             state=5;
@@ -332,14 +334,15 @@ static void parse_options(){
 // joue la mélodie représentée par la chaîne de caractère
 // ref: https://en.wikibooks.org/wiki/QBasic/Full_Book_View#PLAY
 bool play(const char *melody){
-#define MAX_NOTES 32
+#define SIZE_INCR 32
     int i=0,n,o;
-    char c;
-
-    play_list=malloc((MAX_NOTES+1)*sizeof(note_t));
+    char c,*pstr;
+    int size=SIZE_INCR;
+    play_list=malloc((size)*sizeof(note_t));
     walking=play_list;
     play_str=malloc(strlen(melody)+1);
     strcpy(play_str,melody);
+    pstr=play_str;
     uppercase(play_str);
     play_background=false;
     note_len=QUARTER;
@@ -349,7 +352,8 @@ bool play(const char *melody){
     free_list=true;
     syntax_error=false;
     //compile la mélodie dans play_list
-    while (!syntax_error && (i<MAX_NOTES)&&(c=*play_str++)){
+    while (!syntax_error && (c=*play_str)){
+        play_str++;
         switch(c){
             case ' ': // ignore les espaces
                 break;
@@ -423,9 +427,15 @@ bool play(const char *melody){
                 play_str--;
                 if (parse_note()){i++;}
         }//switch(c)
+        if (i==size){
+            size+=SIZE_INCR;
+            play_list=realloc(play_list,size*sizeof(note_t));
+            if (!play_list){return false;}
+            walking=play_list+i;
+        }
     }//while
-    free(play_str);
     if (!syntax_error){
+        free(pstr);
         walking->freq=0.0;
         walking->duration=0;
         tune(play_list);
@@ -434,6 +444,10 @@ bool play(const char *melody){
         }
         return true;
     }else{
+        println(1,pstr);
+        spaces(1,(int)(play_str-pstr));
+        put_char(1,*play_str);
+        free(pstr);
         free(play_list);
         return false;
     }
@@ -444,19 +458,14 @@ bool play(const char *melody){
 // TIMER3 interrupt service routine
 // select next note to play
 void __ISR(_TIMER_3_VECTOR, IPL2SOFT)  T3Handler(void){
-    float f;
-    uint16_t d;
     
        mT3ClearIntFlag();
        if (tune_play && !tone_play){
-           f=tones_list->freq;
-           d=tones_list->duration;
-           fraction=tones_list->fraction;
-           tones_list++;
-           if (f>0.0){
-               tone(f,d);
-           }else if (d>0){
-               duration=d;
+           set_tone_fraction(tones_list->fraction);
+           if (tones_list->freq>0.0){
+               tone(tones_list->freq,tones_list->duration);
+           }else if (tones_list->duration>0){
+               duration=tones_list->duration;
                audible=duration;
                tone_play=1;
            }else{
@@ -467,6 +476,7 @@ void __ISR(_TIMER_3_VECTOR, IPL2SOFT)  T3Handler(void){
                }
                set_tone_fraction(eTONE_LEGATO); //valeur par défaut.
            }
+           tones_list++;
        }// if
 }// T3Handler
 

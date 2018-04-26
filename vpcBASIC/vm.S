@@ -1396,6 +1396,7 @@ right: // ( s1 n -- s2 )
     lw a0,-CELL_SIZE(dp)
     _dpush
     subu v0,v0,T
+    addiu v0,v0,1
     b mid
     sw v0,-CELL_SIZE(dp)
     
