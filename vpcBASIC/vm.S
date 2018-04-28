@@ -180,11 +180,12 @@ dstack: .space DSTACK_SIZE
 .section .bss.rstack bss
 rstack: .space RSTACK_SIZE
 
+.global heap_size
+    
 .data    
 dstack0: .word dstack
 rstack0: .word rstack
-    
-    
+
 .text
 .align 2, 0xff
 .set noreorder
@@ -715,7 +716,7 @@ bitnot: // 'not' ( n1 -- ~n1 )
     b next
     not T,T
 
-_dict BOOL_NOT,"not"   
+_dict BOOL_NOT,"NOT"   
 bool_not: // ( b -- ~b ) négation booléenne
     beq T,zero,next
     addiu T,zero,-1
@@ -1518,6 +1519,15 @@ str_cpy: // ( src dest -- dest )
     b next
     addiu dp,dp,-CELL_SIZE
 
+_dict STRCMP,"STRCMP"
+vm_strcmp: // ( s1 s2 -- -1|0|1)
+    lw a0,-CELL_SIZE(dp)
+    jal strcmp
+    move a1,T
+    addiu dp,dp,-CELL_SIZE
+    b next
+    move T,v0
+    
 _dict CURLINE , "curline"   
 // retourne la ligne du curseur texte {0..29}    
 curline: // ( -- line )
@@ -1958,7 +1968,7 @@ opcodes_table:
 .word vm_polygon,vm_fill,put_sprite,vgacls    
 .word sram_clear,sram_read,sram_write,save_screen,rest_screen,vm_sram_load,vm_sram_save
 .word mslash,to_str,to_asc,to_char,datestr,timestr
-.word append,insert,left,mid,prepend,right,subst,instr    
+.word append,insert,left,mid,prepend,right,subst,instr,vm_strcmp    
     
 bad_op: 
 .word rfetch,tor,rfrom    

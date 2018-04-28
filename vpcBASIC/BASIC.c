@@ -132,9 +132,24 @@ typedef struct{
 } dict_entry_t;
 
 
+//types de données
+typedef enum {
+    eVAR_INT, // INTEGER
+    eVAR_BYTE, // BYTE
+    eVAR_FLOAT, // FLOAT
+    eVAR_STR, // STRING
+    eVAR_SUB,   // SUB
+    eVAR_FUNC   // FUNC
+}var_type_e;
 
-typedef enum {eVAR_INT,eVAR_STR,eVAR_SUB,eVAR_FUNC,eVAR_BYTE,eVAR_FLOAT
-             }var_type_e;
+// nom des types de données
+const char *TYPE_NAME[]={
+    "INTEGER",
+    "BYTE",
+    "FLOAT",
+    "STRING",
+    0
+};
 
 typedef struct _var{
     struct _var* next; // prochaine variable dans la liste
@@ -294,7 +309,7 @@ static var_t *var_search(const char* name);
 static void literal_string(char *lit_str);
 static bool string_func(var_t *var);
 static void string_expression();
-
+static int search_type();
 #ifdef DEBUG
 static void print_prog(int start);
 static void print_cstack();
@@ -514,6 +529,19 @@ static void throw(int error){
         longjmp(failed,error);
 }
 
+// name est-til un type de donnée valide?
+// retourne le id du type ou -1
+int search_type(char *name){
+    int i=0;
+    while (TYPE_NAME[i]){
+        if (!strcmp(TYPE_NAME[i],name)){
+            return i;
+        }else{
+            i++;
+        }
+    }//while
+    return -1;
+}
 
 static var_t *varlist=NULL;
 static var_t *globals=NULL;
@@ -1157,6 +1185,12 @@ static bool try_mulop(){
 static void code_array_address(var_t *var){
     factor();// compile la valeur de l'index.
 //    expect(eRPAREN);
+    // limite l'index de 1 à ubound()
+    _litc(1);
+    bytecode(IMAX);
+    lit((uint32_t)var->adr);
+    bytecode(IFETCH);
+    bytecode(IMIN);
     if (var->vtype==eVAR_INT || var->vtype==eVAR_STR){
         _litc(2);
         bytecode(ILSHIFT);//4*index
@@ -1179,7 +1213,6 @@ static void code_array_address(var_t *var){
 static void code_var_address(var_t *var){
     if (var->array){
         code_array_address(var);
-        bytecode((uint8_t)var->n);
     }else{
         if (var->local){
             bytecode(ILCADR);
@@ -1187,24 +1220,6 @@ static void code_var_address(var_t *var){
         }else{
             lit((uint32_t)&var->adr);
         }
-//        switch(var->vtype){
-//            case eVAR_STR:
-//                lit((uint32_t)&var->str);
-//                break;
-//            case eVAR_INT:
-//            case eVAR_BYTE:
-//            case eVAR_FLOAT:
-//                lit((uint32_t)&var->n);
-//                break;
-//            case eVAR_LOCAL:
-//                bytecode(ILCADR);
-//                bytecode((uint8_t)var->n);
-//                break;
-//            case eVAR_SUB:
-//            case eVAR_FUNC:
-//                lit(((uint32_t)&var->adr));
-//                break;
-//        }
     }
 }
 
@@ -1409,9 +1424,91 @@ static void condition(){
     }//switch
 }//f
 
+static void string_compare(){
+    bool free_first=false,free_second=false;
+    int op_rel;
+    string_expression();
+    if (_ctop()){
+        free_first=true;
+        bytecode(IDUP);
+    }
+    cdrop();
+    next_token(); // attend un opérateur relationnel.
+    if (!((token.id>=eEQUAL)&&(token.id<=eLE))){throw(eERR_SYNTAX);}
+    op_rel=token.id;
+    string_expression();
+    if (_ctop()){
+        free_second=true;
+        bytecode(IDUP);
+        bytecode(INROT);
+    }
+    cdrop();
+    bytecode(ISTRCMP);
+    if (free_second){
+        bytecode(ISWAP);
+        bytecode(ISTRFREE);
+    }
+    if (free_first){
+        bytecode(ISWAP);
+        bytecode(ISTRFREE);
+    }
+    switch(op_rel){
+        case eEQUAL:
+            bytecode(IBOOL_NOT);
+            break;
+        case INEQUAL:
+            break;
+        case eGT:
+            _litc(0);
+            bytecode(IGREATER);
+            break;
+        case eGE:
+            _litc(0);
+            bytecode(IGTEQ);
+            break;
+        case eLT:
+            _litc(0);
+            bytecode(ILESS);
+            break;
+        case eLE:
+            _litc(0);
+            bytecode(ILTEQ);
+            break;
+    }
+}
+
+static bool try_string_compare(){
+    var_t *var;
+    next_token();
+    switch (token.id){
+        case eSTRING:
+            unget_token=true;
+            string_compare();
+            return true;
+        case eIDENT:
+            var=var_search(token.str);
+            if (var->vtype==eVAR_STR){
+                unget_token=true;
+                string_compare();
+                return true;
+            }
+            break;
+        case eKWORD:
+            if ((KEYWORD[token.n].fntype==eFN_STR)){
+                unget_token=true;
+                string_compare();
+                return true;
+            }
+            break;
+    }
+    return false;
+}
+
 static void bool_factor(){
     int boolop=0;
     //print(con,"bool_factor\n");
+    
+    if (try_string_compare()){return;}
     if (try_boolop()){
         if (token.n!=eKW_NOT) throw(eERR_SYNTAX);
         boolop=eKW_NOT;
@@ -1442,6 +1539,7 @@ static void bool_term(){// print(con,"bool_term()\n");
         fix_count--;
     }
 }//f
+
 
 // compile les expressions booléenne
 static void bool_expression(){// print(con,"bool_expression()\n");
@@ -1487,6 +1585,25 @@ static void compiler_msg(int msg_id, char *detail){
  * commandes BASIC
  *************************/
 
+static bool try_type_cast(char *var_name){
+    var_t *var;
+    int vtype;
+    
+    next_token();
+    if ((token.id==eIDENT) && !strcmp(token.str,"AS")){
+        next_token();
+        if ((token.id==eIDENT) && (vtype=search_type(token.str))>-1){
+            var=var_create(var_name,NULL);
+            var->vtype=vtype;
+        }else{
+            throw(eERR_SYNTAX);
+        }
+        return true;
+    }else{
+        unget_token=true;
+        return false;
+    }
+}
 
 // '(' number {','number}')'
 static void init_int_array(var_t *var){
@@ -1579,6 +1696,21 @@ static void init_str_array(var_t *var){
     complevel--;
 }//f
 
+static void *alloc_array_space(int size, int vtype){
+    void *array;
+    unsigned space;
+
+    if (vtype==eVAR_BYTE){ //table d'octets
+        space=sizeof(uint8_t)*size+sizeof(int);
+    }else{ // table d'entiers ou de chaînes
+        space=sizeof(int)*(size+1);
+    }
+    array=alloc_var_space(space);
+    memset(array,0,space);
+    *((uint32_t*)array)=size;
+    return array;
+}
+
 // récupère la taille du tableau et initialise si '='
 static void dim_array(char *var_name){
     int size=0, len;
@@ -1605,42 +1737,48 @@ static void dim_array(char *var_name){
     }else{
         throw(eERR_BAD_ARG);
     }
-    expect(eRPAREN);
-    len=strlen(var_name);
     if (size<1) throw(eERR_BAD_ARG);
-    if (var_name[len-1]=='#'){ //table d'octets
-        array=alloc_var_space(sizeof(uint8_t)*size+sizeof(int));
-        memset(array,0,sizeof(uint8_t)*size+sizeof(int));
-        *((uint32_t*)array)=size;
-    }else{ // table d'entiers ou de chaînes
-        array=alloc_var_space(sizeof(int)*(size+1));
-        memset(array,0,sizeof(int)*(size+1));
-        *((uint32_t*)array)=size;
-    }
-    new_var=(var_t*)alloc_var_space(sizeof(var_t));
-    new_var->array=true;
-    new_var->dim=1;
-    new_var->name=alloc_var_space(len+1);
-    strcpy(new_var->name,var_name);
-    new_var->adr=array;
-    if (var_name[len-1]=='$'){
-        new_var->vtype=eVAR_STR;
-    }else if (var_name[len-1]=='#'){
-        new_var->vtype=eVAR_BYTE;
-    }else{
-        new_var->vtype=eVAR_INT;
-    }
-    new_var->next=varlist;
-    varlist=new_var;
-    next_token();
-    if (token.id==eEQUAL){
-        if (new_var->vtype==eVAR_STR){
-            init_str_array(new_var);
+    expect(eRPAREN);
+    if (!try_type_cast(var_name)){
+        len=strlen(var_name);
+        if (var_name[len-1]=='#'){ //table d'octets
+            array=alloc_array_space(size,eVAR_BYTE);
+        }else{ // table d'entiers ou de chaînes
+            array=alloc_array_space(size,eVAR_INT);
+        }
+        new_var=(var_t*)alloc_var_space(sizeof(var_t));
+        new_var->array=true;
+        new_var->dim=1;
+        new_var->name=alloc_var_space(len+1);
+        strcpy(new_var->name,var_name);
+        new_var->adr=array;
+        if (var_name[len-1]=='$'){
+            new_var->vtype=eVAR_STR;
+        }else if (var_name[len-1]=='#'){
+            new_var->vtype=eVAR_BYTE;
         }else{
-            init_int_array(new_var);
+            new_var->vtype=eVAR_INT;
+        }
+        new_var->next=varlist;
+        varlist=new_var;
+        next_token();
+        if (token.id==eEQUAL){
+            if (new_var->vtype==eVAR_STR){
+                init_str_array(new_var);
+            }else{
+                init_int_array(new_var);
+            }
+        }else{
+            unget_token=true;
         }
     }else{
-        unget_token=true;
+        varlist->array=true;
+        varlist->dim=1;
+        if (varlist->vtype==eVAR_BYTE){
+            varlist->adr=alloc_array_space(size,eVAR_BYTE);
+        }else{
+            varlist->adr=alloc_array_space(size,eVAR_INT);
+        }
     }
 }//f
 
@@ -1659,37 +1797,46 @@ static void kw_dim(){
     if (var_local) throw(eERR_NOT_ARRAY);
     expect(eIDENT);
     while (token.id==eIDENT){
-        if (var_search(token.str)) throw(eERR_REDEF);
+        if (var_search(token.str)) throw(eERR_DUPLICATE);
         strcpy(var_name,token.str);
+        if (!try_type_cast(var_name)){
+            next_token();
+            switch(token.id){
+                case eLPAREN:
+                    dim_array(var_name);
+                    break;
+                case eCOMMA:
+                    new_var=var_create(var_name,NULL);
+                    break;
+                case eEQUAL: 
+                    new_var=var_create(var_name,NULL);
+                    if (new_var->vtype==eVAR_STR){
+//                        string_expression();
+//                        lit((uint32_t)&new_var->adr);
+//                        bytecode(ISTORE);
+                        next_token();
+                        if (token.id!=eSTRING) throw(eERR_BAD_ARG);
+                        new_var->str=alloc_var_space(strlen(token.str)+1);
+                        strcpy((char*)new_var->str,token.str);
+                    }else{
+                        expression();
+                        lit((uint32_t)&new_var->n);
+                        bytecode(ISTORE);
+                    }
+                    break;
+                default:
+                    new_var=var_create(var_name,NULL);
+                    unget_token=true;
+                    break;
+
+            }//switch
+        }
         next_token();
-        switch(token.id){
-            case eLPAREN:
-                dim_array(var_name);
-                break;
-            case eCOMMA:
-                new_var=var_create(var_name,NULL);
-                break;
-            case eEQUAL:
-                new_var=var_create(var_name,NULL);
-                if (new_var->vtype==eVAR_STR){
-                    next_token();
-                    if (token.id!=eSTRING) throw(eERR_BAD_ARG);
-                    new_var->str=alloc_var_space(strlen(token.str)+1);
-                    strcpy((char*)new_var->str,token.str);
-                }else{
-                    expression();
-                    lit((uint32_t)&new_var->n);
-                    bytecode(ISTORE);
-                }
-                break;
-            default:
-                new_var=var_create(var_name,NULL);
-                unget_token=true;
-                break;
-                
-        }//switch
-        next_token();
-        if (token.id==eCOMMA) next_token();
+        if (token.id==eCOMMA){
+            next_token();
+        }else if (!(token.id==eSTOP)){
+            throw(eERR_SYNTAX);
+        }
     }//while
     unget_token=true;
 }//f
@@ -2232,6 +2379,7 @@ static void compile_file(const char *file_name){
 
 // compile et exécute un fichier BASIC.
 static void run_file(const char *file_name){
+    clear();
     compile_file(file_name);
     exec_basic();
     activ_reader=&std_reader;
@@ -2828,66 +2976,6 @@ static void kw_input(){
     unget_token=true;
 }//f
 
-//static void code_let_string(var_t *var){
-//    char *string;
-//    var_t *svar;
-//    int len;
-//    
-//    bytecode(IDUP);
-//    bytecode(IFETCH);
-//    bytecode(ISWAP);
-//    next_token();
-//    switch (token.id){
-//        case eSTRING:
-//            len=strlen(token.str);
-//            if (!len){
-//                _litc(0);
-//            }else{
-//                if (!(string=string_alloc(strlen(token.str)))){throw(eERR_ALLOC);}
-//                lit((uint32_t)strcpy(string,token.str));
-//            }
-//            break;
-//        case eIDENT:
-//            if (!(svar=var_search(token.str))){throw(eERR_UNKNOWN);}
-//            if (!svar->vtype==eVAR_STR){throw(eERR_BAD_ARG);}
-//            code_var_address(svar);
-//            bytecode(IFETCH);
-//            bytecode(IDUP);
-//            bytecode(IQBRAZ);
-//            cpush(dptr);
-//            dptr+=2;
-//            bytecode(IDUP);
-//            bytecode(ILEN);
-//            bytecode(IDUP);
-//            bytecode(IQBRAZ);
-//            cpush(dptr);
-//            dptr+=2;
-//            bytecode(ISTRALLOC);
-//            bytecode(IQDUP);
-//            bytecode(IQBRA);
-//            cpush(dptr);
-//            dptr+=2;
-//            _litc(eERR_ALLOC);
-//            bytecode(IABORT);
-//            patch_fore_jump(cpop());
-//            bytecode(ISTRCPY);
-//            patch_fore_jump(cpop());
-//            patch_fore_jump(cpop());
-//            break;
-//        case eKWORD:
-//            if ((KEYWORD[token.n].fntype==eFN_STR)){
-//                KEYWORD[token.n].cfn();
-//            }else{
-//                throw(eERR_SYNTAX);
-//            }
-//            break;
-//        default:
-//            throw(eERR_BAD_ARG);
-//    }//switch
-//    bytecode(ISWAP); 
-//    bytecode(ISTORE);
-//    bytecode(ISTRFREE);
-//}
 
 //compile un terme chaîne
 // string_term ::= chaîne_constante|variable_chaîne|fonction_chaîne.
@@ -2899,12 +2987,12 @@ static void string_term(){
     next_token();
     switch (token.id){
         case eSTRING:
+            bytecode(ISTRADR);
             len=strlen(token.str);
             if (!len){
-                _litc(0);
+                bytecode(0);
             }else{
-                if (!(string=string_alloc(strlen(token.str)))){throw(eERR_ALLOC);}
-                lit((uint32_t)strcpy(string,token.str));
+                literal_string(token.str);
             }
             break;
         case eKWORD:
@@ -2916,30 +3004,9 @@ static void string_term(){
             break;
         case eIDENT:
             if (!(svar=var_search(token.str))){throw(eERR_UNKNOWN);}
-            if (!svar->vtype==eVAR_STR){throw(eERR_BAD_ARG);}
+            if (!(svar->vtype==eVAR_STR)){throw(eERR_BAD_ARG);}
             code_var_address(svar);
             bytecode(IFETCH);
-            bytecode(IDUP);
-            bytecode(IQBRAZ);
-            cpush(dptr);
-            dptr+=2;
-            bytecode(IDUP);
-            bytecode(ILEN);
-            bytecode(IDUP);
-            bytecode(IQBRAZ);
-            cpush(dptr);
-            dptr+=2;
-            bytecode(ISTRALLOC);
-            bytecode(IQDUP);
-            bytecode(IQBRA);
-            cpush(dptr);
-            dptr+=2;
-            _litc(eERR_ALLOC);
-            bytecode(IABORT);
-            patch_fore_jump(cpop());
-            bytecode(ISTRCPY);
-            patch_fore_jump(cpop());
-            patch_fore_jump(cpop());
             break;
         default:
             throw(eERR_SYNTAX);
@@ -2952,13 +3019,47 @@ static void string_term(){
 static void string_expression(){
     string_term();
     next_token();
+    cpush(0);
     while (token.id==ePLUS){
+        _ctop()++; //nombre de chaîne intermédiaires
         string_term();
         bytecode(IAPPEND);
         next_token();
+        if (token.id==ePLUS){
+            bytecode(IDUP);
+        }
     }
     unget_token=true;
+    //libération des chaînes intermédiaires.
+    while (_ctop()>1){
+        bytecode(ISWAP);
+        bytecode(ISTRFREE);
+        _ctop()--;
+    }
 }//string_expression()
+
+// assigne une valeur à une variable chaîne.
+static void code_let_string(var_t *var){
+    bytecode(IDUP);
+    bytecode(IFETCH);
+    bytecode(ISWAP);
+    string_expression();
+    if (!_ctop()){
+        bytecode(IDUP);
+        bytecode(IQBRAZ);
+        cpush(dptr);
+        dptr+=2;
+        bytecode(IDUP);
+        bytecode(ILEN);
+        bytecode(ISTRALLOC);
+        bytecode(ISTRCPY);
+        patch_fore_jump(cpop());
+    }
+    cdrop();
+    bytecode(ISWAP); 
+    bytecode(ISTORE);
+    bytecode(ISTRFREE);
+}
 
 // LET varname=expression
 //assigne une valeur à une variable
@@ -2989,13 +3090,7 @@ static void kw_let(){
     expect(eEQUAL);
     switch(var->vtype){
         case eVAR_STR:
-            bytecode(IDUP);
-            bytecode(IFETCH);
-            bytecode(ISWAP);
-            string_expression();
-            bytecode(ISWAP); 
-            bytecode(ISTORE);
-            bytecode(ISTRFREE);
+            code_let_string(var);
             break;
         case eVAR_INT: 
         case eVAR_BYTE:
@@ -3040,6 +3135,21 @@ static void kw_local(){
     bytecode(lc);
 }//f
 
+static void print_string(){
+    unget_token=true;
+    string_expression();
+    if (_ctop()){
+        bytecode(IDUP);
+        bytecode(ITYPE);
+        bytecode(ISTRFREE);
+    }else{
+        bytecode(ITYPE);
+    }
+    cdrop();
+    _litc(1);
+    bytecode(ISPACES);
+}
+
 // PRINT|? chaine|identifier|expression {,chaine|identifier|expression}
 static void kw_print(){
     var_t *var;
@@ -3049,25 +3159,24 @@ static void kw_print(){
         next_token();
         switch (token.id){
             case eSTRING:
+                print_string();
+                break;
             case eIDENT:
-                unget_token=true;
-                string_expression();
-                bytecode(IDUP);
-                bytecode(ITYPE);
-                bytecode(ISTRFREE);
-                _litc(1);
-                bytecode(ISPACES);
+                if (!(var=var_search(token.str))){throw(eERR_UNKNOWN);}
+                    if ((var->vtype==eVAR_STR)||((var->vtype==eVAR_FUNC)&&
+                            (var->name[strlen(var->name-1)]=='$'))){
+                        print_string();
+                    }else{
+                        unget_token=true;
+                        expression();
+                        bytecode(IDOT);
+                    }
                 break;
             case eKWORD:
-                unget_token=true;
                 if (KEYWORD[token.n].fntype==eFN_STR){
-                    string_expression();
-                    bytecode(IDUP);
-                    bytecode(ITYPE);
-                    bytecode(ISTRFREE);
-                    _litc(1);
-                    bytecode(ISPACES);
+                    print_string();
                 }else{
+                    unget_token=true;
                     expression();
                     bytecode(IDOT);
                 }
@@ -3431,14 +3540,13 @@ void BASIC_shell(unsigned basic_heap, unsigned option, const char* file_or_strin
     pad=malloc(PAD_SIZE);
     prog_size=(biggest_chunk()-basic_heap)&0xfffffff0;
     progspace=malloc(prog_size);
-    if (option!=EXEC_STRING){
+    if (!(option==EXEC_STRING || option==EXEC_FILE)){
         clear_screen(con);
         sprintf((char*)progspace,"vpcBASIC v1.0\nRAM available: %d bytes\n"
                                  "strings space: %d bytes\n",prog_size,basic_heap);
         print(con,progspace);
     }
     clear();
-   
 //  initialisation lecteur source.
     reader_init(&std_reader,eDEV_KBD,NULL);
     activ_reader=&std_reader; 

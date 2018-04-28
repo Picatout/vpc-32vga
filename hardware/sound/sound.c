@@ -150,9 +150,9 @@ static uint8_t tempo=120; // nombre de noires par minute
 static uint8_t octave=4; // {0..6}
 static bool syntax_error;
 static char *play_str;
-static note_t *play_list,*walking;
+static volatile note_t *play_list, *walking;
 static bool play_background;
-static bool free_list;
+static volatile bool free_list;
 
 
 static void set_tempo(uint8_t t){
@@ -429,7 +429,7 @@ bool play(const char *melody){
         }//switch(c)
         if (i==size){
             size+=SIZE_INCR;
-            play_list=realloc(play_list,size*sizeof(note_t));
+            play_list=realloc((void*)play_list,size*sizeof(note_t));
             if (!play_list){return false;}
             walking=play_list+i;
         }
@@ -438,7 +438,7 @@ bool play(const char *melody){
         free(pstr);
         walking->freq=0.0;
         walking->duration=0;
-        tune(play_list);
+        tune((note_t*)play_list);
         if (!play_background){
             while (tune_play);
         }
@@ -448,7 +448,7 @@ bool play(const char *melody){
         spaces(1,(int)(play_str-pstr));
         put_char(1,*play_str);
         free(pstr);
-        free(play_list);
+        free((void*)play_list);
         return false;
     }
 }//play()

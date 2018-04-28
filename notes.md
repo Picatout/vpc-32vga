@@ -1,3 +1,20 @@
+2018-04-28
+----------
+1. Corrigé string_expression()
+2. Ajouter comparison de chaîne, i.e. chaîne1 op_rel chaîne2, retourne -1,0,1
+   fait appel à strcmp() de C.
+3. Ajout du typage des variables avec le mot réservé **AS**
+   types supportés: INTEGER,FLOAT,BYTE,STRING
+4. Corrigé bogue régressif dans kw_print()
+
+2018-04-27
+----------
+1. BASIC, Modification à string_expression()
+2. Hardware_Profile, Modification a biggest_chunck() et et free_heap().
+3. BASIC, coulage mémoire heap à corriger.
+4. bogue dans free_heap()
+5. bogue dans string_expression() à corriger.
+
 2018-04-26
 ----------
 1. Testé et débogué commande BASIC PLAY().

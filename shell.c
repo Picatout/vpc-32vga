@@ -33,7 +33,7 @@
  *      cp     copie un fichier
  *      snd    envoie un fichier vers le port sériel
  *      rcv    reçois un fichier par le port sériel
- *      forth  lance l'environnement vpForth
+ *      forth  lance l'environnement vpForthsearch_command
  *      puts mot  imprime à l'écran le mot qui suis
  *      expr {expression}  évalue une expression et retourne le résultat
  */

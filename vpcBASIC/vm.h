@@ -145,6 +145,7 @@ enum OP_CODES{
  IRIGHT,
  ISUBST,
  IINSTR,
+ ISTRCMP,
  
  // IRFETCH ,
 // ITOR   , 

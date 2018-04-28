@@ -127,8 +127,7 @@ bool timeout(){
     return !timer;
 }
 
-// essaie d'obtenir le plus morceau de mémoire RAM disponible.
-// retourne la grandeur de ce morceau.
+// retourne la grandeur du plus gros morceau de RAM allouable sur le heap.
 unsigned biggest_chunk(){
     unsigned size, last_failed=RAM_SIZE, last_succeed=0;
     void *ptr=NULL;

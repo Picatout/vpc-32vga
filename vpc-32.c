@@ -185,7 +185,7 @@ void main(void) {
     init_msg(SERIAL,!mount(0),"SD card");
     init_msg(SERIAL,sram_init(),"SPI RAM");
     print(con,"free RAM (bytes): ");
-    print_int(con,free_heap(),0);
+    print_int(con,heap_size,0);
     crlf(con);
     last_shutdown();
     display_date_time();
