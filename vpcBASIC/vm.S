@@ -1140,6 +1140,58 @@ str_len: // ( adr -- length )
     b 1b
     addiu T,T,1
     
+_dict LCASE,"LCASE$"
+// converti les caractères de la chaîne en miniscule
+// retourne un pointeur sur la nouvelle chaîne.
+    dest=v0
+    chr=t0
+    cmp=t1
+    src=a3
+    lbound=a0
+    ubound=a1
+    incr=a2
+lcase: // ( s1 -- s2 )
+    jal strlen
+    move a0,T
+    jal string_alloc
+    move a0,v0
+    move src,T
+    move T,v0
+    move dest,v0
+    addiu lbound,zero,'A'
+    addiu ubound,zero,'Z'
+    addiu incr,zero,32
+1:  lbu chr,0(src)
+    beqz chr,4f
+    sub cmp,lbound,T
+    bltz cmp,3f
+    sub cmp,ubound,T
+    bgtz cmp,3f
+    addu chr,chr,incr
+3:  sb chr,0(dest)
+    addiu src,src,1
+    addiu dest,dest,1
+    b 1b
+    nop
+4:  b next
+    sb zero,0(dest)
+    
+_dict UCASE,"UCASE$"
+// converti la chaîne en majuscules retourne un pointeur sur la nouvelle chaîne.    
+ucase: // ( s1 -- s2 )     
+    jal strlen
+    move a0,T
+    jal string_alloc
+    move a0,v0
+    move src,T
+    move dest,v0
+    move T,v0
+    addiu lbound,zero,'a'
+    addiu ubound,zero,'z'
+    b 1b
+    addiu incr,zero,-32
+   
+    
 _dict READLN,"readln"   
 // lecture d'une ligne de text à partir de la consoel
 // addr  adresse du tampon de réception
@@ -1969,6 +2021,7 @@ opcodes_table:
 .word sram_clear,sram_read,sram_write,save_screen,rest_screen,vm_sram_load,vm_sram_save
 .word mslash,to_str,to_asc,to_char,datestr,timestr
 .word append,insert,left,mid,prepend,right,subst,instr,vm_strcmp    
+.word ucase,lcase
     
 bad_op: 
 .word rfetch,tor,rfrom    

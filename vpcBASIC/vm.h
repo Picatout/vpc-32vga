@@ -146,6 +146,8 @@ enum OP_CODES{
  ISUBST,
  IINSTR,
  ISTRCMP,
+ IUCASE,
+ ILCASE,
  
  // IRFETCH ,
 // ITOR   , 

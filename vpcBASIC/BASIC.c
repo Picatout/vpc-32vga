@@ -228,6 +228,7 @@ static void kw_insert_line();
 static void kw_instr();
 static void kw_invert_video();
 static void kw_key();
+static void kw_lcase();
 static void kw_left();
 static void kw_len();
 static void kw_let();
@@ -281,6 +282,7 @@ static void kw_tkey();
 static void kw_trace();
 static void kw_tune();
 static void kw_ubound();
+static void kw_ucase();
 static void kw_use();
 static void kw_val();
 static void kw_vgacls();
@@ -325,7 +327,7 @@ enum {eKW_ABS,eKW_AND,eKW_APPEND,eKW_ASC,eKW_BEEP,eKW_BOX,eKW_BTEST,eKW_BYE,eKW_
       eKW_END,eKW_EXIT,eKW_FILL,
       eKW_FOR,eKW_FREE,eKW_FUNC,eKW_GETPIXEL,eKW_IF,eKW_INPUT,eKW_INSERT,eKW_INSTR,
       eKW_INSERTLN,
-      eKW_INVVID,eKW_KEY,eKW_LEFT,eKW_LEN,
+      eKW_INVVID,eKW_KEY,eKW_LCASE,eKW_LEFT,eKW_LEN,
       eKW_LET,eKW_LINE,eKW_LOCAL,eKW_LOCATE,eKW_LOOP,eKW_MAX,eKW_MDIV,eKW_MID,eKW_MIN,eKW_NEXT,
       eKW_NOT,eKW_OR,eKW_PLAY,eKW_POLYGON,eKW_PREPEND,
       eKW_PRINT,eKW_PSET,eKW_PUTC,eKW_RANDOMISIZE,eKW_RECT,eKW_REF,eKW_REM,eKW_RESTSCR,
@@ -333,7 +335,7 @@ enum {eKW_ABS,eKW_AND,eKW_APPEND,eKW_ASC,eKW_BEEP,eKW_BOX,eKW_BTEST,eKW_BYE,eKW_
       eKW_SELECT,eKW_SETTMR,eKW_SHL,eKW_SHR,eKW_SLEEP,eKW_SOUND,
       eKW_SPRITE,eKW_SRCLEAR,eKW_SRLOAD,eKW_SRREAD,eKW_SRSSAVE,eKW_SRWRITE,eKW_STR,
       eKW_SUB,eKW_SUBST,eKW_TIME,eKW_THEN,eKW_TICKS,
-      eKW_TIMEOUT,eKW_TKEY,eKW_TRACE,eKW_TUNE,eKW_UBOUND,eKW_UNTIL,eKW_USE,eKW_VAL,
+      eKW_TIMEOUT,eKW_TKEY,eKW_TRACE,eKW_TUNE,eKW_UBOUND,eKW_UCASE,eKW_UNTIL,eKW_USE,eKW_VAL,
       eKW_VGACLS,
       eKW_WAITKEY,eKW_WEND,eKW_WHILE,eKW_XOR,eKW_XORPIXEL
 };
@@ -376,6 +378,7 @@ static const dict_entry_t KEYWORD[]={
     {kw_insert_line,8,eFN_NOT,"INSERTLN"},
     {kw_invert_video,9,eFN_NOT,"INVERTVID"},
     {kw_key,3,eFN_INT,"KEY"},
+    {kw_lcase,6,eFN_STR,"LCASE$"},
     {kw_left,5,eFN_STR,"LEFT$"},
     {kw_len,3,eFN_INT,"LEN"},
     {kw_let,3,eFN_NOT,"LET"},
@@ -431,6 +434,7 @@ static const dict_entry_t KEYWORD[]={
     {kw_trace,5,eFN_NOT,"TRACE"},
     {kw_tune,4,eFN_NOT,"TUNE"},
     {kw_ubound,6,eFN_INT,"UBOUND"},
+    {kw_ucase,6,eFN_STR,"UCASE$"},
     {bad_syntax,5,eFN_NOT,"UNTIL"},
     {kw_use,3,eFN_NOT,"USE"},
     {kw_val,3,eFN_INT,"VAL"},
@@ -547,6 +551,11 @@ static var_t *varlist=NULL;
 static var_t *globals=NULL;
 static bool var_local=false;
 
+typedef struct {
+    uint8_t rcount; // compte des références à cete chaîne
+    char str[]; // la chaîne elle même
+}dstring_t;
+
 // allocation de l'espace pour une chaîne asciiz sur le heap;
 // length est la longueur de la chaine.
 char* string_alloc(unsigned length){
@@ -558,12 +567,21 @@ char* string_alloc(unsigned length){
     return str;
 }
 
+static bool in_progspace(void *ptr){
+    return (ptr>=(void*)progspace) && (ptr<((void*)progspace+prog_size));
+}
+
+static bool in_ram(void *ptr){
+    return (ptr>=RAM_BEGIN) && (ptr<RAM_END);
+}
+
 // libération de l'espace réservée pour une chaîne asciiz sur le heap.
 void string_free(char *str){
-    if ((uint32_t)str>=RAM_BEGIN && (uint32_t)str<RAM_END){
+    if (!in_progspace(str) && in_ram(str)){
         free(str);
     }
 }
+
 
 void free_string_vars(){
     var_t *var;
@@ -575,7 +593,7 @@ void free_string_vars(){
     limit=progspace+prog_size;
     var=varlist;
     while (var){
-        if ((var->vtype==eVAR_STR) && ! (var->local)){
+        if ((var->vtype==eVAR_STR) && !(var->local)){
             if (!var->array){
                 string_free(var->str);
             }else{
@@ -1234,7 +1252,6 @@ static bool try_string_var(){
     if (var && (var->vtype==eVAR_STR)){
         unget_token=true;
         string_expression();
-//        bytecode(IFETCH);
         return true;
     }
     return false;
@@ -3378,6 +3395,23 @@ static void kw_insert(){
     parse_arg_list(3); // (s1 s2 n )
     bytecode(IINSERT);
 }
+
+//LCASE$(s)
+//converti la chaîne en minicules retourne
+//un pointeur vers la nouvelle chaîne.
+static void kw_lcase(){
+    parse_arg_list(1);
+    bytecode(ILCASE);
+}
+
+//UCASE$(s)
+//converti la chaîne en majuscule retourne
+//un pointeur vers la nouvelle chaîne
+static void kw_ucase(){
+    parse_arg_list(1);
+    bytecode(IUCASE);
+}
+
 
 //INSTR([start,]texte,cible)
 // recherche la chaîne "cible" dans le texte

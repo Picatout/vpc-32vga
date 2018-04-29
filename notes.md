@@ -1,3 +1,11 @@
+2018-04-29
+----------
+1. Ajout des fonction chaînes **UCASE$** et **LCASE$**
+2. entrepris d'apporter des modifications majeurs à la gestion des chaînes
+   en créant un typedef avec une strucure **dstring_t** pour enregistrer
+   les références aux chaînes dynamques. Cette méthode va simplifier la gestion
+   des chaînes dynamiques.
+
 2018-04-28
 ----------
 1. Corrigé string_expression()
@@ -6,6 +14,8 @@
 3. Ajout du typage des variables avec le mot réservé **AS**
    types supportés: INTEGER,FLOAT,BYTE,STRING
 4. Corrigé bogue régressif dans kw_print()
+5. Modification à kw_dim().
+
 
 2018-04-27
 ----------
