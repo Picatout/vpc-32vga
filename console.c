@@ -35,7 +35,7 @@
 
 static int tab_width=4;
 
-bool abort_signal=false;
+uint8_t abort_signal=false;
 
 void uppercase(char *str){// in situ uppercase
     while (*str){

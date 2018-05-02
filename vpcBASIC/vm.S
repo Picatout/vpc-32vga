@@ -15,7 +15,8 @@
 #include "BASIC.h"
     
     
-// fonctions en C    
+// fonctions en C
+.extern abort_signal    
 .extern sys_ticks
 .extern con  
 .extern uppercase
@@ -217,16 +218,16 @@ StackVM:  // VM initialization
     sw zero,CELL_SIZE(dp)
 #ifdef _CHECK_USER_ABORT    
     la a0,abort_signal
-    sw zero,0(a0)
+    sb zero,0(a0)
 #endif
     
 // VM instruction loop
 next:
 #ifdef _CHECK_USER_ABORT
     la a0,abort_signal
-    lw t0,0(a0)
+    lbu t0,0(a0)
     beqz t0,1f
-    sw zero,0(a0)
+    sb zero,0(a0)
     b abort
     addiu T,zero,ERR_USER_ABORT
 1:    
@@ -820,21 +821,25 @@ key:  // ( -- char ) attend réception caractère de la console
     move T, v0  // T=v0
 
 _dict PSTR, "pstr"
-// imprime une chaîne litérale imbriquée dans le code.    
-//  ip pointe vers le texte.    
+//  imprime une chaîne litérale imbriquée dans le code.    
+//  ip pointe vers le compteur de référence
+//  pour les chaînes imbriquées le compteur reste à 128.    
 prt_str: // IPSTR ( -- )
-    lbu a1, 0(ip)
     _inc_ip
-    beqz a1, next
-    nop
+    move a1,ip
     la a0,con
-    jal put_char
+    jal print
     lbu a0,0(a0)
-    b prt_str
-    nop
+    jal strlen
+    move a0,ip
+    addu ip,ip,v0
+    b next
+    addiu ip,ip,1
 
-_dict TYPE ,"type"   
+_dict TYPE ,"TYPE"   
 type: // ( addr -- ) // imprime la chaîne ascciz
+    beq T,zero,1f
+    nop
     la a0,con
     beqz T, 1f
     lw a0,0(a0)
@@ -1119,11 +1124,13 @@ trace: // ( f -- )
   
 _dict STRADR , "$adr"   
 // retourne l'adresse de la chaîne imbriquée dans le code
-// ip pointe la chaîne
+// ip pointe le compteur de référence
 str_adr: // ( -- addr )    
     _dpush
-    move T, ip
+    _inc_ip
+    move T,ip
     lbu t0,0(ip)
+    // avance ip après la chaîne
 1:  beqz t0,next
     _inc_ip
     b 1b
@@ -1131,14 +1138,29 @@ str_adr: // ( -- addr )
 
 _dict STRLEN ,"len"   
 // retourne la longueur de la chaîne dont l'adresse est sur dstack
+    str=a0
+    count=a1
+    chr=a2
 str_len: // ( adr -- length )    
-    move t0,T
-    addu T,zero,zero
-1:  lbu t1,0(t0)
-    beqz t1,next
-    addiu t0,t0,1
+    beq T,zero,next
+    nop
+    move str,T
+    addu count,zero,zero
+1:  lbu chr,0(str)
+    beqz chr,2f
+    addiu count,count,1
     b 1b
-    addiu T,T,1
+    addiu str,str,1
+2:  move str,T
+    move T,count
+    lbu chr,-1(T)
+    bne chr,zero,3f
+    nop
+    jal str_free
+    nop
+3:  b next
+    nop
+    
     
 _dict LCASE,"LCASE$"
 // converti les caractères de la chaîne en miniscule
@@ -1151,44 +1173,57 @@ _dict LCASE,"LCASE$"
     ubound=a1
     incr=a2
 lcase: // ( s1 -- s2 )
+    // vérifie le champ rcount
+    addiu t0,T,-1
+    lbu t0,0(t0)
+    //Si cette chaîne n'est pas
+    //référencée conversion in situ
+    beqz t0, 1f
+    nop
     jal strlen
     move a0,T
     jal string_alloc
     move a0,v0
     move src,T
+    b 2f
     move T,v0
-    move dest,v0
+1:  move src,T
+2:  move dest,T
     addiu lbound,zero,'A'
     addiu ubound,zero,'Z'
     addiu incr,zero,32
-1:  lbu chr,0(src)
-    beqz chr,4f
-    sub cmp,lbound,T
-    bltz cmp,3f
-    sub cmp,ubound,T
-    bgtz cmp,3f
-    addu chr,chr,incr
-3:  sb chr,0(dest)
-    addiu src,src,1
-    addiu dest,dest,1
-    b 1b
-    nop
-4:  b next
+case_invert:    
+    lbu chr,0(src)
+    beqz chr, next
     sb zero,0(dest)
+    subu cmp,lbound,chr
+    bgtz cmp, 2f
+    subu cmp,ubound,chr
+    bltz cmp,2f
+    addu chr,chr,incr
+2:  sb chr,0(dest)
+    addiu dest,dest,1
+    b case_invert
+    addiu src,src,1
     
 _dict UCASE,"UCASE$"
 // converti la chaîne en majuscules retourne un pointeur sur la nouvelle chaîne.    
-ucase: // ( s1 -- s2 )     
+ucase: // ( s1 -- s2 ) 
+    lbu t0,-1(T)
+    beqz t0,1f
+    nop
     jal strlen
     move a0,T
     jal string_alloc
     move a0,v0
     move src,T
-    move dest,v0
+    b 2f
     move T,v0
+1:  move src,T
+2:  move dest,T    
     addiu lbound,zero,'a'
     addiu ubound,zero,'z'
-    b 1b
+    b case_invert
     addiu incr,zero,-32
    
     
@@ -1212,8 +1247,15 @@ _dict ATOI ,"atoi"
 to_int: // addr -- n )
     jal atoi
     move a0,T
-    b next
+    move a0,T
     move T,v0
+    lbu t0,-1(a0)
+    bne t0,zero, 1f
+    nop
+    jal string_free
+    nop
+ 1: b next
+    nop
 
 _dict STR,"STR$"
 // convertie un entier en chaîne
@@ -1238,8 +1280,15 @@ to_str: // ( n buf -- str* )
 // convertie le premier caractère de la chaîne en entier ASCII    
 _dict ASC,"ASC"
 to_asc: // ( addr -- n )
-    b next
-    lbu T,0(T)
+    move a0,T
+    lbu T,0(a0)
+    lbu t0,-1(a0)
+    bne t0,zero,1f
+    nop
+    jal string_free
+    nop
+1:  b next
+    nop
 
 
 // Retourne une chaîne de longueur 1 correspondant au caractère ASCII de n.
@@ -1283,7 +1332,17 @@ timestr: //(  -- buf )
 // retourne l'adresse de la chaîne résultante.    
 _dict APPEND,"APPEND$"
 append: // ( s1 s2 -- s3 )
-    jal strlen
+    bne T,zero, 1f
+    nop
+    addiu dp,dp,-CELL_SIZE
+    b next
+    lw T,0(dp)
+1:  lw a0,-CELL_SIZE(dp)
+    bne a0,zero,1f
+    nop
+    b next
+    addiu dp,dp,-CELL_SIZE
+1:  jal strlen
     lw a0,-CELL_SIZE(dp)
     _dpush
     move T,v0 // ( s1 s2 len_s1 -- 
@@ -1298,22 +1357,48 @@ append: // ( s1 s2 -- s3 )
     lw a1,-CELL_SIZE(dp)
     jal strcat
     move a0,T
+    // libère s1 et s2 si elles ne sont pas référencées
+    lw t0,-2*CELL_SIZE(dp)
+    lbu t1,-1(t0)
+    bne t1,zero, 1f
+    nop
+    jal string_free
+    move a0,t0
+1:  lw t0,-CELL_SIZE(dp)
+    lbu t1,-1(t0)
+    bne t1,zero,1f
+    nop
+    jal string_free
+    move a0,t0
+1:    
     b next
     addiu dp,dp,-2*CELL_SIZE
 
-// retourne une chaîne contenant les n premier caractères de s1    
+// retourne une chaîne contenant les n premier caractères de s1
+// si n==0 retourne NULL
 _dict LEFT, "LEFT$"
     dest=v0
     byte=a0
     count=a1
     src=a2
-left:// ( s1 n -- s2 )    
-    bgtz T, 1f
+left:// ( s1 n -- s2 )  
+    lw a0,-CELL_SIZE(dp)
+    bne a0,zero,0f
     nop
-    addu T,zero,zero
+    addiu dp,dp,-CELL_SIZE // s1==NULL
     b next
+    lw T,0(dp)
+0:  bgtz T, 2f
+    nop
+    //libère s1 si non référencé.
+0:  lw src,-CELL_SIZE(dp)
+    lbu count,-1(src)
+    bne count,zero,1f
+    jal string_free
+    move a0,src
+1:  b next
     addiu dp,dp,-CELL_SIZE
-1:  jal string_alloc
+2:  jal string_alloc
     move a0,T
     move count,T
     move T,v0
@@ -1326,9 +1411,8 @@ left:// ( s1 n -- s2 )
     addiu dest,dest,1
     b 2b
     addiu count,count,-1
-3:  sb zero,0(dest)  
-    b next
-    addiu dp,dp,-CELL_SIZE 
+3:  b 0b
+    sb zero,0(dest)  
     
     
 // insère la chaîne s2 dans la chaîne s1 à partir de la position n    
@@ -1337,7 +1421,19 @@ _dict INSERT,"INSERT$"
     src=a1
     count=a2
 insert: // ( s1 s2 n -- s3 )
-    addiu T,T,-1
+    lw a0,-CELL_SIZE(dp)
+    bne a0,zero,0f
+    nop
+    addiu dp,dp,-2*CELL_SIZE // s2==NULL
+    b next
+    lw T,0(dp)
+0:  lw a0,-2*CELL_SIZE(dp)
+    bne a0,zero,0f
+    nop
+    lw T,-CELL_SIZE(dp)  // s1==NULL
+    b next
+    addiu dp,dp,-2*CELL_SIZE
+0:  addiu T,T,-1
     bgtz T,1f
     nop
     addiu dp,dp,-CELL_SIZE
@@ -1390,8 +1486,20 @@ insert: // ( s1 s2 n -- s3 )
     addiu src,src,1
     b 5b
     addiu dest,dest,1
-6:  
-    b next
+6:  // libère s1 et s2 si elles ne sont pas référencées.
+    lw src,-3*CELL_SIZE(dp)
+    lbu count,-1(src)
+    bne count,zero,7f
+    nop
+    jal string_free
+    move a0,src
+7:  lw src, -2*CELL_SIZE(dp)
+    lbu count,-1(src)
+    bne count,zero,8f
+    nop
+    jal string_free
+    move a0,src
+8:  b next
     addiu dp,dp,-3*CELL_SIZE
     
 
@@ -1402,12 +1510,24 @@ _dict MID,"MID$"
     from=t1
     count=t2
 mid: // ( s1 n1 n2 -- s2 )
-    bgtz T,1f
+    lw a0,-2*CELL_SIZE(dp)
+    bne a0,zero,0f
+    nop
+    addiu dp,dp,-2*CELL_SIZE
+    b next
+    lw T,0(dp)
+0:  bgtz T,1f
     nop
     addu T,zero,zero
-    b next
+0:  lw src,-2*CELL_SIZE(dp)
+    lbu count,-1(src)
+    bne count,zero,1f
+    nop
+    jal string_free
+    move a0,src
+1:  b next
     addiu dp,dp,-2*CELL_SIZE
-1:
+2:  
     jal string_alloc
     move a0,T
     move count,T
@@ -1426,8 +1546,8 @@ mid: // ( s1 n1 n2 -- s2 )
     b 1b
     addiu count,count,-1
 3:  sb zero,0(dest)    
-4:  b next
-    addiu dp,dp,-2*CELL_SIZE
+4:  b 0b
+    nop
     
 // attache s2 au début de s1 retourne l'adresse de la chaîne résultante    
 _dict PREPEND,"PREPEND$"
@@ -1440,7 +1560,13 @@ prepend: // ( s1 s2 -- s3 )
 // retourne n derniers caractères de s1    
 _dict RIGHT,"RIGHT$"
 right: // ( s1 n -- s2 )
-    bgtz T,2f
+    lw a0,-CELL_SIZE(dp)
+    bne a0,zero,1f
+    nop
+    addiu dp,dp,-CELL_SIZE
+    b next
+    lw T,0(dp)
+1:  bgtz T,2f
     nop
     addu T,zero,zero
     b next
@@ -1458,56 +1584,96 @@ right: // ( s1 n -- s2 )
 // arrête la substition au premier caractère null rencontré soit dans s1 ou s2  
 _dict SUBST,"SUBST$"
     dest=v0
-    src1=a0
-    count=a1
-    byte=a2
-    src2=a3
-subst: // ( s1 s2 n -- s3 )    
-    bgtz T, 2f
-    nop
-1:  addu T,zero,zero // mauvais arguments retourne pointeur NULL
-    b next
-    addiu dp,dp,-2*CELL_SIZE
-2:  jal strlen
+    src=a0
+    pos=a1
+subst: // ( s1 s2 n -- s3 )  
+    // si s1 est NULL retourne NULL
     lw a0,-2*CELL_SIZE(dp)
-    blez v0, 1b // mauvais argument chaîne s1 de longueur nulle.
+    bne a0,zero,1f
     nop
-    // alloue l'espace pour s3
-2:  jal string_alloc
-    move a0,v0
-    move count,T
-    move T,v0  // met s3 dans T
-    lw src1,-2*CELL_SIZE(dp)
-    lw src2,-CELL_SIZE(dp)
-1:  addiu count,count,-1
-    beqz count,3f
-    lbu byte,0(src1)
-    beqz byte,6f
-    sb byte,0(dest)
-    addiu src1,src1,1
-    b 1b
-    addiu dest,dest,1
-3:  
-    lbu byte,0(src1)
-    beqz byte,5f
-    lbu byte,0(src2)
-    beqz byte, 6f
-    sb byte,0(dest)
-    addiu src1,src1,1
-    addiu src2,src2,1
-    b 3b
-    addiu dest,dest,1
-5:  sb zero,0(dest)    
-6:    
-    b next
     addiu dp,dp,-2*CELL_SIZE
- 
+    b next
+    lw T,0(dp)
+1:  // si s2 est NULL retourne s1
+    lw a0,-CELL_SIZE(dp)
+    bne a0,zero,2f
+    nop
+    addiu dp,dp,-2*CELL_SIZE
+    b next
+    lw T,0(dp)
+2:  //Si s1 n'est par référencé modification in-situ
+    lw t0,-2*CELL_SIZE(dp)
+    addiu t0,t0,-1
+    lbu t0,0(t0)
+    beq t0,zero,3f
+    lw dest,-2*CELL_SIZE(dp);
+    // alloue l'espace pour s3
+    jal strlen
+    move a0,dest
+    jal string_alloc
+    move a0,v0
+    move dest,v0 
+    // copie s1 dans s3
+    lw a1,-2*CELL_SIZE(dp)
+    jal strcpy
+    move a0,v0
+    // sn<1 ou  n>strlen(s1) abandonnne.
+3:  blez T, 6f
+    jal strlen
+    move a0,dest
+    subu t0,v0,T
+    bltz t0,6f
+    addu dest,dest,T 
+    addiu dest,dest,-1
+    lw src,-CELL_SIZE(dp)
+4:  lbu t0,0(src)
+    beqz t0, 6f
+    lbu t1,(dest)
+    beqz t1, 6f
+    sb t0,0(dest)
+    addiu src,src,1
+    b 4b
+    addiu dest,dest,1
+6:  // si s1 et s2 ne sont pas référencés on les libères.
+    lw src,-CELL_SIZE(dp)
+    lbu t0,-1(src)
+    bne t0,zero, 7f
+    nop
+    jal string_free
+    move a0,src
+7:  // si s1<>s3 et s1 n'est pas référencé on le libère
+    lw src,-2*CELL_SIZE(dp)
+    sub pos,src,dest
+    beqz pos,8f
+    nop
+    lbu pos,-1(src)
+    bne pos,zero,8f
+    nop
+    jal string_free
+    move a0,src
+8:  addiu dp,dp,-2*CELL_SIZE
+    b next
+    move T,dest
 
 // retourne la position de s2 dans s1 ou 0 si non trouvé
 // la recherche se fait à partir de n0    
 _dict INSTR,"INSTR"
 instr: // ( n0 s1 s2 -- n )
-    jal strlen
+    // si s1 est NULL retourne 0
+    lw a0,-2*CELL_SIZE(dp)
+    bne a0,zero,1f
+    nop
+    addiu dp,dp,-2*CELL_SIZE
+    b next
+    addu T,zero,zero
+1:  // si s2 est NULL reotourne 0
+    lw a0,-CELL_SIZE(dp)
+    bne a0,zero,1f
+    nop
+    addiu dp,dp,-2*CELL_SIZE
+    b next
+    addu T,zero,zero
+1:  jal strlen
     lw a0,-CELL_SIZE(dp)
     lw a0,-2*CELL_SIZE(dp)
     bgtz a0, 2f
@@ -1560,7 +1726,7 @@ str_free: // ( addr -- )
     move a0,T
     _drop_b_next
     
-_dict STRCPY , "str_cpy"   
+_dict STRCPY , "STRCPY$"   
 // copie une chaîne asciiz de src vers dest
 // src adresse chaîne à copier
 // dest adresse destination    
@@ -1571,14 +1737,76 @@ str_cpy: // ( src dest -- dest )
     b next
     addiu dp,dp,-CELL_SIZE
 
+_dict STRSTORE,"STR!"
+// store une chaîne dans une variable
+// incrémente le compteur de référence
+str_store: // ( s v -- )
+    //incrémente le compteur de référence
+    lw t0,-CELL_SIZE(dp)
+    beq t0,zero,1f
+    nop
+    lbu t1,-1(t0)
+    addiu t2,zero,128
+    beq t2,t1,1f   // n'incrémente pas si == 128 (chaîne imbriquée).
+    addiu t1,zero,1
+    sb t1,-1(t0)
+    // enregistre le pointeur de chaîne dans la variable.
+1:  sw t0,0(T)
+    addiu dp,dp,-2*CELL_SIZE
+    b next
+    lw T,0(dp)
+    
+_dict DECREF,"DECREF"
+//décrémente le compteur de référence de la chaîne
+dec_ref: // ( s -- )
+    beq T,zero,1f
+    nop
+    lbu t0,-1(T)
+    addiu t0,t0,-1
+    sb t0,-1(T)
+1:  _drop_b_next
+    
+_dict INCREF,"INCREF"
+// incrémente le compteur de référence d'une chaîne
+incr_ref: // ( s -- )
+    beq T,zero,1f
+    nop
+    lbu t0,-1(T)
+    addiu t0,t0,1
+    sb t0,-1(T)
+1:  _drop_b_next
+    
+_dict GETREF,"GETREF"
+// retourne le compte de référence d'une chaîne
+get_ref: // ( s -- n )
+    beq T,zero,1f
+    nop
+    b next
+    lbu T,-1(T)
+1:  b next
+    addiu T,zero,1
+    
 _dict STRCMP,"STRCMP"
 vm_strcmp: // ( s1 s2 -- -1|0|1)
     lw a0,-CELL_SIZE(dp)
     jal strcmp
     move a1,T
-    addiu dp,dp,-CELL_SIZE
-    b next
+    _dpush
     move T,v0
+    lw a0,-3*CELL_SIZE(dp)
+    lbu a1,-1(a0)
+    bne a1,zero,1f
+    nop
+    jal string_free
+    nop
+1:  lw a0,-2*CELL_SIZE(dp)
+    lbu a1,-1(a0)
+    bne a1,zero, 1f
+    nop
+    jal string_free
+    nop
+1:  b next
+    addiu dp,dp,-2*CELL_SIZE
     
 _dict CURLINE , "curline"   
 // retourne la ligne du curseur texte {0..29}    
@@ -2021,7 +2249,7 @@ opcodes_table:
 .word sram_clear,sram_read,sram_write,save_screen,rest_screen,vm_sram_load,vm_sram_save
 .word mslash,to_str,to_asc,to_char,datestr,timestr
 .word append,insert,left,mid,prepend,right,subst,instr,vm_strcmp    
-.word ucase,lcase
+.word ucase,lcase,str_store,dec_ref,incr_ref,get_ref
     
 bad_op: 
 .word rfetch,tor,rfrom    

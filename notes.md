@@ -1,10 +1,16 @@
+2018-04-30
+----------
+1. Travail sur la nouvelle gestion des chaînes dans BASIC. Avec ce nouveau
+   système toutes les chaînes sont allouée dans l'espace RAM dynamique (heap).
+   
+
 2018-04-29
 ----------
 1. Ajout des fonction chaînes **UCASE$** et **LCASE$**
-2. entrepris d'apporter des modifications majeurs à la gestion des chaînes
+2. entrepris d'apporter des modifications majeures à la gestion des chaînes
    en créant un typedef avec une strucure **dstring_t** pour enregistrer
    les références aux chaînes dynamques. Cette méthode va simplifier la gestion
-   des chaînes dynamiques.
+   des chaînes dynamiques. Création de la branche dstring.
 
 2018-04-28
 ----------
