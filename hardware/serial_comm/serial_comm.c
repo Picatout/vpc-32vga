@@ -153,7 +153,7 @@ void ser_flush_queue(){
     IEC1bits.U2RXIE=1;
 }
 
-extern bool abort_signal;
+extern volatile bool abort_signal;
 
 #define ERROR_BITS (7<<1)
 // interruption sur réception ou erreur réception port sériel.

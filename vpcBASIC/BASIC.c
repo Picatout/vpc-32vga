@@ -163,6 +163,7 @@ typedef struct _var{
     union{
         uint8_t byte; // variable octet
         int32_t n;    // entier ou nombre d'arguments et de variables locales pour func et sub
+        float f;   // nombre virgule flottante 32 bits
         char *str;    // adresse chaîne asciiz
         void *adr;    // addresse tableau,sub ou func
     };
@@ -220,6 +221,7 @@ static void kw_for();
 static void kw_free();
 static void kw_func();
 static void kw_getpixel();
+static void kw_hex();
 static void kw_if();
 static void kw_input();
 static void kw_insert();
@@ -240,6 +242,7 @@ static void kw_mdiv();
 static void kw_mid();
 static void kw_min();
 static void kw_next();
+static void kw_peek();
 static void kw_play();
 static void kw_polygon();
 static void kw_prepend();
@@ -314,11 +317,90 @@ static int search_type();
 static int var_type_from_name(char *name);
 static void optional_parens();
 static void expect(tok_id_t t);
+static int get_file_free();
+static FIL *open_file(const char *file_name,int mode);
+static void close_file(FIL *fh);
+static void close_all_files();
+static int get_file_no(FIL *fh);
+static FIL *get_file_handle(int i);
 
 #ifdef DEBUG
 static void print_prog(int start);
 static void print_cstack();
 #endif
+
+#define MAX_FILES 5
+static FIL *files_handles[MAX_FILES]={NULL,NULL,NULL,NULL,NULL};
+static file_count; // nombre de fichiers ouverts.
+
+// retourne un numéro de fichier libre.
+static int get_file_free(){
+    int i;
+    if (file_count==MAX_FILES){return -1;}//aucun disponible
+    for (i=0;i<MAX_FILES;i++){
+        if (!files_handles[i]) return i;
+    }
+    return -1;
+}
+
+// retourne le numéro du fichier à partir du handle
+static int get_file_no(FIL *fh){
+    int i;
+    for (i=0;i<MAX_FILES;i++){
+        if (files_handles[i]==fh){return i;}
+    }
+    return -1;
+}
+
+// retourne le handle d'un fichier à partir de son numéro.
+static FIL *get_file_handle(int i){
+    if ((i<0) || (i>=MAX_FILES)){ return NULL;}
+    return files_handles[i];
+}
+
+
+static FIL *open_file(const char *file_name,int mode){
+    int file_no;
+    FIL *fh;
+    FRESULT result;
+    
+    file_no=get_file_free();
+    if (file_no==-1){return NULL;}
+    fh=malloc(sizeof(FIL));
+    if (!fh){return NULL;}
+    result=f_open(fh,file_name,mode);
+    if (!result){
+        files_handles[file_no]=fh;
+        file_count++;
+        return fh;
+    }
+    free(fh);
+    return NULL;
+}
+
+static void close_file(FIL *fh){
+    int i;
+    for (i=0;i<MAX_FILES;i++){
+        if (files_handles[i]==fh){
+            f_close(fh);
+            free(fh);
+            file_count--;
+            files_handles[i]=NULL;
+            return;
+        }
+    }
+}
+
+static void close_all_files(){
+    int i;
+    for (i=0;i<MAX_FILES;i++){
+        if (files_handles[i]){
+            f_close(files_handles[i]);
+            free(files_handles[i]);
+        }
+    }
+    file_count=0;
+}
 
 //identifiant KEYWORD doit-être dans le même ordre que
 //dans la liste KEYWORD
@@ -328,11 +410,11 @@ enum {eKW_ABS,eKW_AND,eKW_APPEND,eKW_AS,eKW_ASC,eKW_BEEP,eKW_BOX,eKW_BTEST,eKW_B
       eKW_CONST,eKW_CURCOL,eKW_CURLINE,eKW_DATE,eKW_DECLARE,eKW_DIM,eKW_DO,
       eKW_ELLIPSE,eKW_ELSE,
       eKW_END,eKW_EXIT,eKW_FILL,
-      eKW_FOR,eKW_FREE,eKW_FUNC,eKW_GETPIXEL,eKW_IF,eKW_INPUT,eKW_INSERT,eKW_INSTR,
+      eKW_FOR,eKW_FREE,eKW_FUNC,eKW_HEX,eKW_GETPIXEL,eKW_IF,eKW_INPUT,eKW_INSERT,eKW_INSTR,
       eKW_INSERTLN,
       eKW_INVVID,eKW_KEY,eKW_LCASE,eKW_LEFT,eKW_LEN,
       eKW_LET,eKW_LINE,eKW_LOCAL,eKW_LOCATE,eKW_LOOP,eKW_MAX,eKW_MDIV,eKW_MID,eKW_MIN,eKW_NEXT,
-      eKW_NOT,eKW_OR,eKW_PLAY,eKW_POLYGON,eKW_PREPEND,
+      eKW_NOT,eKW_OR,eKW_PEEK,eKW_PLAY,eKW_POLYGON,eKW_PREPEND,
       eKW_PRINT,eKW_PSET,eKW_PUTC,eKW_RANDOMISIZE,eKW_RECT,eKW_REF,eKW_REM,eKW_RESTSCR,
       eKW_RETURN,eKW_RIGHT,eKW_RND,eKW_RUN,eKW_SAVESCR,eKW_SCRLUP,eKW_SCRLDN,
       eKW_SELECT,eKW_SETTMR,eKW_SHL,eKW_SHR,eKW_SLEEP,eKW_SOUND,
@@ -347,9 +429,9 @@ enum {eKW_ABS,eKW_AND,eKW_APPEND,eKW_AS,eKW_ASC,eKW_BEEP,eKW_BOX,eKW_BTEST,eKW_B
 static const dict_entry_t KEYWORD[]={
     {kw_abs,3,eFN_INT,"ABS"},
     {bad_syntax,3,eFN_NOT,"AND"},
+    {kw_append,7,eFN_STR,"APPEND$"},
     {bad_syntax,2,eFN_NOT,"AS"},
     {kw_asc,3,eFN_INT,"ASC"},
-    {kw_append,7,eFN_STR,"APPEND$"},
     {kw_beep,4,eFN_NOT,"BEEP"},
     {kw_box,3,eFN_NOT,"BOX"},
     {kw_btest,5,eFN_INT,"BTEST"},
@@ -374,6 +456,7 @@ static const dict_entry_t KEYWORD[]={
     {kw_for,3,eFN_NOT,"FOR"},
     {kw_free,4,eFN_NOT,"FREE"},
     {kw_func,4,eFN_NOT,"FUNC"},
+    {kw_hex,4,eFN_STR,"HEX$"},
     {kw_getpixel,4,eFN_INT,"PGET"},
     {kw_if,2,eFN_NOT,"IF"},
     {kw_input,5,eFN_NOT,"INPUT"},
@@ -397,6 +480,7 @@ static const dict_entry_t KEYWORD[]={
     {kw_next,4,eFN_NOT,"NEXT"},
     {bad_syntax,3,eFN_NOT,"NOT"},
     {bad_syntax,2,eFN_NOT,"OR"},
+    {kw_peek,4,eFN_INT,"PEEK"},
     {kw_play,4,eFN_NOT,"PLAY"},
     {kw_polygon,7,eFN_NOT,"POLYGON"},
     {kw_prepend,8,eFN_STR,"PREPEND$"},
@@ -585,7 +669,7 @@ void string_free(char *str){
     if (!str) return;
     
     dstr=(uint8_t*)str-1;
-    ref_count=*dstr; print_int(0,ref_count,0);
+    ref_count=*dstr;
     if (!ref_count){
         free(dstr);
     }else if (ref_count<128){
@@ -696,27 +780,47 @@ static var_t *var_create(char *name,int vtype,void *value){
         newvar->local=true;
         newvar->n=*(int*)value;
     }else{
-        if (newvar->vtype==eVAR_STR){ // variable chaine
-            if (value){
-                newvar->str=string_alloc(strlen(value));
-                strcpy(newvar->str,value);
-                *(newvar->str-1)=1; // reference count
-            }
-            else{
-                newvar->str=NULL;
-            }
-        }else if (newvar->vtype=eVAR_BYTE){ // variable octet
-            if (value)
-                newvar->byte=*((uint8_t*)value);
-            else
-                newvar->byte=0;
-        }else{// entier 32 bits
-            if (value){
-                newvar->n=*((int*)value);
-            }else{
-                newvar->n=0;
-            }
+        switch (newvar->vtype){
+            case eVAR_STR:
+                if (value){
+                    newvar->str=string_alloc(strlen(value));
+                    strcpy(newvar->str,value);
+                    *(newvar->str-1)=1; // reference count
+                }
+                else{
+                    newvar->str=NULL;
+                }
+                break;
+            case eVAR_BYTE:
+                if (value){
+                    newvar->byte=*((uint8_t*)value);
+                }else{
+                    newvar->byte=0;
+                }
+                break;
+            case eVAR_INT:
+                if (value){
+                    newvar->n=*((int*)value);
+                }else{
+                    newvar->n=0;
+                }
+                break;
+            case eVAR_FLOAT:
+                if (value){
+                    newvar->f=*((float*)value);
+                }else{
+                    newvar->f=0.0;
+                }
+                break;
+            case eVAR_FUNC:
+            case eVAR_SUB:
+                newvar->adr=value;
+                break;
         }
+//        if (newvar->vtype==eVAR_STR){ // variable chaine
+//        }else if (newvar->vtype=eVAR_BYTE){ // variable octet
+//        }else{// entier 32 bits
+//        }
     }
     endmark=newend;
     newvar->len=len;
@@ -1085,7 +1189,7 @@ static void next_token(){
             case '\n':
             case '\r':
                 line_count++;
-                if (activ_reader->device==eDEV_SDCARD){ // considéré comme un espace
+                if (complevel){
                     next_token();
                 }else{
                     token.id=eSTOP;
@@ -1432,22 +1536,20 @@ static void string_compare(){
 static bool try_string_compare(){
     var_t *var;
     next_token();
+    unget_token=true;
     switch (token.id){
         case eSTRING:
-            unget_token=true;
             string_compare();
             return true;
         case eIDENT:
             var=var_search(token.str);
             if (var->vtype==eVAR_STR){
-                unget_token=true;
                 string_compare();
                 return true;
             }
             break;
         case eKWORD:
             if ((KEYWORD[token.n].fntype==eFN_STR)){
-                unget_token=true;
                 string_compare();
                 return true;
             }
@@ -1562,6 +1664,7 @@ static void init_int_array(var_t *var){
     int *iarray=NULL;
     unsigned char *barray=NULL;
     int size,count=1,state=0;
+    int rparen=0;
     
     if (var->vtype==eVAR_INT){
         iarray=var->adr;
@@ -1573,7 +1676,7 @@ static void init_int_array(var_t *var){
     if (var->vtype==eVAR_BYTE){ count=4;}
     expect(eLPAREN);
     next_token();
-    while (token.id!=eRPAREN){
+    while (!rparen){
         switch (token.id){
             case eCHAR:
             case eNUMBER: 
@@ -1593,6 +1696,7 @@ static void init_int_array(var_t *var){
                 }
                 break;
             case eRPAREN:
+                rparen=1;
                 continue;
                 break;
             case eSTOP:
@@ -1611,13 +1715,13 @@ static void init_str_array(var_t *var){
     uint32_t *array,size;
     int count=1,state=0;
     char *newstr;
+    int rparen=0;
     
-    complevel++;
     array=var->adr;
     size=array[0];
     expect(eLPAREN);
     next_token();
-    while(token.id!=eRPAREN){
+    while(!rparen){
         switch (token.id){
             case eSTRING: 
                 if (state) throw(eERR_SYNTAX);
@@ -1635,6 +1739,7 @@ static void init_str_array(var_t *var){
                 }
                 break;
             case eRPAREN:
+                rparen=1;
                 continue;
                 break;
             case eSTOP:
@@ -1646,7 +1751,6 @@ static void init_str_array(var_t *var){
     }
     if (count<size) throw(eERR_MISSING_ARG);
     if (count>(size+1)) throw(eERR_EXTRA_ARG);
-    complevel--;
 }//f
 
 static void *alloc_array_space(int size, int vtype){
@@ -1694,6 +1798,9 @@ static void dim_array(char *var_name){
     if (size<1) throw(eERR_BAD_ARG);
     expect(eRPAREN);
     vtype=try_type_cast();
+    if (vtype==-1){
+        vtype=var_type_from_name(var_name);
+    }
     array=alloc_array_space(size,vtype);
     new_var=var_create(var_name,vtype,NULL);
     new_var->array=true;
@@ -1701,11 +1808,13 @@ static void dim_array(char *var_name){
     new_var->adr=array;
     next_token();
     if (token.id==eEQUAL){
+        complevel++;
         if (new_var->vtype==eVAR_STR){
             init_str_array(new_var);
         }else{
             init_int_array(new_var);
         }
+        complevel--;
     }else{
         unget_token=true;
     }
@@ -1735,17 +1844,12 @@ static void kw_dim(){
                 }
                 dim_array(var_name);
                 break;
-            case eCOMMA:
-                new_var=var_create(var_name,vtype,NULL);
-                break;
             case eEQUAL: 
                 new_var=var_create(var_name,vtype,NULL);
                 if (new_var->vtype==eVAR_STR){
-                    next_token();
-                    if (token.id!=eSTRING) throw(eERR_BAD_ARG);
-                    new_var->str=string_alloc(strlen(token.str));
-                    strcpy((char*)new_var->str,token.str);
-                    *(new_var->str-1)=1; // compte référence.
+                    string_expression();
+                    lit((uint32_t)&new_var->adr);
+                    bytecode(ISTRSTORE);
                 }else{
                     expression();
                     lit((uint32_t)&new_var->n);
@@ -1761,7 +1865,7 @@ static void kw_dim(){
         next_token();
         if (token.id==eCOMMA){
             next_token();
-        }else if (!((token.id==eSTOP)||(token.id==eCOLON))){
+        }else if (token.id==eIDENT){
             throw(eERR_SYNTAX);
         }
     }//while
@@ -1806,8 +1910,7 @@ static void kw_declare(){
             throw(eERR_SYNTAX);
     }
     expect(eIDENT);
-    var=var_create(token.str,var_type,NULL);
-    var->adr=(void*)undefined_sub;
+    var=var_create(token.str,var_type,(void*)undefined_sub);
     var->dim=count_arg();
 }
 
@@ -1862,15 +1965,15 @@ static void kw_ubound(){
 // compilation d'un fichier source inclut dans un autre fichier source.
 static void kw_use(){
     reader_t *old_reader, freader;
-    FIL fh;
+    FIL *fh;
+    int fhandle;
     uint32_t lcount;
-    FRESULT result;
     
     if (activ_reader->device==eDEV_KBD) throw(eERR_SYNTAX);
     expect(eSTRING);
     uppercase(token.str);
-    if (!(result=f_open(&fh,token.str,FA_READ))){
-        reader_init(&freader,eDEV_SDCARD,&fh);
+    if ((fh=open_file(token.str,FA_READ))){
+        reader_init(&freader,eDEV_SDCARD,fh);
         old_reader=activ_reader;
         activ_reader=&freader;
         compiler_msg(COMPILING, token.str);
@@ -1878,7 +1981,7 @@ static void kw_use(){
         line_count=1;
         compile();
         line_count=lcount+1;
-        f_close(&fh);
+        close_file(fh);
         activ_reader=old_reader;
         compiler_msg(COMP_END,NULL);
     }else{
@@ -1967,6 +2070,14 @@ static void kw_btest(){
     parse_arg_list(2);
     bytecode(IBTEST);
 }//f
+
+//PEEK(adresse)
+//retourne l'entier 32 bits contenu à l'adresse
+// adresse doit-être alignée sinon ça plante.
+static void kw_peek(){
+    parse_arg_list(1);
+    bytecode(IFETCH);
+}
 
 //BEEP
 //produit un son à la fréquence de 1Khz pour 20msec.
@@ -2283,17 +2394,15 @@ static void exec_basic(){
 
 //compile un fichier basic
 static void compile_file(const char *file_name){
-    FIL fh;
-    FRESULT result;
+    FIL *fh;
     
-    if ((result=f_open(&fh,file_name,FA_READ))==FR_OK){
-        reader_init(&file_reader,eDEV_SDCARD,&fh);
+    if ((fh=open_file(file_name,FA_READ))){
+        reader_init(&file_reader,eDEV_SDCARD,fh);
         activ_reader=&file_reader;
-        clear();
         compiler_msg(COMPILING,file_name);
         line_count=1;
         compile();
-        f_close(&fh);
+        close_file(fh);
         activ_reader=&std_reader;
         program_loaded=true;
         program_end=dptr;
@@ -2612,7 +2721,7 @@ static void kw_loop(){
 // compile une chaîne litérale
 static void literal_string(char *lit_str){
     int size;
-
+    
     size=strlen(lit_str)+2;
     if ((void*)&progspace[dptr+size]>endmark) throw(eERR_PROGSPACE);
     strcpy((void*)&progspace[dptr+1],lit_str);
@@ -2625,28 +2734,14 @@ static void literal_string(char *lit_str){
 //charge un fichier dans la SPI RAM
 // retourne la grandeur en octet
 static void kw_srload(){
-    expect(eLPAREN);
-    expression();
-    expect(eCOMMA);
-    expect(eSTRING);
-    strcpy(pad,token.str);
-    lit((uint32_t)pad);
-    expect(eRPAREN);
+    parse_arg_list(2);
     bytecode(ISRLOAD);
 }//f
 
 //SRSAVE(addr,file_name,size)
 //sauvegarde un bloc de SPI RAM dans un fichier
 static void kw_srsave(){
-    expect(eLPAREN);
-    expression();
-    expect(eCOMMA);
-    expect(eSTRING);
-    strcpy(pad,token.str);
-    lit((uint32_t)pad);
-    expect(eCOMMA);
-    expression();
-    expect(eRPAREN);
+    parse_arg_list(3);
     bytecode(ISRSAVE);
 }//f
 
@@ -2761,29 +2856,10 @@ static void kw_len(){
 
     parse_arg_list(1);
     bytecode(ILEN);
-//    expect(eLPAREN);
-//    next_token();
-//    if (token.id==eSTRING){
-//        bytecode(ISTRADR);
-//        literal_string(token.str);
-//    }else if (token.id==eIDENT){
-//        var=var_search(token.str);
-//        if (!var) throw(eERR_BAD_ARG);
-//        if (var->vtype==eVAR_STR){
-//            code_var_address(var);
-//            bytecode(IFETCH);
-//        }else{
-//            throw(eERR_BAD_ARG);
-//        }//if
-//    }else{
-//        throw(eERR_BAD_ARG);
-//    }
-//    bytecode(ILEN);
-//    expect(eRPAREN);
 }//f
 
 // compile le code pour la saisie d'un entier
-static void compile_input(var_t *var){
+static void compile_input(){
     _litc('?');
     bytecode(IEMIT);
     lit((uint32_t)pad); // ( var_addr -- var_addr pad* )
@@ -2834,7 +2910,7 @@ static void kw_input(){
                 bytecode(IDUP);
                 bytecode(IFETCH);
                 bytecode(ISTRFREE); 
-                compile_input(var); // (var_addr -- var_addr pad_addr)
+                compile_input(); // (var_addr -- var_addr pad_addr)
                 bytecode(ISTRALLOC);// ( var_addr pad_addr n -- var_addr pad_addr str_addr)  
                 bytecode(ISTRCPY); //( var_addr pad_addr str_addr -- var_addr )
                 bytecode(ISWAP);
@@ -2842,7 +2918,7 @@ static void kw_input(){
                 break;
             case eVAR_INT:
             case eVAR_BYTE:
-                compile_input(var);
+                compile_input();
                 bytecode(IDROP);
                 bytecode(I2INT);
                 bytecode(ISWAP);
@@ -2854,7 +2930,7 @@ static void kw_input(){
                 break;
 //            case eVAR_INTARRAY:
 //            case eVAR_BYTEARRAY:
-//                compile_input(var);
+//                compile_input();
 //                bytecode(IDROP);
 //                bytecode(I2INT);
 //                bytecode(ISWAP);
@@ -3133,30 +3209,28 @@ static void subrtn_create(int var_type, int blockend){
     
     if (var_local) throw(eERR_SYNTAX);
     expect(eIDENT);
-//    if (token.str[strlen(token.str)-1]=='$') throw(eERR_SYNTAX);
     var=var_search(token.str);
     if (!var){
-        var=var_create(token.str,var_type,NULL);
-        var->adr=(void*)undefined_sub;
-        var->dim=0;
+        var=var_create(token.str,var_type,(void*)&progspace[dptr]);
         declared=false;
-    }
-    if ((var->vtype==var_type) && (var->adr==(void*)undefined_sub)){
-        var->adr=(void*)&progspace[dptr];
-        globals=varlist;
-        var_local=true;
-        cpush((uint32_t)endmark);
-        complevel++;
-        cpush(blockend);
-        cpush((uint32_t)var);
-        arg_count=create_arg_list();
-        if (declared && arg_count!=var->dim){
-            throw(eERR_BAD_ARG_COUNT);
-        }
-        var->dim=arg_count;
     }else{
-        throw(eERR_DUPLICATE);
+        if (var->adr==(void*)undefined_sub){
+            var->adr=(void*)&progspace[dptr];
+        }else{
+            throw(eERR_REDEF);
+        }
     }
+    globals=varlist;
+    var_local=true;
+    cpush((uint32_t)endmark);
+    complevel++;
+    cpush(blockend);
+    cpush((uint32_t)var);
+    arg_count=create_arg_list();
+    if (declared && arg_count!=var->dim){
+        throw(eERR_BAD_ARG_COUNT);
+    }
+    var->dim=arg_count;
 }//f
 
 // FUNC identifier (arg_list)
@@ -3197,6 +3271,17 @@ static void kw_string(){
     lit((uint32_t)pad);
     bytecode(I2STR);
 }
+
+//hex$(expression)
+// convertie une expression numérique en chaîne
+// de caractère
+static void kw_hex(){
+    lit((uint32_t)pad+PAD_SIZE-1);
+    parse_arg_list(1);
+    bytecode(ISTRHEX);
+}
+
+
 
 //DATE$[()]
 // commande qui retourne une chaîne date sous la forme AAAA/MM/JJ
@@ -3391,6 +3476,7 @@ static void compile(){
 
 //efface le contenu de progspace
 static void clear(){
+    close_all_files();
     free_string_vars();
     dptr=0;
     varlist=NULL;
@@ -3433,7 +3519,8 @@ extern bool f_trace;
 
 void BASIC_shell(unsigned basic_heap, unsigned option, const char* file_or_string){
 
-    pad=malloc(PAD_SIZE);
+    pad=string_alloc(PAD_SIZE);
+    *(pad-1)=128;
     prog_size=(biggest_chunk()-basic_heap)&0xfffffff0;
     progspace=malloc(prog_size);
     if (!(option==EXEC_STRING || option==EXEC_FILE)){
@@ -3504,5 +3591,5 @@ void BASIC_shell(unsigned basic_heap, unsigned option, const char* file_or_strin
     f_trace=false;
     free_string_vars();
     free(progspace);
-    free(pad);
+    string_free(pad);
 }//BASIC_shell()

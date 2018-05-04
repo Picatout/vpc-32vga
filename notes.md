@@ -1,3 +1,24 @@
+2018-05-03
+----------
+1. débogué spred.bas, bogue dans input lébérais le pad. 
+2. Ajout de PEEK() et HEX$()
+a faire: corrigé bogue dans spred.bas lorsque save plusieurs fois plante.
+
+2018-05-02
+----------
+1. Test BASIC
+2. Correction bogue dans subrtn_create()
+3. Correction bogue dans try_string_compare()
+4. Correcton bogue dans kw_dim()
+5. Correction bogue dans dim_array()
+6. Correction bogue dans next_token(),réception de '\n' tiens compte de cmplevel.
+
+2018-05-01
+----------
+1. Travail sur la nouvelle gestion des chaînes dans BASIC. Avec ce nouveau
+   système toutes les chaînes sont allouée dans l'espace RAM dynamique (heap).
+2. Modification du type de la variable **abort_signal** de bool à uint8_t.  
+
 2018-04-30
 ----------
 1. Travail sur la nouvelle gestion des chaînes dans BASIC. Avec ce nouveau

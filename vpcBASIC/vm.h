@@ -152,6 +152,7 @@ enum OP_CODES{
  IDECREF,
  IINCREF,
  IGETREF,
+ ISTRHEX,
  
  // IRFETCH ,
 // ITOR   , 

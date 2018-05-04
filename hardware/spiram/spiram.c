@@ -294,14 +294,15 @@ int sram_load(unsigned dest,const char *file_name){
 //     file_name nom du fichier destination
 //     size  nombre d'octets à sauvegarder.
 // reotourne:
-//      nombre d'octets écris dans le fichier ou -1 si erreur i/o.
+//      nombre d'octets écris dans le fichier ou -1 si erreur.
 int sram_save(unsigned src,const char *file_name,unsigned size){
     FIL *fh;
     FRESULT error=FR_OK;
     char *buffer;
     int total,count;
     
-    buffer=malloc(512);
+    count=min(512,size);
+    buffer=malloc(count);
     if (!buffer) return -1;
     fh=malloc(sizeof(FIL));
     if (!fh) return -1;

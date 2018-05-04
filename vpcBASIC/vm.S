@@ -47,6 +47,8 @@
 .extern sprite
 .extern beep
 .extern play
+.extern sram_save
+.extern sram_load
     
 //math 
 .extern srand    
@@ -171,7 +173,7 @@ SFR_INV=12
 
 .global f_trace    
 .data
-f_trace: .word 0
+f_trace: .byte 0
     
 .bss
 
@@ -218,14 +220,14 @@ StackVM:  // VM initialization
     sw zero,CELL_SIZE(dp)
 #ifdef _CHECK_USER_ABORT    
     la a0,abort_signal
-    sb zero,0(a0)
+    sw zero,0(a0)
 #endif
     
 // VM instruction loop
 next:
 #ifdef _CHECK_USER_ABORT
     la a0,abort_signal
-    lbu t0,0(a0)
+    lw t0,0(a0)
     beqz t0,1f
     sb zero,0(a0)
     b abort
@@ -834,7 +836,7 @@ prt_str: // IPSTR ( -- )
     move a0,ip
     addu ip,ip,v0
     b next
-    addiu ip,ip,1
+    _inc_ip
 
 _dict TYPE ,"TYPE"   
 type: // ( addr -- ) // imprime la chaîne ascciz
@@ -1257,6 +1259,38 @@ to_int: // addr -- n )
  1: b next
     nop
 
+_dict HEX,"HEX$"
+//convertie l'arguement entier en chaîne hexadécimal.
+to_hex: // ( pad n -- s )
+    lw v0,-CELL_SIZE(dp)
+    addiu dp,dp,-CELL_SIZE
+    sb zero,0(v0)
+    addiu t2,zero,16
+1:  addiu v0,v0,-1
+    divu T,t2
+    mflo T  // quotient
+    mfhi t0 // reste
+    addiu t0,t0,'0'
+    addiu t1,zero,'9'
+    subu t1,t1,t0
+    bgez t1,2f
+    nop
+    addiu t0,t0,7
+2:  sb t0,0(v0)
+    bgtz T,1b
+    nop
+    move T,v0
+    jal strlen
+    move a0,v0
+    jal string_alloc
+    move a0,v0
+    move a0,v0
+    jal strcpy
+    move a1,T
+    b next
+    move T,v0
+    
+    
 _dict STR,"STR$"
 // convertie un entier en chaîne
 // la chaîne est alloué sur le heap   
@@ -2042,7 +2076,7 @@ vgacls: // ( -- )
 // fonction SPI RAM
 //****************************
   
-_dict SRCLEAR , "srclear"   
+_dict SRCLEAR , "SRCLEAR"   
 //met à zéro un bloc de mémoire SPI RAM    
 sram_clear: // ( addr size -- )
     lw a0,-CELL_SIZE(dp)
@@ -2052,7 +2086,7 @@ sram_clear: // ( addr size -- )
     b next
     lw T,0(dp)
  
-_dict SRWRITE ,"srwrite"   
+_dict SRWRITE ,"SRWRITE"   
 //copie le contenu d'une variable dans la mémoire SPI RAM    
 sram_write: // ( addr_ram addr_var  size -- )
     lw a0,-2*CELL_SIZE(dp)
@@ -2063,7 +2097,7 @@ sram_write: // ( addr_ram addr_var  size -- )
     b next
     lw T,0(dp)
     
-_dict SRREAD, "srread"    
+_dict SRREAD, "SRREAD"    
 //copie le contenue de la mémoire SPI RAM dans une variable    
 sram_read: // ( addr_ram addr_var size -- )
     lw a0,-2*CELL_SIZE(dp)
@@ -2074,21 +2108,21 @@ sram_read: // ( addr_ram addr_var size -- )
     b next
     lw T,0(dp)
     
-_dict SAVSCR, "savscr"
+_dict SAVSCR, "SAVSCR"
 // sauvegarde la totalité du tampon vidéo dans la mémoire SPI RAM
 save_screen: // ( addr -- )
     jal saveScreen
     move a0,T
     _drop_b_next
  
-_dict RSTSCR , "restscr"   
+_dict RSTSCR , "RESTSCR"   
 // restaure le contenu du tampon vidéo à partir de la mémoire SPI RAM
 rest_screen: // ( addr -- )
     jal restoreScreen
     move a0,T
     _drop_b_next
     
-_dict SRLOAD , "srload"   
+_dict SRLOAD , "SRLOAD"   
 // charge un fichier dans la mémoire SPI RAM    
 vm_sram_load: // ( addr_ram char* -- size )
     lw a0,-CELL_SIZE(dp)
@@ -2098,7 +2132,7 @@ vm_sram_load: // ( addr_ram char* -- size )
     b next
     move T,v0
 
-_dict SRSAV, "srsav"    
+_dict SRSAV, "SRSAVE"    
 // sauvegarde un bloc de la mémoire SPI RAM dans un fichier    
 vm_sram_save: // ( addr_ram char* size -- )
     lw a0,-2*CELL_SIZE(dp)
@@ -2250,6 +2284,7 @@ opcodes_table:
 .word mslash,to_str,to_asc,to_char,datestr,timestr
 .word append,insert,left,mid,prepend,right,subst,instr,vm_strcmp    
 .word ucase,lcase,str_store,dec_ref,incr_ref,get_ref
+.word to_hex
     
 bad_op: 
 .word rfetch,tor,rfrom    
