@@ -25,17 +25,13 @@
  */
 
 #include <string.h>
-#include "console.h"
 #include "hardware/HardwareProfile.h"
-#include "hardware/serial_comm/serial_comm.h"
-#include "hardware/ps2_kbd/keyboard.h"
-#include "hardware/tvout/vga.h"
-#include "vt100.h"
+#include "console.h"
 
 
 static int tab_width=4;
 
-bool abort_signal=false;
+volatile bool abort_signal=false;
 
 void uppercase(char *str){// in situ uppercase
     while (*str){

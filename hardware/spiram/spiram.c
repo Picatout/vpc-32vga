@@ -258,23 +258,27 @@ int sram_load(unsigned dest,const char *file_name){
    FIL *fh;
    FRESULT error=FR_OK;
    char *buffer;
-   DWORD size;
+   DWORD buf_size,size;
    int total,count;
    
-   buffer=malloc(512);
    fh=malloc(sizeof(FIL));
-   if (!(buffer && fh)){
-       if (fh){free(fh);}
-       if (buffer){free(buffer);}
+   if (!fh){
        return -1;
    }
    error=f_open(fh,file_name,FA_READ);
    if (error!=FR_OK) return -1;
    size=fh->fsize;
    size=min(SRAM_SIZE-dest,size);
+   buf_size=min(size,512);
+   buffer=malloc(buf_size);
+   if (!buffer){
+       f_close(fh);
+       free(fh);
+       return -1;
+   }
    total=0;
    while ((error==FR_OK) && (size>0)){
-       count=min(512,size);
+       count=min(buf_size,size);
        error=f_read(fh,buffer,count,&count);
        sram_write_block(dest,buffer,count);
        dest+=count;
@@ -294,21 +298,30 @@ int sram_load(unsigned dest,const char *file_name){
 //     file_name nom du fichier destination
 //     size  nombre d'octets à sauvegarder.
 // reotourne:
-//      nombre d'octets écris dans le fichier ou -1 si erreur i/o.
+//      nombre d'octets écris dans le fichier ou -1 si erreur.
 int sram_save(unsigned src,const char *file_name,unsigned size){
     FIL *fh;
     FRESULT error=FR_OK;
     char *buffer;
-    int total,count;
+    int buf_size,total,count;
     
-    buffer=malloc(512);
-    if (!buffer) return -1;
     fh=malloc(sizeof(FIL));
     if (!fh) return -1;
     error=f_open(fh,file_name,FA_WRITE|FA_CREATE_ALWAYS);
+    if (error!=FR_OK){
+        free(fh);
+        return -1;
+    }
+    buf_size=min(512,size);
+    buffer=malloc(buf_size);
+    if (!buffer){
+        f_close(fh);
+        free(fh);
+        return -1;
+    }
     total=0;
     while (size && (error==FR_OK)){
-        count=min(size,512);
+        count=min(size,buf_size);
         sram_read_block(src,buffer,count);
         error=f_write(fh,buffer,count,&count);
         src+=count;

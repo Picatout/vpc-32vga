@@ -1,10 +1,47 @@
+2018-05-05
+1. retour au commit du 3 mai, 21c827614e5d8a68038f2c83a0d0bccf51c51549
+2. Modifification dans kw_local() poura accepter les variables de type byte.
+3. Ajout de dp0  dans la VM.
+4. Modification à to_hex et to_int dans VM.
+5. Modification de l'ordre des arguments dans kw_hex() de BASIC.
+6. Correction d'un bogue dans BASIC:skip_space(), parenthèses dans l'expression
+   du while étaient incorrecte.
+7. Ajout de l'opérateur IDP0 dans la VM.
+
+2018-05-03
+----------
+1. débogué spred.bas, bogue dans input libérais le pad. 
+2. Ajout de PEEK() et HEX$()
+a faire: corrigé bogue dans spred.bas lorsque save plusieurs fois plante.
+
+2018-05-02
+----------
+1. Test BASIC
+2. Correction bogue dans subrtn_create()
+3. Correction bogue dans try_string_compare()
+4. Correcton bogue dans kw_dim()
+5. Correction bogue dans dim_array()
+6. Correction bogue dans next_token(),réception de '\n' tiens compte de cmplevel.
+
+2018-05-01
+----------
+1. Travail sur la nouvelle gestion des chaînes dans BASIC. Avec ce nouveau
+   système toutes les chaînes sont allouée dans l'espace RAM dynamique (heap).
+2. Modification du type de la variable **abort_signal** de bool à uint8_t.  
+
+2018-04-30
+----------
+1. Travail sur la nouvelle gestion des chaînes dans BASIC. Avec ce nouveau
+   système toutes les chaînes sont allouée dans l'espace RAM dynamique (heap).
+   
+
 2018-04-29
 ----------
 1. Ajout des fonction chaînes **UCASE$** et **LCASE$**
-2. entrepris d'apporter des modifications majeurs à la gestion des chaînes
+2. entrepris d'apporter des modifications majeures à la gestion des chaînes
    en créant un typedef avec une strucure **dstring_t** pour enregistrer
    les références aux chaînes dynamques. Cette méthode va simplifier la gestion
-   des chaînes dynamiques.
+   des chaînes dynamiques. Création de la branche dstring.
 
 2018-04-28
 ----------

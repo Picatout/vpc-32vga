@@ -36,12 +36,12 @@ int getPixel(int x, int y){
 }//getPixel()
 
 // fixe l'état d'un pixel, p{0,1}
-void putPixel(int x, int y, int c){
+void putPixel(int x, int y, unsigned c){
     int h,ofs;
     if ((y>=VRES)||(y<0)||(x>=HRES)||(x<0)) return; // hors limites
     h= x/32;
     ofs = 31 - x&31;
-    if (c){
+    if (c>7){
         video_bmp[y][h]|= (1<<ofs);
     }else{
         video_bmp[y][h]&= ~(1<<ofs);

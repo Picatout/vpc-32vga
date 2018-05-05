@@ -34,10 +34,10 @@ extern "C" {
 #include <GenericTypeDefs.h>
 #include <sys/types.h>    
 #include "font.h"
-#include "hardware/tvout/vga.h"
 #include "hardware/HardwareProfile.h"
 #include "hardware/tvout/vga.h"
 #include "vt100.h"
+#include "hardware/ps2_kbd/keyboard.h"
     
 
 //typedef  unsigned char dev_t;
@@ -48,7 +48,7 @@ typedef enum{
 }console_t;
     
 extern dev_t con;
-extern bool abort_signal;
+extern volatile bool abort_signal;
 
 // fonctions de l'interface
 void uppercase(char *str);// in situ uppercase
