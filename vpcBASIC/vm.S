@@ -466,6 +466,14 @@ ipstore: // 'ip!' ( ip -- ) initialise le pointeur d''insturctions
     move ip, T
     _drop_b_next
  
+_dict DP0,"DP0"
+// vide la pile des arguments
+dp0: // ( x*i -- )
+    lui dp,RAM_SEG
+    b next
+    ori dp,dp,dstack
+    
+    
 _dict DROP  "drop"  
 drop:  // 'drop' ( n -- )
     _drop_b_next
@@ -1261,49 +1269,24 @@ to_int: // addr -- n )
 
 _dict HEX,"HEX$"
 //convertie l'arguement entier en chaîne hexadécimal.
-to_hex: // ( pad n -- s )
-    lw v0,-CELL_SIZE(dp)
-    addiu dp,dp,-CELL_SIZE
-    sb zero,0(v0)
-    addiu t2,zero,16
-1:  addiu v0,v0,-1
-    divu T,t2
-    mflo T  // quotient
-    mfhi t0 // reste
-    addiu t0,t0,'0'
-    addiu t1,zero,'9'
-    subu t1,t1,t0
-    bgez t1,2f
-    nop
-    addiu t0,t0,7
-2:  sb t0,0(v0)
-    bgtz T,1b
-    nop
-    move T,v0
-    jal strlen
-    move a0,v0
-    jal string_alloc
-    move a0,v0
-    move a0,v0
-    jal strcpy
-    move a1,T
-    b next
-    move T,v0
-    
-    
+to_hex: // ( n pad  -- s )
+    b str16
+    li a2,16
+   
 _dict STR,"STR$"
 // convertie un entier en chaîne
 // la chaîne est alloué sur le heap   
 to_str: // ( n buf -- str* )
-    li a2,10
-    lw a1,-CELL_SIZE(dp)
-    jal itoa
+    li a2,10  // base
+str16:
+    lw a1,-CELL_SIZE(dp) // buffer
+    jal itoa  // buf,val,base
     move a0,T
     move T,v0
     jal strlen
     move a0,v0
     jal string_alloc
-    addiu a0,v0,1
+    move a0,v0
     move a0,v0
     jal strcpy
     move a1,T
@@ -2285,6 +2268,7 @@ opcodes_table:
 .word append,insert,left,mid,prepend,right,subst,instr,vm_strcmp    
 .word ucase,lcase,str_store,dec_ref,incr_ref,get_ref
 .word to_hex
+.word dp0
     
 bad_op: 
 .word rfetch,tor,rfrom    

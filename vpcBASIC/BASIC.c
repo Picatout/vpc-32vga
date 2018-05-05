@@ -941,7 +941,7 @@ static void ctrl_stack_rot(){
 //saute les espaces
 static void skip_space(){
     char c=0;
-    while ((c=reader_getc(activ_reader)==' ') || (c=='\t'));
+    while (((c=reader_getc(activ_reader))==' ') || (c=='\t'));
     if (!activ_reader->eof) reader_ungetc(activ_reader);
 }//f()
 
@@ -2144,6 +2144,9 @@ static void kw_bye(){
         print(con,error_msg[eERR_NONE]);
         exit_basic=true;
     }else{
+        if (complevel){
+            bytecode(IDP0);
+        }
         bytecode(IBYE);
     }
 }//f
@@ -2223,14 +2226,13 @@ static void movecode(var_t *var){
     pos=var->adr;
     size=(uint32_t)&progspace[dptr]-(uint32_t)pos;
     if (size&3){ size=(size+4)&0xfffffffc;}
-    print_hex(con,(uint32_t)(uint8_t*)endmark,0);
     adr=endmark-size;
     memmove(adr,pos,size);
     endmark=adr;
     dptr=(uint8_t*)pos-(uint8_t*)progspace;
     memset(&progspace[dptr],0,size);
     var->adr=adr; 
-#undef DEBUG
+
 #ifdef DEBUG
     {
         uint8_t * bc;   
@@ -2242,7 +2244,7 @@ static void movecode(var_t *var){
         crlf(con);
     }
 #endif
-#define DEBUG
+
 }//f
 
 // END [IF|SUB|FUNC|SELECT]  termine les blocs conditionnels.
@@ -2863,7 +2865,7 @@ static void compile_input(){
     _litc('?');
     bytecode(IEMIT);
     lit((uint32_t)pad); // ( var_addr -- var_addr pad* )
-    _litc(CHAR_PER_LINE-1); // ( var_addr pad* -- var_addr pad* buf_size )
+    _litc(PAD_SIZE); // ( var_addr pad* -- var_addr pad* buf_size )
     bytecode(IREADLN); // ( var_addr pad* buf_size  -- var_adr pad* str_size )
 }
 
@@ -3063,7 +3065,7 @@ static void kw_local(){
     if (!var_local) throw(eERR_SYNTAX);
     next_token();
     while(token.id==eIDENT){
-        if (token.str[strlen(token.str)-1]=='#' || 
+        if (//token.str[strlen(token.str)-1]=='#' || 
                 token.str[strlen(token.str)-1]=='$' ) throw(eERR_BAD_ARG);
         if (globals>varlist){
             i=varlist->n+1; 
@@ -3276,8 +3278,8 @@ static void kw_string(){
 // convertie une expression numérique en chaîne
 // de caractère
 static void kw_hex(){
-    lit((uint32_t)pad+PAD_SIZE-1);
     parse_arg_list(1);
+    lit((uint32_t)pad);
     bytecode(ISTRHEX);
 }
 

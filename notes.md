@@ -1,6 +1,16 @@
+2018-05-05
+1. retour au commit du 3 mai, 21c827614e5d8a68038f2c83a0d0bccf51c51549
+2. Modifification dans kw_local() poura accepter les variables de type byte.
+3. Ajout de dp0  dans la VM.
+4. Modification à to_hex et to_int dans VM.
+5. Modification de l'ordre des arguments dans kw_hex() de BASIC.
+6. Correction d'un bogue dans BASIC:skip_space(), parenthèses dans l'expression
+   du while étaient incorrecte.
+7. Ajout de l'opérateur IDP0 dans la VM.
+
 2018-05-03
 ----------
-1. débogué spred.bas, bogue dans input lébérais le pad. 
+1. débogué spred.bas, bogue dans input libérais le pad. 
 2. Ajout de PEEK() et HEX$()
 a faire: corrigé bogue dans spred.bas lorsque save plusieurs fois plante.
 

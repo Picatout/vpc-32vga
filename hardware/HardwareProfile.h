@@ -34,7 +34,7 @@
 
 #define VPC_32
 
-#define DEBUG
+//#define DEBUG
 
 #define RAM_SEG  0xA000
 #define CODE_SEG 0x9D00
