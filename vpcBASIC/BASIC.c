@@ -1437,7 +1437,9 @@ static void term(){
     factor();
     while (try_mulop()){
         op=token.id;
+        complevel++;
         factor();
+        complevel--;
         switch(op){
             case eMUL:
                 bytecode(ISTAR);
@@ -2989,7 +2991,9 @@ static void string_expression(){
     string_term();
     next_token();
     while (token.id==ePLUS){
+        complevel++;
         string_term();
+        complevel--;
         bytecode(IAPPEND);
         next_token();
     }

@@ -6,7 +6,10 @@
 5. Modification de l'ordre des arguments dans kw_hex() de BASIC.
 6. Correction d'un bogue dans BASIC:skip_space(), parenthèses dans l'expression
    du while étaient incorrecte.
-7. Ajout de l'opérateur IDP0 dans la VM.
+7. Ajout de l'opérateur IDP0 dans la VM. Lorsque bye est invoqué à l'intérieur d'une 
+   structure de contrôle, IDP0 est compilé avant IBYE pour s'assurer que la pile
+   dstack est vide à la sortie de la VM.
+
 
 2018-05-03
 ----------
