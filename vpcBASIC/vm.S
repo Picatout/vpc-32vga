@@ -1276,15 +1276,14 @@ to_hex: // ( n pad  -- s )
 _dict STR,"STR$"
 // convertie un entier en chaîne
 // la chaîne est alloué sur le heap   
-to_str: // ( n buf -- str* )
+to_str: // ( n pad -- str* )
     li a2,10  // base
 str16:
-    lw a1,-CELL_SIZE(dp) // buffer
+    lw a1,-CELL_SIZE(dp) // value
     jal itoa  // buf,val,base
-    move a0,T
-    move T,v0
+    move a0,T // buffer
     jal strlen
-    move a0,v0
+    move a0,T
     jal string_alloc
     move a0,v0
     move a0,v0

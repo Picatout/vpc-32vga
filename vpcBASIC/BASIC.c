@@ -170,7 +170,7 @@ typedef struct _var{
 }var_t;
 
 // type d'unité lexicales
-typedef enum {eNONE,eSTOP,eCOLON,eIDENT,eNUMBER,eSTRING,ePLUS,eMINUS,eMUL,eDIV,
+typedef enum {eNONE,eNL,eCOLON,eIDENT,eNUMBER,eSTRING,ePLUS,eMINUS,eMUL,eDIV,
               eMOD,eCOMMA,eLPAREN,eRPAREN,eSEMICOL,eEQUAL,eNOTEQUAL,eGT,eGE,eLT,eLE,
               eEND, eELSE,eCMD,eKWORD,eCHAR} tok_id_t;
 
@@ -1192,7 +1192,7 @@ static void next_token(){
                 if (complevel){
                     next_token();
                 }else{
-                    token.id=eSTOP;
+                    token.id=eNL;
                     token.str[0]=0;
                 }
                 break;
@@ -1374,7 +1374,8 @@ static void factor(){
         op=token.id;
         unget_token=false;
     }
-    next_token(); // print(con,token.str);
+    next_token();
+    while (token.id==eNL){next_token();}
     switch(token.id){
         case eKWORD:
             if ((KEYWORD[token.kw].fntype==eFN_INT)){ //print_prog(program_end);
@@ -1437,9 +1438,7 @@ static void term(){
     factor();
     while (try_mulop()){
         op=token.id;
-        complevel++;
         factor();
-        complevel--;
         switch(op){
             case eMUL:
                 bytecode(ISTAR);
@@ -1701,7 +1700,7 @@ static void init_int_array(var_t *var){
                 rparen=1;
                 continue;
                 break;
-            case eSTOP:
+            case eNL:
                 break;
             default:
                 throw(eERR_SYNTAX);
@@ -1744,7 +1743,7 @@ static void init_str_array(var_t *var){
                 rparen=1;
                 continue;
                 break;
-            case eSTOP:
+            case eNL:
                 break;
             default:
                 throw(eERR_SYNTAX);
@@ -2313,9 +2312,9 @@ static void kw_select(){
 static void compile_case_list(){
     int fix_count=0;
     next_token();
-    if (token.id==eSTOP) throw(eERR_SYNTAX);
+    if (token.id==eNL) throw(eERR_SYNTAX);
     unget_token=true; 
-    while (token.id != eSTOP){
+    while (token.id != eNL){
         bytecode(IDUP); 
         expression();  
         bytecode(IEQUAL);  
@@ -2442,7 +2441,7 @@ static void kw_run(){
             }
             run_file(name);
             break;
-        case eSTOP:
+        case eNL:
             if (program_loaded){
                 run_it=true;
                 exec_basic();
@@ -2960,6 +2959,7 @@ static void string_term(){
     int len;
     
     next_token();
+    while (token.id==eNL){next_token();}
     switch (token.id){
         case eSTRING:
             string=string_alloc(strlen(token.str));
@@ -2991,9 +2991,7 @@ static void string_expression(){
     string_term();
     next_token();
     while (token.id==ePLUS){
-        complevel++;
         string_term();
-        complevel--;
         bytecode(IAPPEND);
         next_token();
     }
@@ -3140,7 +3138,7 @@ static void kw_print(){
                     bytecode(IDOT);
                 }
                 break;
-            case eSTOP:
+            case eNL:
                 bytecode(ICR);
                 break;
             default:
@@ -3467,7 +3465,7 @@ static void compile(){
                     kw_let();
                 }
                 break;
-            case eSTOP:
+            case eNL:
                 if (activ_reader->device==eDEV_KBD) activ_reader->eof=true;
                 break;
             case eNONE:
@@ -3599,3 +3597,6 @@ void BASIC_shell(unsigned basic_heap, unsigned option, const char* file_or_strin
     free(progspace);
     string_free(pad);
 }//BASIC_shell()
+
+
+

@@ -1,4 +1,12 @@
+2018-05-07
+----------
+1.  Remplacé eSTOP par eNL plus explicite.
+2.  Modification à string_expression() pour ignorer les eNL
+3.  Modification à expression() pour ignorer les eNL
+4.  exécuter les programmes basic de test.
+
 2018-05-05
+----------
 1. retour au commit du 3 mai, 21c827614e5d8a68038f2c83a0d0bccf51c51549
 2. Modifification dans kw_local() poura accepter les variables de type byte.
 3. Ajout de dp0  dans la VM.
