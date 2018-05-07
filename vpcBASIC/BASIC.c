@@ -3595,6 +3595,7 @@ void BASIC_shell(unsigned basic_heap, unsigned option, const char* file_or_strin
     f_trace=false;
     free_string_vars();
     free(progspace);
+    *(pad-1)=0;
     string_free(pad);
 }//BASIC_shell()
 

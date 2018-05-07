@@ -4,6 +4,9 @@
 2.  Modification à string_expression() pour ignorer les eNL
 3.  Modification à expression() pour ignorer les eNL
 4.  exécuter les programmes basic de test.
+Problème à résoudre: commande free tourne en boucle infinie parfois.
+
+
 
 2018-05-05
 ----------
