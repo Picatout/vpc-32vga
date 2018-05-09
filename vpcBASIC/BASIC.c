@@ -221,8 +221,6 @@ static void kw_exist();
 static void kw_exit();
 static void kw_fill();
 static void kw_for();
-static void kw_fputc();
-static void kw_fputs();
 static void kw_free();
 static void kw_func();
 static void kw_getpixel();
@@ -456,14 +454,18 @@ void basic_fseek(unsigned file_no,int pos){
 
 void basic_fputc(unsigned file_no, char c){
     if (!files_handles[file_no]){throw(eERR_FILE_NOT_OPENED);}
-    if (f_putc(c,files_handles[file_no])){throw(eERR_FILE_IO);}
+    if (f_putc(c,files_handles[file_no])!=1){throw(eERR_FILE_IO);}
 }
 
-void basic_fputs(unsigned file_no,const char *str){
+// écris un champ dans un fichier CSV
+void basic_write_field(unsigned file_no,const char *str){
     int n;
     if (!files_handles[file_no]){throw(eERR_FILE_NOT_OPENED);}
     n=f_puts(str,files_handles[file_no]);
     if (n<0 || n!=strlen(str)){throw(eERR_FILE_IO);}
+    if (str[strlen(str)-1]!='\n'){
+        basic_fputc(file_no,',');
+    }
 }
 
 char basic_fgetc(unsigned file_no){
@@ -476,13 +478,73 @@ char basic_fgetc(unsigned file_no){
     return (char)u;    
 }
 
-char *basic_fgets(unsigned file_no){
+//char *basic_fgets(unsigned file_no){
+//    FRESULT result;
+//    TCHAR *str;
+//    
+//    if (!files_handles[file_no]){throw(eERR_FILE_NOT_OPENED);}
+//    str=f_gets(pad,PAD_SIZE,files_handles[file_no]);
+//    if (str!=pad){throw(eERR_FILE_IO);}
+//    return pad;
+//}
+
+// lit un champ à partir d'un fichier texte CSV
+// un champ se termine par une virgule ou une fin de ligne.
+// sauf pour les chaîne entre guillemets.
+// Les espaces sont ignorés sauf entre guillemets.
+char *file_read_field(unsigned file_no){
     FRESULT result;
-    TCHAR *str;
+    TCHAR c;
+    FIL *fh;
+    int n, i=0;
+    bool in_quote=false;
+    bool escaped=false;
+    unsigned u;
     
-    if (!files_handles[file_no]){throw(eERR_FILE_NOT_OPENED);}
-    str=f_gets(pad,PAD_SIZE,files_handles[file_no]);
-    if (str!=pad){throw(eERR_FILE_IO);}
+    fh=files_handles[file_no];
+    if (!fh){throw(eERR_FILE_NOT_OPENED);}
+    while (!f_eof(fh) && i<PAD_SIZE){
+        result=f_read(fh,&u,1,&n);
+        if (result) {throw(eERR_FILE_IO);}
+        c=u&0xff;
+        switch(c){
+            case '"':
+                if (escaped){
+                    pad[i]=c;
+                    escaped=false;
+                }else if (! in_quote){
+                    in_quote=true;
+                }else{
+                    in_quote=false;
+                    pad[i]=0;
+                    return pad;
+                }
+                break;
+            case '\\':
+                if (in_quote){
+                    escaped=true;
+                }else{
+                    pad[i]=c;
+                }
+                break;
+            case ' ':
+            case TAB:
+                pad[i]=32;
+                break;
+            case ',':
+            case '\n':
+                if (in_quote){
+                    pad[i]=c;
+                }else{
+                    pad[i]=0;
+                    return pad;
+                }
+                break;
+            default:
+                pad[i]=c;
+        }
+        i++;
+    }
     return pad;
 }
 
@@ -496,7 +558,7 @@ enum {eKW_ABS,eKW_AND,eKW_FILE_APPEND,eKW_APPEND,eKW_AS,eKW_ASC,eKW_BEEP,eKW_BOX
       eKW_CONST,eKW_CURCOL,eKW_CURLINE,eKW_DATE,eKW_DECLARE,eKW_DIM,eKW_DO,
       eKW_ELLIPSE,eKW_ELSE,
       eKW_END,eKW_EOF,eKW_EXIST,eKW_EXIT,eKW_FILL,
-      eKW_FOR,eKW_FPUTC,eKW_FPUTS,eKW_FREE,eKW_FUNC,eKW_HEX,eKW_GETPIXEL,eKW_IF,
+      eKW_FOR,eKW_FREE,eKW_FUNC,eKW_HEX,eKW_GETPIXEL,eKW_IF,
       eKW_INPUT,eKW_INSERT,eKW_INSTR,
       eKW_INSERTLN,
       eKW_INVVID,eKW_KEY,eKW_LCASE,eKW_LEFT,eKW_LEN,
@@ -545,8 +607,6 @@ static const dict_entry_t KEYWORD[]={
     {kw_exit,4,eFN_NOT,"EXIT"},
     {kw_fill,4,eFN_NOT,"FILL"},
     {kw_for,3,eFN_NOT,"FOR"},
-    {kw_fputc,5,eFN_NOT,"FPUTC"},
-    {kw_fputs,5,eFN_NOT,"FPUTS"},
     {kw_free,4,eFN_NOT,"FREE"},
     {kw_func,4,eFN_NOT,"FUNC"},
     {kw_hex,4,eFN_STR,"HEX$"},
@@ -2711,21 +2771,6 @@ static void kw_seek(){
     bytecode(ISEEK);
 }
 
-// FPUTC(#n,char)
-// écris un caractère dans le fichier
-static void kw_fputc(){
-    parse_arg_list(2);
-    bytecode(IPUTC);
-}
-
-//FPUTS(#N,string_term)
-// écris une chaîne dans le fichier.
-static void kw_fputs(){
-    parse_arg_list(2);
-    bytecode(IPUTS);
-}
-
-
 
 
 /***********************/
@@ -3064,12 +3109,19 @@ static void kw_len(){
 }//f
 
 // compile le code pour la saisie d'un entier
-static void compile_input(){
-    _litc('?');
-    bytecode(IEMIT);
-    lit((uint32_t)pad); // ( var_addr -- var_addr pad* )
-    _litc(PAD_SIZE); // ( var_addr pad* -- var_addr pad* buf_size )
-    bytecode(IREADLN); // ( var_addr pad* buf_size  -- var_adr pad* str_size )
+static void compile_input(int file_no){
+    if (file_no){
+        _litc(file_no);
+        bytecode(IREADFIELD);
+        bytecode(IDUP);
+        bytecode(ILEN);
+    }else{
+        _litc('?');
+        bytecode(IEMIT);
+        lit((uint32_t)pad); // ( var_addr -- var_addr pad* )
+        _litc(PAD_SIZE); // ( var_addr pad* -- var_addr pad* buf_size )
+        bytecode(IREADLN); // ( var_addr pad* buf_size  -- var_adr pad* str_size )
+    }
 }
 
 // critères d'acceptation pour INPUT:
@@ -3096,17 +3148,27 @@ static var_t  *var_accept(char *name){
 static void kw_input(){
     char name[32];
     var_t *var;
+    int file_no=0;
     
     next_token();
-    if (token.id==eSTRING){
-        bytecode(IPSTR);
-        literal_string(token.str);
-        bytecode(ICR);
-        expect(eCOMMA);
-        expect(eIDENT);
-    }else if (token.id!=eIDENT){
-        throw(eERR_BAD_ARG); 
-    }
+    switch (token.id){
+        case eFILENO:
+            file_no=token.n;
+            expect(eCOMMA);
+            expect(eIDENT);
+            break;
+        case eSTRING:
+            bytecode(IPSTR);
+            literal_string(token.str);
+            bytecode(ICR);
+            expect(eCOMMA);
+            expect(eIDENT);
+            break;
+        case eIDENT:
+            break;
+        default:
+           throw(eERR_BAD_ARG); 
+    }//switch
     while (token.id==eIDENT){
         strcpy(name,token.str);
         var=var_accept(name); // ( -- var_addr )
@@ -3115,7 +3177,7 @@ static void kw_input(){
                 bytecode(IDUP);
                 bytecode(IFETCH);
                 bytecode(ISTRFREE); 
-                compile_input(); // (var_addr -- var_addr pad_addr)
+                compile_input(file_no); // (var_addr -- var_addr pad_addr)
                 bytecode(ISTRALLOC);// ( var_addr pad_addr n -- var_addr pad_addr str_addr)  
                 bytecode(ISTRCPY); //( var_addr pad_addr str_addr -- var_addr )
                 bytecode(ISWAP);
@@ -3123,7 +3185,7 @@ static void kw_input(){
                 break;
             case eVAR_INT:
             case eVAR_BYTE:
-                compile_input();
+                compile_input(file_no);
                 bytecode(IDROP);
                 bytecode(I2INT);
                 bytecode(ISWAP);
@@ -3287,11 +3349,17 @@ static void kw_local(){
     bytecode(lc);
 }//f
 
-static void print_string(){
+static void print_string(int file_no){
     unget_token=true;
     string_expression();
     bytecode(IDUP);
-    bytecode(ITYPE);
+    if (file_no){
+        _litc(file_no);
+        bytecode(ISWAP);
+        bytecode(IWRITEFIELD);
+    }else{
+        bytecode(ITYPE);
+    }
     bytecode(IDUP);
     bytecode(IGETREF);
     bytecode (IQBRA);
@@ -3305,39 +3373,64 @@ static void print_string(){
     bytecode(IDROP);
     patch_fore_jump(cpop());
     cdrop();
-    _litc(1);
-    bytecode(ISPACES);
+    if (!file_no){
+        _litc(1);
+        bytecode(ISPACES);
+    }
 }
 
-// PRINT|? chaine|identifier|expression {,chaine|identifier|expression}
+// parse une expression arithmétique et imprime le résultat.
+static void print_expr(int file_no){
+    expression();
+    if (file_no){
+        lit((uint32_t)pad);
+        bytecode(I2STR);
+        _litc(file_no);
+        bytecode(ISWAP);
+        bytecode(IWRITEFIELD);
+    }else{
+        bytecode(IDOT);
+        _litc(1);
+        bytecode(ISPACES);
+    }
+}
+
+// PRINT|? [#n,] chaine|identifier|expression {,chaine|identifier|expression}
+
 static void kw_print(){
     var_t *var;
     char *str;
+    int file_no=0;
     
+    next_token();
+    if (token.id==eFILENO){
+        file_no=token.n;
+        expect(eCOMMA);
+    }else{
+        unget_token=true;
+    }
     while (!activ_reader->eof){
         next_token();
         switch (token.id){
             case eSTRING:
-                print_string();
+                print_string(file_no);
                 break;
             case eIDENT:
                 if (!(var=var_search(token.str))){throw(eERR_UNKNOWN);}
                     if ((var->vtype==eVAR_STR)||((var->vtype==eVAR_FUNC)&&
                             (var->name[strlen(var->name-1)]=='$'))){
-                        print_string();
+                        print_string(file_no);
                     }else{
                         unget_token=true;
-                        expression();
-                        bytecode(IDOT);
+                        print_expr(file_no);
                     }
                 break;
             case eKWORD:
                 if (KEYWORD[token.n].fntype==eFN_STR){
-                    print_string();
+                    print_string(file_no);
                 }else{
                     unget_token=true;
-                    expression();
-                    bytecode(IDOT);
+                    print_expr(file_no);
                 }
                 break;
             case eNL:
@@ -3345,9 +3438,7 @@ static void kw_print(){
                 break;
             default:
                 unget_token=true;
-                expression();
-                bytecode(IDOT);
-                
+                print_expr(file_no);
         }//switch
         next_token();
         if (token.id==eSEMICOL){
@@ -3361,11 +3452,23 @@ static void kw_print(){
     }//while
 }//f()
 
-// PUTC(expression)
-// imprime un caractère ASCII
+// PUTC   \c|ascii
+// PUTC  #n, \c|ascii
+// imprime un caractère ASCII à la console ou l'envoie dans un fichier
 static void kw_putc(){
-    expression();
-    bytecode(IEMIT);
+    int file_no;
+
+    next_token();
+    if (token.id==eFILENO){
+        _litc(token.n);
+        expect(eCOMMA);
+        expression();
+        bytecode(IPUTC);
+    }else{
+        unget_token=true;
+        expression();
+        bytecode(IEMIT);
+    }
 }//f
 
 // KEY()

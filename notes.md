@@ -1,3 +1,11 @@
+2018-05-09
+----------
+1. Modifié BASIC:putc pour accepter les sorties sur fichier.
+2. Corrigé bogue dans fileio:set_filter
+3. Modifié BASIC:print pour accepter les sorties sur fichier.
+4. Suppression des commandes  BASIC superflues FPUTC et FPUTS.
+5. Modification de BASIC:input pour lire données à partir d'un fichier.
+
 2018-05-08
 ----------
 1. Ajout des fonctions d'accès à des fichiers texte. OPEN,CLOSE,EOF,SEEK,FPUTC,FPUTS

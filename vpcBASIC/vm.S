@@ -2208,21 +2208,21 @@ file_getc: // ( n -- c)
     b next
     move T,v0
     
-_dict FGETS,"FGETS"
+//_dict FGETS,"FGETS"
 // lecture une ligne texte dans le fichier n.    
-file_gets: // ( n -- s )
-    jal basic_fgets
-    move a0,T
-    move T,v0
-    jal strlen
-    move a0,T
-    jal string_alloc
-    move a0,v0
-    move a0,v0
-    jal strcpy
-    move a1,T
-    b next
-    nop
+//file_gets: // ( n -- s )
+//    jal basic_fgets
+//    move a0,T
+//    move T,v0
+//    jal strlen
+//    move a0,T
+//    jal string_alloc
+//    move a0,v0
+//    move a0,v0
+//    jal strcpy
+//    move a1,T
+//    b next
+//    nop
     
     
 _dict FPUTC,"FPUTC"
@@ -2235,15 +2235,28 @@ file_putc: // ( n c -- )
     b next
     lw T,0(dp)
     
-_dict FPUTS,"FPUTS"
+_dict WRITE_FIELD,"WRITE_FIELD"
 // écris une chaîne dans le fichier
-file_puts: // ( n s -- )
+write_field: // ( n s -- )
     lw a0,-CELL_SIZE(dp)
-    jal basic_fputs
+    jal basic_write_field
     move a1,T
-    addiu dp,dp,-2*CELL_SIZE
+    lbu t0,-1(T)
+    bne t0,zero,1f
+    nop
+    jal string_free
+    move a0,T
+1:  addiu dp,dp,-2*CELL_SIZE
     b next
     lw T,0(dp)
+    
+_dict READ_FIELD,"READ_FIELD"
+// lecture d'un champ à partir d'un fichier CSV
+read_field: // ( n -- s )
+    jal file_read_field
+    move a0,T
+    b next
+    move T,v0
     
 .end StackVM
   
@@ -2388,7 +2401,7 @@ opcodes_table:
 .word to_hex
 .word dp0
 .word file_close,file_close_all,file_eof,file_open, file_exist, file_seek
-.word file_getc,file_gets,file_putc,file_puts
+.word file_getc,file_putc,write_field,read_field
     
 bad_op: 
 .word rfetch,tor,rfrom    

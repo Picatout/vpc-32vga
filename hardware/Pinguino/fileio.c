@@ -185,6 +185,9 @@ char* set_filter(filter_t *filter, char *path){
     star=strchr(path,'*');
     slash=last_slash(path);
     if (!star && !slash){
+        filter->subs=path;
+        filter->criteria=eACCEPT_SAME;
+        path=(char*)current_dir;
         return path;
     }
     if (star==path && path[1]==0){
