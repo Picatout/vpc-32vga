@@ -49,6 +49,17 @@
 .extern play
 .extern sram_save
 .extern sram_load
+//fichiers
+.extern close_all_files
+.extern basic_fclose    
+.extern basic_fopen
+.extern basic_feof
+.extern basic_fexist
+.extern basic_fgetc
+.extern basic_fgets
+.extern basic_fputc
+.extern basic_fputs    
+.extern basic_fseek    
     
 //math 
 .extern srand    
@@ -229,7 +240,7 @@ next:
     la a0,abort_signal
     lw t0,0(a0)
     beqz t0,1f
-    sb zero,0(a0)
+    sw zero,0(a0)
     b abort
     addiu T,zero,ERR_USER_ABORT
 1:    
@@ -848,14 +859,10 @@ prt_str: // IPSTR ( -- )
 
 _dict TYPE ,"TYPE"   
 type: // ( addr -- ) // imprime la chaîne ascciz
-    beq T,zero,1f
-    nop
-    la a0,con
-    beqz T, 1f
-    lw a0,0(a0)
+    _console
     jal print
     move a1,T
-1:  _drop_b_next
+   _drop_b_next
  
 _dict DOT  ,"dot"  
 dot: // "." ( n -- ) imprime un entier en format libre
@@ -1163,12 +1170,12 @@ str_len: // ( adr -- length )
     addiu str,str,1
 2:  move str,T
     move T,count
-    lbu chr,-1(T)
-    bne chr,zero,3f
+    lbu chr,-1(str)
+    bne chr,zero,next
     nop
     jal str_free
     nop
-3:  b next
+    b next
     nop
     
     
@@ -1271,13 +1278,13 @@ _dict HEX,"HEX$"
 //convertie l'arguement entier en chaîne hexadécimal.
 to_hex: // ( n pad  -- s )
     b str16
-    li a2,16
+    addiu a2,zero,16
    
 _dict STR,"STR$"
 // convertie un entier en chaîne
 // la chaîne est alloué sur le heap   
 to_str: // ( n pad -- str* )
-    li a2,10  // base
+    addiu a2,zero,10  // base
 str16:
     lw a1,-CELL_SIZE(dp) // value
     jal itoa  // buf,val,base
@@ -1530,11 +1537,11 @@ mid: // ( s1 n1 n2 -- s2 )
     bne a0,zero,0f
     nop
     addiu dp,dp,-2*CELL_SIZE
-    b next
+    b next // s1==NULL
     lw T,0(dp)
-0:  bgtz T,1f
+0:  bgtz T,2f
     nop
-    addu T,zero,zero
+    //n2==0
 0:  lw src,-2*CELL_SIZE(dp)
     lbu count,-1(src)
     bne count,zero,1f
@@ -1549,13 +1556,13 @@ mid: // ( s1 n1 n2 -- s2 )
     move count,T
     move T,v0 // ( s1 n1 s2 --
     lw from,-CELL_SIZE(dp)
-    blez from,1f
+    blez from,0b
     lw src,-2*CELL_SIZE(dp)
     addiu from,from,-1
     addu src,src,from
 1:  beqz count,3f    
     lbu a0,0(src)
-    beqz a0,4f
+    beqz a0,0b
     sb a0,0(dest)
     addiu src,src,1
     addiu dest,dest,1
@@ -2125,7 +2132,119 @@ vm_sram_save: // ( addr_ram char* size -- )
     b next
     move T,v0
 
-   
+ 
+_dict FCLOSE, "CLOSE"    
+// ferme un fichier ouvert
+file_close: // ( n -- )    
+    jal basic_fclose
+    move a0,T
+    addiu dp,dp,-CELL_SIZE
+    b next
+    lw T,0(dp)
+    
+_dict FCLOSEALL,"CLOSEALL"
+// ferme tous les fichiers ouverts.
+file_close_all: // ( -- )
+    jal close_all_files
+    nop
+    b next
+    nop
+    
+    
+    
+_dict FEOF, "EOF"
+// vérifie si en fin de fichier.
+file_eof: // ( n -- )
+    jal basic_feof
+    move a2,T
+    addiu dp,dp,-CELL_SIZE
+    b next
+    lw T,0(dp)
+    
+    
+_dict FOPEN,"OPEN"
+// ouvre un fichier
+// Le programme avorte si le fichier ne peut-être ouvert    
+file_open: // ( name$ mode number -- )
+    lw a0,-2*CELL_SIZE(dp)
+    lw a1,-CELL_SIZE(dp)
+    jal basic_fopen
+    move a2,T
+    // libère name$ si non référencé.
+    lw a0,-2*CELL_SIZE(dp)
+    lbu a1,-1(a0)
+    bne a1,zero, 1f
+    nop
+    jal string_free
+    nop
+1:  addiu dp,dp,-3*CELL_SIZE
+    b next
+    lw T,0(dp)
+    
+    
+_dict FEXIST "EXIST"
+// vérifie si un fichier de ce nom existe.
+file_exist: // ( name$ -- t|f )
+    jal basic_fexist
+    move a0,T
+    b next
+    move T,v0
+    
+_dict SEEK,"SEEK"
+// positionne le curseur du fichier
+file_seek: // ( n pos -- )
+    lw a0,-CELL_SIZE(dp)
+    jal basic_fseek
+    move a1,T
+    addiu dp,dp,-2*CELL_SIZE
+    b next
+    lw T,0(dp)
+
+_dict FGETC,"FGETC"
+// lecture d'un caractère dans le fichier n    
+file_getc: // ( n -- c)
+    jal basic_fgetc
+    move a0,T
+    b next
+    move T,v0
+    
+_dict FGETS,"FGETS"
+// lecture une ligne texte dans le fichier n.    
+file_gets: // ( n -- s )
+    jal basic_fgets
+    move a0,T
+    move T,v0
+    jal strlen
+    move a0,T
+    jal string_alloc
+    move a0,v0
+    move a0,v0
+    jal strcpy
+    move a1,T
+    b next
+    nop
+    
+    
+_dict FPUTC,"FPUTC"
+// écris un caractère dans le fichier n
+file_putc: // ( n c -- )
+    lw a0,-CELL_SIZE(dp)
+    jal basic_fputc
+    move a1,T
+    addiu dp,dp,-2*CELL_SIZE
+    b next
+    lw T,0(dp)
+    
+_dict FPUTS,"FPUTS"
+// écris une chaîne dans le fichier
+file_puts: // ( n s -- )
+    lw a0,-CELL_SIZE(dp)
+    jal basic_fputs
+    move a1,T
+    addiu dp,dp,-2*CELL_SIZE
+    b next
+    lw T,0(dp)
+    
 .end StackVM
   
     
@@ -2268,6 +2387,8 @@ opcodes_table:
 .word ucase,lcase,str_store,dec_ref,incr_ref,get_ref
 .word to_hex
 .word dp0
+.word file_close,file_close_all,file_eof,file_open, file_exist, file_seek
+.word file_getc,file_gets,file_putc,file_puts
     
 bad_op: 
 .word rfetch,tor,rfrom    

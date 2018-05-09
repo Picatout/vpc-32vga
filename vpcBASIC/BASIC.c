@@ -172,7 +172,7 @@ typedef struct _var{
 // type d'unité lexicales
 typedef enum {eNONE,eNL,eCOLON,eIDENT,eNUMBER,eSTRING,ePLUS,eMINUS,eMUL,eDIV,
               eMOD,eCOMMA,eLPAREN,eRPAREN,eSEMICOL,eEQUAL,eNOTEQUAL,eGT,eGE,eLT,eLE,
-              eEND, eELSE,eCMD,eKWORD,eCHAR} tok_id_t;
+              eEND, eELSE,eCMD,eKWORD,eCHAR,eFILENO} tok_id_t;
 
 // longueur maximale d'une ligne de texte source.
 #define MAX_LINE_LEN 128
@@ -204,6 +204,7 @@ static void kw_bye();
 static void kw_case();
 static void kw_chr();
 static void kw_circle();
+static void kw_close();
 static void kw_cls();
 static void kw_const();
 static void kw_curcol();
@@ -215,9 +216,13 @@ static void kw_do();
 static void kw_ellipse();
 static void kw_else();
 static void kw_end();
+static void kw_eof();
+static void kw_exist();
 static void kw_exit();
 static void kw_fill();
 static void kw_for();
+static void kw_fputc();
+static void kw_fputs();
 static void kw_free();
 static void kw_func();
 static void kw_getpixel();
@@ -242,6 +247,7 @@ static void kw_mdiv();
 static void kw_mid();
 static void kw_min();
 static void kw_next();
+static void kw_open();
 static void kw_peek();
 static void kw_play();
 static void kw_polygon();
@@ -260,6 +266,7 @@ static void kw_run();
 static void kw_save_screen();
 static void kw_scrlup();
 static void kw_scrldown();
+static void kw_seek();
 static void kw_select();
 static void kw_setpixel();
 static void kw_set_timer();
@@ -320,9 +327,11 @@ static void expect(tok_id_t t);
 static int get_file_free();
 static FIL *open_file(const char *file_name,int mode);
 static void close_file(FIL *fh);
-static void close_all_files();
+void close_all_files();
 static int get_file_no(FIL *fh);
 static FIL *get_file_handle(int i);
+static void throw(int error);
+static void string_term();
 
 #ifdef DEBUG
 static void print_prog(int start);
@@ -391,7 +400,7 @@ static void close_file(FIL *fh){
     }
 }
 
-static void close_all_files(){
+void close_all_files(){
     int i;
     for (i=0;i<MAX_FILES;i++){
         if (files_handles[i]){
@@ -402,21 +411,99 @@ static void close_all_files(){
     file_count=0;
 }
 
+bool basic_fexist(const char *file_name){
+    FIL *fh;
+    FRESULT result;
+    fh=malloc(sizeof(FIL));
+    if (!fh){throw(eERR_ALLOC);}
+    result=f_open(fh,file_name,FA_OPEN_EXISTING);
+    if (result==FR_OK){f_close(fh);}
+    free(fh);
+    return !result;
+}
+
+void basic_fopen(const char *file_name,int mode, unsigned file_no){
+    if (files_handles[file_no]){throw(eERR_FILE_ALREADY_OPEN);}
+    FIL *fh;
+    FRESULT result;
+    fh=malloc(sizeof(FIL));
+    if (!fh){throw(eERR_ALLOC);}
+    result=f_open(fh,file_name,mode);
+    if (result){throw(eERR_FILE_IO);}
+    files_handles[file_no]=fh;
+}
+
+void basic_fclose(unsigned file_no){
+    if (files_handles[file_no]){
+        f_close(files_handles[file_no]);
+        free(files_handles[file_no]);
+        files_handles[file_no]=NULL;
+    }
+}
+
+bool basic_feof(unsigned file_no){
+    if (!files_handles[file_no]){throw(eERR_FILE_NOT_OPENED);}
+    return f_eof(files_handles[file_no]);
+}
+
+void basic_fseek(unsigned file_no,int pos){
+    if (!files_handles[file_no]){throw(eERR_FILE_NOT_OPENED);}
+    if (pos==-1){
+        pos=files_handles[file_no]->fsize;
+    }
+    if (f_lseek(files_handles[file_no],pos)){throw(eERR_FILE_IO);}
+}
+
+void basic_fputc(unsigned file_no, char c){
+    if (!files_handles[file_no]){throw(eERR_FILE_NOT_OPENED);}
+    if (f_putc(c,files_handles[file_no])){throw(eERR_FILE_IO);}
+}
+
+void basic_fputs(unsigned file_no,const char *str){
+    int n;
+    if (!files_handles[file_no]){throw(eERR_FILE_NOT_OPENED);}
+    n=f_puts(str,files_handles[file_no]);
+    if (n<0 || n!=strlen(str)){throw(eERR_FILE_IO);}
+}
+
+char basic_fgetc(unsigned file_no){
+    unsigned u,n;
+    FRESULT result;
+    
+    if (!files_handles[file_no]){throw(eERR_FILE_NOT_OPENED);}
+    result=f_read(files_handles[file_no],&u,1,&n);
+    if (result){throw(eERR_FILE_IO);}
+    return (char)u;    
+}
+
+char *basic_fgets(unsigned file_no){
+    FRESULT result;
+    TCHAR *str;
+    
+    if (!files_handles[file_no]){throw(eERR_FILE_NOT_OPENED);}
+    str=f_gets(pad,PAD_SIZE,files_handles[file_no]);
+    if (str!=pad){throw(eERR_FILE_IO);}
+    return pad;
+}
+
+
 //identifiant KEYWORD doit-être dans le même ordre que
 //dans la liste KEYWORD
-enum {eKW_ABS,eKW_AND,eKW_APPEND,eKW_AS,eKW_ASC,eKW_BEEP,eKW_BOX,eKW_BTEST,eKW_BYE,eKW_CASE,
+enum {eKW_ABS,eKW_AND,eKW_FILE_APPEND,eKW_APPEND,eKW_AS,eKW_ASC,eKW_BEEP,eKW_BOX,
+      eKW_BTEST,eKW_BYE,eKW_CASE,
       eKW_CHR,eKW_CIRCLE,
-      eKW_CLEAR,eKW_CLS,
+      eKW_CLEAR,eKW_CLOSE,eKW_CLS,
       eKW_CONST,eKW_CURCOL,eKW_CURLINE,eKW_DATE,eKW_DECLARE,eKW_DIM,eKW_DO,
       eKW_ELLIPSE,eKW_ELSE,
-      eKW_END,eKW_EXIT,eKW_FILL,
-      eKW_FOR,eKW_FREE,eKW_FUNC,eKW_HEX,eKW_GETPIXEL,eKW_IF,eKW_INPUT,eKW_INSERT,eKW_INSTR,
+      eKW_END,eKW_EOF,eKW_EXIST,eKW_EXIT,eKW_FILL,
+      eKW_FOR,eKW_FPUTC,eKW_FPUTS,eKW_FREE,eKW_FUNC,eKW_HEX,eKW_GETPIXEL,eKW_IF,
+      eKW_INPUT,eKW_INSERT,eKW_INSTR,
       eKW_INSERTLN,
       eKW_INVVID,eKW_KEY,eKW_LCASE,eKW_LEFT,eKW_LEN,
       eKW_LET,eKW_LINE,eKW_LOCAL,eKW_LOCATE,eKW_LOOP,eKW_MAX,eKW_MDIV,eKW_MID,eKW_MIN,eKW_NEXT,
-      eKW_NOT,eKW_OR,eKW_PEEK,eKW_PLAY,eKW_POLYGON,eKW_PREPEND,
+      eKW_NOT,eKW_OPEN,eKW_OR,eKW_FILE_OUTPUT,eKW_PEEK,eKW_PLAY,eKW_POLYGON,eKW_PREPEND,
       eKW_PRINT,eKW_PSET,eKW_PUTC,eKW_RANDOMISIZE,eKW_RECT,eKW_REF,eKW_REM,eKW_RESTSCR,
-      eKW_RETURN,eKW_RIGHT,eKW_RND,eKW_RUN,eKW_SAVESCR,eKW_SCRLUP,eKW_SCRLDN,
+      eKW_RETURN,eKW_RIGHT,eKW_RND,eKW_RUN,eKW_SAVESCR,eKW_SCRLUP,eKW_SCRLDN,eKW_SEEK,
       eKW_SELECT,eKW_SETTMR,eKW_SHL,eKW_SHR,eKW_SLEEP,eKW_SOUND,
       eKW_SPRITE,eKW_SRCLEAR,eKW_SRLOAD,eKW_SRREAD,eKW_SRSSAVE,eKW_SRWRITE,eKW_STR,
       eKW_SUB,eKW_SUBST,eKW_TIME,eKW_THEN,eKW_TICKS,
@@ -429,6 +516,7 @@ enum {eKW_ABS,eKW_AND,eKW_APPEND,eKW_AS,eKW_ASC,eKW_BEEP,eKW_BOX,eKW_BTEST,eKW_B
 static const dict_entry_t KEYWORD[]={
     {kw_abs,3,eFN_INT,"ABS"},
     {bad_syntax,3,eFN_NOT,"AND"},
+    {bad_syntax,6,eFN_NOT,"APPEND"},
     {kw_append,7,eFN_STR,"APPEND$"},
     {bad_syntax,2,eFN_NOT,"AS"},
     {kw_asc,3,eFN_INT,"ASC"},
@@ -440,6 +528,7 @@ static const dict_entry_t KEYWORD[]={
     {kw_chr,4,eFN_STR,"CHR$"},
     {kw_circle,6,eFN_NOT,"CIRCLE"},
     {clear,5,eFN_NOT,"CLEAR"},
+    {kw_close,5,eFN_NOT,"CLOSE"},
     {kw_cls,3,eFN_NOT,"CLS"},
     {kw_const,5,eFN_NOT,"CONST"},
     {kw_curcol,6,eFN_INT,"CURCOL"},
@@ -451,9 +540,13 @@ static const dict_entry_t KEYWORD[]={
     {kw_ellipse,7,eFN_NOT,"ELLIPSE"},
     {kw_else,4,eFN_NOT,"ELSE"},
     {kw_end,3,eFN_NOT,"END"},
+    {kw_eof,3,eFN_NOT,"EOF"},
+    {kw_exist,5,eFN_INT,"EXIST"},
     {kw_exit,4,eFN_NOT,"EXIT"},
     {kw_fill,4,eFN_NOT,"FILL"},
     {kw_for,3,eFN_NOT,"FOR"},
+    {kw_fputc,5,eFN_NOT,"FPUTC"},
+    {kw_fputs,5,eFN_NOT,"FPUTS"},
     {kw_free,4,eFN_NOT,"FREE"},
     {kw_func,4,eFN_NOT,"FUNC"},
     {kw_hex,4,eFN_STR,"HEX$"},
@@ -479,7 +572,9 @@ static const dict_entry_t KEYWORD[]={
     {kw_min,3,eFN_INT,"MIN"},
     {kw_next,4,eFN_NOT,"NEXT"},
     {bad_syntax,3,eFN_NOT,"NOT"},
+    {kw_open,4,eFN_NOT,"OPEN"},
     {bad_syntax,2,eFN_NOT,"OR"},
+    {bad_syntax,6,eFN_NOT,"OUTPUT"},
     {kw_peek,4,eFN_INT,"PEEK"},
     {kw_play,4,eFN_NOT,"PLAY"},
     {kw_polygon,7,eFN_NOT,"POLYGON"},
@@ -499,6 +594,7 @@ static const dict_entry_t KEYWORD[]={
     {kw_save_screen,7,eFN_NOT,"SAVESCR"},
     {kw_scrlup,6,eFN_NOT,"SCRLUP"},
     {kw_scrldown,6,eFN_NOT,"SCRLDN"},
+    {kw_seek,4,eFN_NOT,"SEEK"},
     {kw_select,6,eFN_NOT,"SELECT"},
     {kw_set_timer,6,eFN_NOT,"SETTMR"},
     {kw_shl,3,eFN_INT,"SHL"},
@@ -585,6 +681,8 @@ static  const char* error_msg[]={
     "Parameters count disagree with DECLARE\n",
     "Unknow variable or constant\n",
     "File open error\n",
+    "File already open",
+    "File not opened",
     "VM bad operating code\n",
     "VM exited with data stack not empty\n",
     "VM parameters stack overflow\n",
@@ -1072,8 +1170,15 @@ static void next_token(){
             case '$': // nombre hexadecimal
                 parse_integer(16);
                 break;
-            case '#': // nombre binaire
+            case '&': // nombre binaire
                 parse_integer(2);
+                break;
+            case '#': // numéro de fichier
+                token.id=eFILENO;
+                c=reader_getc(activ_reader);
+                if (!isdigit(c)){throw(eERR_SYNTAX);}
+                token.n=c-'0';
+                if (!(token.n>0 && token.n<=MAX_FILES)){throw(eERR_SYNTAX);}
                 break;
             case '\'': // commentaire
                 token.id=eKWORD;
@@ -1351,6 +1456,9 @@ static void parse_arg_list(unsigned arg_count){
                     unget_token=true;
                     expression();
                 }
+                break;
+            case eFILENO:
+                _litc(token.n);
                 break;
             default:
                 unget_token=true;
@@ -2525,6 +2633,100 @@ static void kw_insert_line(){
     optional_parens();
     bytecode(IINSERTLN);
 }
+
+/***********************/
+/*  fonctions fichiers */
+/***********************/
+
+// CLOSE  ferme tous les fichiers ouverts
+//CLOSE(#n) ferme le fichier numéro 'n'
+static void kw_close(){
+    next_token();
+    if (token.id==eLPAREN){
+        unget_token=true;
+        parse_arg_list(1);
+        bytecode(IFCLOSE);
+    }else{
+        bytecode(IFCLOSEALL);
+    }
+}
+
+// EOF(#n)
+// retourne vrai si le fichier 'n' est à la fin.
+static void kw_eof(){
+    parse_arg_list(1);
+    bytecode(IEOF);
+}
+
+// EXIST(name$)
+// vérifie si un fichier existe
+static void kw_exist(){
+    parse_arg_list(1);
+    bytecode(IEXIST);
+}
+
+
+// OPEN string_term FOR INPUT|OUTPUT|APPEND AS #n
+// ouvre le fichier nommé 'file_name' en mode 'mode' avec l'identifiant 'n'
+// 'n' est dans l'intervalle 1..5
+// le programme s'arrête si le fichier ne peut-être ouvert.
+static void kw_open(){
+    char *fname;
+    PF_BYTE mode;
+    
+    string_term();
+    expect(eKWORD);
+    if (token.kw!=eKW_FOR){throw(eERR_SYNTAX);}
+    expect(eKWORD);
+    switch (token.kw){
+        case eKW_INPUT:
+            mode=FA_READ;
+            break;
+        case eKW_FILE_OUTPUT:
+            mode=FA_CREATE_ALWAYS|FA_WRITE;
+            break;
+        case eKW_FILE_APPEND:
+            mode=FA_OPEN_ALWAYS|FA_WRITE;
+            break;
+        default:
+            throw(eERR_SYNTAX);
+    }
+    _litc(mode);
+    expect(eKWORD);
+    if (token.kw!=eKW_AS){throw(eERR_SYNTAX);}
+    expect(eFILENO);
+    _litc(token.n);
+    bytecode(IFOPEN);
+    if (mode==(FA_OPEN_ALWAYS|FA_WRITE)){
+        _litc(token.n);
+        lit(-1);
+        bytecode(ISEEK);
+    }
+}
+
+// SEEK(#n,pos)
+// position le curseur du fichier 'n' à la position 'pos'
+static void kw_seek(){
+    parse_arg_list(2);
+    bytecode(ISEEK);
+}
+
+// FPUTC(#n,char)
+// écris un caractère dans le fichier
+static void kw_fputc(){
+    parse_arg_list(2);
+    bytecode(IPUTC);
+}
+
+//FPUTS(#N,string_term)
+// écris une chaîne dans le fichier.
+static void kw_fputs(){
+    parse_arg_list(2);
+    bytecode(IPUTS);
+}
+
+
+
 
 /***********************/
 /* fonction graphiques */

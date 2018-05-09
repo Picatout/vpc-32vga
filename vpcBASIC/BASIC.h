@@ -11,7 +11,7 @@
 // sortie contrôlée de la VM sur débordement de dstack ou rstack
 #define _CHECK_STACKS
 // sortie contrôlée de la VM sur requête utiliseur CTRL_C
-#define _CHECK_USER_ABORT
+//#define _CHECK_USER_ABORT
 
 #ifndef _ASM_CODE_
 
@@ -45,6 +45,8 @@ enum ERROR_CODES{
     eERR_BAD_ARG_COUNT,
     eERR_UNKNOWN,
     eERR_FILE_IO,
+    eERR_FILE_ALREADY_OPEN,
+    eERR_FILE_NOT_OPENED,
     eERR_BADOP,
     eERR_DSTACK_NOT_EMPTY,
     eERR_DSTACK_OVF,

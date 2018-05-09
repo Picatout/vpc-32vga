@@ -1,3 +1,10 @@
+2018-05-08
+----------
+1. Ajout des fonctions d'accès à des fichiers texte. OPEN,CLOSE,EOF,SEEK,FPUTC,FPUTS
+2. Corrigé bogue dans VM.type
+3. Corrigé bogue dans VM.str_len
+4. Corrigé bogue dans VM.mid
+
 2018-05-07
 ----------
 1.  Remplacé eSTOP par eNL plus explicite.
@@ -5,8 +12,6 @@
 3.  Modification à expression() pour ignorer les eNL
 4.  exécuter les programmes basic de test.
 Problème à résoudre: commande free tourne en boucle infinie parfois.
-
-
 
 2018-05-05
 ----------

@@ -78,7 +78,7 @@ static int get_param(char c){
 }
 
 void vt_clear_screen(){
-    ser_put_char( FF);
+    ser_put_char(FF);
     vt_set_curpos(0,0);
 }
 
@@ -118,7 +118,7 @@ void vt_set_curpos(int x, int y){
     char fmt[32];
     vt_col=x+1;
     vt_line=y+1;
-    sprintf(fmt,"\033[%d;%df",vt_line,vt_col);
+    sprintf(fmt,"\033[%d;%dH",vt_line,vt_col);
     ser_print(fmt);
 }
 

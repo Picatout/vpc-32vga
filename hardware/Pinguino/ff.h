@@ -72,7 +72,9 @@ typedef char TCHAR;
 
 #endif
 
-
+#ifndef ULONG
+typedef unsigned int ULONG;
+#endif
 
 /* File system object structure (FATFS) */
 
