@@ -3,8 +3,10 @@
 1. Modifié BASIC:putc pour accepter les sorties sur fichier.
 2. Corrigé bogue dans fileio:set_filter
 3. Modifié BASIC:print pour accepter les sorties sur fichier.
-4. Suppression des commandes  BASIC superflues FPUTC et FPUTS.
+4. Suppression des commandes  BASIC superflues FGETS et FPUTS.
 5. Modification de BASIC:input pour lire données à partir d'un fichier.
+6. Corrigé bogue dans editor:line_break()
+À faire: ajouter support pour nombre virgule flottante.
 
 2018-05-08
 ----------

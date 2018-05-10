@@ -1213,6 +1213,7 @@ static void line_end(){
          state->scr_line++;
          if (state->scr_line>LAST_LINE){
              state->scr_first+=strlen(screen)+1;
+             state->scr_line--;
          }
          fill_screen();
          state->flags.modified=true;

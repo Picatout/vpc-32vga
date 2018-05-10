@@ -81,7 +81,9 @@
 .extern rintf
 .extern floorf
 .extern ceilf
-
+.extern strtof
+.extern dtostrf
+    
  //graphiques
 .extern getPixel
 .extern setPixel
@@ -2257,6 +2259,37 @@ read_field: // ( n -- s )
     move a0,T
     b next
     move T,v0
+  
+/**************************/
+/* math virgule flottante */
+/**************************/
+    
+_dict FTOSTR,"FTOSTR$"
+// conversion float vers chaîne    
+ftostr: //  ( f buf -- )
+    la a1,float_fmt
+    lw a2,-CELL_SIZE(dp)
+    jal sprintf
+    move a0,T
+    b next
+    addiu dp,dp,-CELL_SIZE
+    
+_dict STRTOF,"STRTOF"
+// converstion chaîne vers float
+vm_strtof: // ( s -- f )
+    addiu a1,zero,zero
+    jal strtof
+    move a0,T
+    move a0,T
+    move T,v0
+    lbu t0,-1(a0)
+    bne t0,zero, next
+    nop
+    jal string_free
+    nop
+    b next
+    nop
+    
     
 .end StackVM
   
@@ -2402,6 +2435,7 @@ opcodes_table:
 .word dp0
 .word file_close,file_close_all,file_eof,file_open, file_exist, file_seek
 .word file_getc,file_putc,write_field,read_field
+.word ftostr, vm_strtof
     
 bad_op: 
 .word rfetch,tor,rfrom    
@@ -2415,5 +2449,6 @@ s_msg: .asciz " S("
 dp_msg: .asciz "dp: "
 ip_msg: .asciz "\nip: "
 r_msg: .asciz "R("
+float_fmt: .asciz "%e"
     
 #undef _ASM_CODE_

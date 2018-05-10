@@ -223,6 +223,7 @@ static void kw_fill();
 static void kw_for();
 static void kw_free();
 static void kw_func();
+static void kw_fgetc();
 static void kw_getpixel();
 static void kw_hex();
 static void kw_if();
@@ -503,6 +504,7 @@ char *file_read_field(unsigned file_no){
     
     fh=files_handles[file_no];
     if (!fh){throw(eERR_FILE_NOT_OPENED);}
+    pad[0]=0;
     while (!f_eof(fh) && i<PAD_SIZE){
         result=f_read(fh,&u,1,&n);
         if (result) {throw(eERR_FILE_IO);}
@@ -535,10 +537,13 @@ char *file_read_field(unsigned file_no){
             case '\n':
                 if (in_quote){
                     pad[i]=c;
-                }else{
+                }else if (i){
                     pad[i]=0;
                     return pad;
+                }else{
+                    i--;
                 }
+                
                 break;
             default:
                 pad[i]=c;
@@ -557,7 +562,7 @@ enum {eKW_ABS,eKW_AND,eKW_FILE_APPEND,eKW_APPEND,eKW_AS,eKW_ASC,eKW_BEEP,eKW_BOX
       eKW_CLEAR,eKW_CLOSE,eKW_CLS,
       eKW_CONST,eKW_CURCOL,eKW_CURLINE,eKW_DATE,eKW_DECLARE,eKW_DIM,eKW_DO,
       eKW_ELLIPSE,eKW_ELSE,
-      eKW_END,eKW_EOF,eKW_EXIST,eKW_EXIT,eKW_FILL,
+      eKW_END,eKW_EOF,eKW_EXIST,eKW_EXIT,eKW_FGETC,eKW_FILL,
       eKW_FOR,eKW_FREE,eKW_FUNC,eKW_HEX,eKW_GETPIXEL,eKW_IF,
       eKW_INPUT,eKW_INSERT,eKW_INSTR,
       eKW_INSERTLN,
@@ -605,6 +610,7 @@ static const dict_entry_t KEYWORD[]={
     {kw_eof,3,eFN_NOT,"EOF"},
     {kw_exist,5,eFN_INT,"EXIST"},
     {kw_exit,4,eFN_NOT,"EXIT"},
+    {kw_fgetc,5,eFN_INT,"FGETC"},
     {kw_fill,4,eFN_NOT,"FILL"},
     {kw_for,3,eFN_NOT,"FOR"},
     {kw_free,4,eFN_NOT,"FREE"},
@@ -2649,6 +2655,7 @@ static void kw_min(){
     bytecode(IMIN);
 }//f
 
+
 // PGET(x,y)
 // retourne la couleur du pixel
 // en position {x,y}
@@ -2772,6 +2779,12 @@ static void kw_seek(){
 }
 
 
+// FGETC(#n)
+// lit un caractère d'un fichier
+static void kw_fgetc(){
+    parse_arg_list(1);
+    bytecode(IGETC);
+}
 
 /***********************/
 /* fonction graphiques */
