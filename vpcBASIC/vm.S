@@ -864,7 +864,12 @@ type: // ( addr -- ) // imprime la chaîne ascciz
     _console
     jal print
     move a1,T
-   _drop_b_next
+    move a0,T
+    lbu t0,-1(a0)
+    bne t0,zero,1f
+    jal string_free
+    nop
+1:  _drop_b_next
  
 _dict DOT  ,"dot"  
 dot: // "." ( n -- ) imprime un entier en format libre
@@ -2266,7 +2271,7 @@ read_field: // ( n -- s )
     
 _dict FTOSTR,"FTOSTR$"
 // conversion float vers chaîne    
-ftostr: //  ( f buf -- )
+ftostr: //  ( f buf -- buf )
     la a1,float_fmt
     lw a2,-CELL_SIZE(dp)
     jal sprintf
@@ -2277,7 +2282,7 @@ ftostr: //  ( f buf -- )
 _dict STRTOF,"STRTOF"
 // converstion chaîne vers float
 vm_strtof: // ( s -- f )
-    addiu a1,zero,zero
+    addu a1,zero,zero
     jal strtof
     move a0,T
     move a0,T
@@ -2290,9 +2295,73 @@ vm_strtof: // ( s -- f )
     b next
     nop
     
+ 
+_dict NEGFLOAT,"-FLOAT"
+// négation dun float
+negfloat: // ( fpt -- fpt)
+    lui t0,0x8000
+    b next
+    xor T,T,t0
+    
+  
+_dict ITOFLOAT,"INT>FLOAT"
+// convertie un INT32 vers FLOAT32    
+int_to_float: // ( float -- int )
+    jal sitofp
+    move a0,T
+    b next
+    move T,v0
+    
+_dict FPTOINT,"FP>INT"
+// convertie un FLOAT32 vers un INT32    
+float_to_int: // ( float -- int )
+    jal __fixsfsi
+    move a0,T
+    b next
+    move T,v0
+
+_dict FPLUS,"F+"
+// addition de 2 float
+fplus: // ( float float -- float )
+    lw a0, -CELL_SIZE(dp)
+    jal fpadd
+    move a1,T
+    addiu dp,dp,-CELL_SIZE
+    b next
+    move T,v0
+    
+_dict FMINUS, "F-"
+// soustraction de 2 float
+fminus: // ( float1 float2 -- float1-float2 )
+    lw a0,-CELL_SIZE(dp)
+    jal __subsf3
+    move a1,T
+    addiu dp,dp,-CELL_SIZE
+    b next
+    move T,v0
+    
+_dict FMUL,"F*"
+// multiplication de 2 flottants    
+fmul: // ( float1 float2 -- float1*float2 )
+    lw a0,-CELL_SIZE(dp)
+    jal __mulsf3
+    move a1,T
+    addiu dp,dp,-CELL_SIZE
+    b next
+    move T,v0
+
+_dict FDIV, "F/"    
+// division de 2 flottant
+fdiv: // ( float1 float2 -- float1/float2 ) 
+    lw a0,-CELL_SIZE(dp)
+    jal __divsf3
+    move a1,T
+    addiu dp,dp,-CELL_SIZE
+    b next
+    move T,v0
+    
     
 .end StackVM
-  
     
 //*************************************************
 depth: // retourne le nombre d'éléments sur dstack
@@ -2435,7 +2504,8 @@ opcodes_table:
 .word dp0
 .word file_close,file_close_all,file_eof,file_open, file_exist, file_seek
 .word file_getc,file_putc,write_field,read_field
-.word ftostr, vm_strtof
+.word ftostr, vm_strtof, negfloat,float_to_int,int_to_float
+.word fplus,fminus,fmul,fdiv
     
 bad_op: 
 .word rfetch,tor,rfrom    
@@ -2449,6 +2519,6 @@ s_msg: .asciz " S("
 dp_msg: .asciz "dp: "
 ip_msg: .asciz "\nip: "
 r_msg: .asciz "R("
-float_fmt: .asciz "%e"
+float_fmt: .asciz "%G"
     
 #undef _ASM_CODE_

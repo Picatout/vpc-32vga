@@ -28,6 +28,7 @@
 #include <setjmp.h>
 #include <string.h>
 #include <ctype.h>
+#include <math.h>
 
 #include "../hardware/Pinguino/fileio.h"
 #include "../hardware/HardwareProfile.h"
@@ -66,7 +67,10 @@ enum frame_type_e {FRAME_SUB,FRAME_FUNC};
                   bytecode(_byte0(w));\
                   bytecode(_byte1(w))
 
-#define _prt_varname(v) lit((uint32_t)v->name);\
+#define _addr(ptr) ((uint32_t)ptr)
+#define _value(var) (*(uint32_t*)var) 
+
+#define _prt_varname(v) code_lit32(_addr(v->name));\
                       bytecode(ITYPE)
 
 // pile de contrôle utilisée par le compilateur
@@ -108,6 +112,7 @@ static bool program_loaded;
 static bool run_it=false;
 static uint32_t program_end;
 
+
 #define NAME_MAX 32 //longueur maximale nom incluant zéro terminal
 #define LEN_MASK 0x1F   // masque longueur nom.
 #define ADR  (void *)
@@ -116,6 +121,7 @@ static uint32_t program_end;
 
 typedef void (*fnptr)();
 
+// type de fonctions
 enum FN_TYPE{
     eFN_NOT, // ce n'est pas une fonction
     eFN_INT, // la fonction retourne un entier 32 bits ou un octet non signé
@@ -123,17 +129,9 @@ enum FN_TYPE{
     eFN_FPT  // la fonction retourne un nombre virgule flottante, float32
 };
 
-//entrée de commande dans liste
-typedef struct{
-    fnptr cfn; // pointeur fonction commande
-    uint8_t len:5;//longueur du nom.
-    uint8_t fntype:3; // type de donnée retourné par la fonction. 
-    char *name; // nom de la commande
-} dict_entry_t;
-
-
 //types de données
 typedef enum {
+    eVAR_UNKNOWN, // type indéfinie
     eVAR_INT, // INTEGER
     eVAR_BYTE, // BYTE
     eVAR_FLOAT, // FLOAT
@@ -150,6 +148,20 @@ const char *TYPE_NAME[]={
     "STRING",
     0
 };
+
+// le type d'une expression numérique 
+// est déterminé soit par le type de la variable
+// qui sera assignée ou par le type du permier facteur.
+static int expr_type=eVAR_UNKNOWN;
+
+//entrée de commande dans liste
+typedef struct{
+    fnptr cfn; // pointeur fonction commande
+    uint8_t len:5;//longueur du nom.
+    uint8_t fntype:3; // type de donnée retourné par la fonction. 
+    char *name; // nom de la commande
+} dict_entry_t;
+
 
 typedef struct _var{
     struct _var* next; // prochaine variable dans la liste
@@ -170,7 +182,7 @@ typedef struct _var{
 }var_t;
 
 // type d'unité lexicales
-typedef enum {eNONE,eNL,eCOLON,eIDENT,eNUMBER,eSTRING,ePLUS,eMINUS,eMUL,eDIV,
+typedef enum {eNONE,eNL,eCOLON,eIDENT,eINT,eFLOAT,eSTRING,ePLUS,eMINUS,eMUL,eDIV,
               eMOD,eCOMMA,eLPAREN,eRPAREN,eSEMICOL,eEQUAL,eNOTEQUAL,eGT,eGE,eLT,eLE,
               eEND, eELSE,eCMD,eKWORD,eCHAR,eFILENO} tok_id_t;
 
@@ -336,6 +348,12 @@ static void string_term();
 static void print_prog(int start);
 static void print_cstack();
 #endif
+
+
+char *float_to_str(char * buffer, float f){
+    sprintf(buffer,"%G",f);
+    return buffer;
+}
 
 #define MAX_FILES 5
 static FIL *files_handles[MAX_FILES]={NULL,NULL,NULL,NULL,NULL};
@@ -898,7 +916,8 @@ void *alloc_var_space(int size){
 // '!'  eVAR_FLOAT
 //  autre eVAR_INT
 static int var_type_from_name(char *name){
-    int vtype=eVAR_INT;
+    int vtype;
+    
     switch (name[strlen(name)-1]){
         case '#':
             vtype=eVAR_BYTE;
@@ -908,6 +927,8 @@ static int var_type_from_name(char *name){
             break;
         case '!':
             vtype=eVAR_FLOAT;
+        default:
+            vtype=eVAR_INT;
     }
     return vtype;
 }
@@ -1017,16 +1038,42 @@ static void bytecode(uint8_t bc){
     progspace[dptr++]=bc;
 }//f
 
-// compile un entier litéral
-static void lit(unsigned int n){
+// compile un literal 32 bits
+static void code_lit32(uint32_t u){
     int i;
     
     bytecode(ILIT);
     for (i=0;i<4;i++){
-        bytecode(n&0xff);
-        n>>=8;
+        bytecode(u&0xff);
+        u>>=8;
     }
 }
+
+// compile le contenu de la variable n
+static void code_value(void *p){
+    int i;
+    uint32_t u;
+    u=*(uint32_t*)p; // print_hex(2,u,0);
+    bytecode(ILIT); 
+    for (i=0;i<4;i++){
+        bytecode(u&0xff); //print_hex(2,u&0xff,0);
+        u>>=8;
+    }
+}
+
+// compile l'adresse du pointeur
+static void code_ptr(void *ptr){
+    int i;
+    uint32_t addr;
+    
+    addr=(uint32_t)&ptr;
+    bytecode(ILIT);
+    for (i=0;i<4;i++){
+        bytecode(addr&0xff);
+        addr>>=8;
+    }
+}
+
 
 //calcul la distance entre slot_address+1 et dptr.
 // le déplacement maximal authorizé est de 32767 octets.
@@ -1181,6 +1228,7 @@ static void parse_identifier(){
     }
 }//f()
 
+
 static void parse_integer(int base){
     char c;
     int n=0,d;
@@ -1199,10 +1247,68 @@ static void parse_integer(int base){
         n= n*base+d;
         c=reader_getc(activ_reader);
     }//while
-    token.id=eNUMBER;
+    token.id=eINT;
     token.n=n;
 }//f()
 
+static const char NBR_CHARS[]="0123456789.eE-+";
+
+static void parse_number(){
+    char c;
+    int i=0;
+    bool leave=false,decimal=false,exponent=false,esign=false;
+    c=reader_getc(activ_reader);
+    while (strchr(NBR_CHARS,c) && !leave){
+        switch (c){
+            case '-':
+            case '+':
+                if (!exponent){
+                    leave=true;
+                    continue;
+                }else{
+                    if (!esign){
+                        pad[i++]=c;
+                        esign=true;
+                    }else{
+                        leave=true;
+                    }
+                }
+                break;
+            case 'e':
+            case 'E':
+                if (exponent){
+                    leave=true;
+                    continue;
+                }else{
+                    pad[i++]=c;
+                    exponent=true;
+                }
+                break;
+            case '.':
+                if (decimal){
+                    leave=true;
+                    continue;
+                }else{
+                    pad[i++]=c;
+                    decimal=true;
+                }
+                break;
+            default:
+                pad[i++]=c;
+        }
+        c=reader_getc(activ_reader);
+    }
+    if (!activ_reader->eof){reader_ungetc(activ_reader);}
+    pad[i]=0;
+    if (decimal || exponent){
+        token.id=eFLOAT;
+        token.f=strtof(pad,NULL);
+    }else{
+        token.id=eINT;
+        token.n=atoi(pad);
+    }
+    
+}
 
 static void next_token(){
     char c;
@@ -1230,7 +1336,7 @@ static void next_token(){
         parse_identifier();
     }else if (isdigit(c)){
         reader_ungetc(activ_reader);
-        parse_integer(10);
+        parse_number();
     }else{
         switch(c){
             case '$': // nombre hexadecimal
@@ -1434,15 +1540,15 @@ static bool try_mulop(){
 
 // compile le calcul d'indice dans les variables vecteur
 static void code_array_address(var_t *var){
+    expr_type=eVAR_INT;
     factor();// compile la valeur de l'index.
-//    expect(eRPAREN);
     // limite l'index de 1 à ubound()
     _litc(1);
     bytecode(IMAX);
-    lit((uint32_t)var->adr);
+    code_lit32(_addr(var->adr));
     bytecode(IFETCH);
     bytecode(IMIN);
-    if (var->vtype==eVAR_INT || var->vtype==eVAR_STR){
+    if (var->vtype==eVAR_INT || var->vtype==eVAR_FLOAT || var->vtype==eVAR_STR){
         _litc(2);
         bytecode(ILSHIFT);//4*index
     }else{
@@ -1457,7 +1563,7 @@ static void code_array_address(var_t *var){
         patch_fore_jump(cpop());
     }
     //index dans le tableau
-    lit((uint32_t)var->adr);
+    code_lit32(_addr(var->adr));
     bytecode(IPLUS);
 }//f
 
@@ -1468,8 +1574,8 @@ static void code_var_address(var_t *var){
         if (var->local){
             bytecode(ILCADR);
             bytecode((uint8_t)var->n);
-        }else{
-            lit((uint32_t)&var->adr);
+        }else{ //println(2,"code_lit32 ((void*)&var->adr)");
+            code_lit32(_addr(&var->adr));
         }
     }
 }
@@ -1502,6 +1608,7 @@ static void parse_arg_list(unsigned arg_count){
     }
     unget_token=true;
     do{
+        expr_type=eVAR_UNKNOWN;
         next_token();
         switch (token.id){
             case eIDENT:
@@ -1539,38 +1646,49 @@ static void parse_arg_list(unsigned arg_count){
     if (count>arg_count) throw(eERR_EXTRA_ARG);
 }//f
 
-
 static void factor(){
     var_t *var;
     int i,op=eNONE;
-    
+    int factor_type=eVAR_UNKNOWN;
+//    print(2,"expr_type==");print_int(2,expr_type,0);crlf(2);
     if (try_addop()){
         op=token.id;
         unget_token=false;
     }
-    next_token();
+    next_token(); //print_int(2,token.id,0);
     while (token.id==eNL){next_token();}
     switch(token.id){
         case eKWORD:
-            if ((KEYWORD[token.kw].fntype==eFN_INT)){ //print_prog(program_end);
+            if ((KEYWORD[token.kw].fntype==eFN_INT)){ 
                 KEYWORD[token.kw].cfn();
-            }else{  
+                factor_type=eVAR_INT;
+            }else if ((KEYWORD[token.kw].fntype==eFN_INT)){  
+                KEYWORD[token.kw].cfn();
+                factor_type=eVAR_FLOAT;
+            }else{
                 throw(eERR_SYNTAX);
             }
             break;
         case eIDENT:
             if ((var=var_search(token.str))){
-                switch(var->vtype){
+                factor_type=var->vtype;
+                switch(var->vtype){ 
                     case eVAR_FUNC:
                         _litc(0);
                         parse_arg_list(var->dim);
-                        lit(((uint32_t)&var->adr));
+                        code_lit32(_addr(&var->adr));
                         bytecode(IFETCH);
                         bytecode(ICALL);
+                        if (var->name[strlen(var->name)-1]=='!'){
+                            factor_type=eVAR_FLOAT;
+                        }else{
+                            factor_type=eVAR_INT;
+                        }
                         break;
                     case eVAR_BYTE:
                         code_var_address(var);
                         bytecode(ICFETCH);
+                        factor_type=eVAR_INT;
                         break;
                     case eVAR_INT:
                     case eVAR_FLOAT:
@@ -1585,26 +1703,49 @@ static void factor(){
             }
             break;
         case eCHAR:
+            factor_type=eVAR_INT;
             _litc(token.n&127);
             break;
-        case eNUMBER:
+        case eINT:
+            factor_type=eVAR_INT; // println(2,"factor_type==eVAR_INT");
             if (token.n>=0 && token.n<256){
                 _litc((uint8_t)token.n);
             }else{
-                lit(token.n);
+                code_lit32(token.n);
             }
+            break;
+        case eFLOAT:
+            factor_type=eVAR_FLOAT; // println(2,"factor_type==eVAR_FLOAT");
+            code_lit32(_value(&token.f));
             break;
         case eLPAREN:
             expression();
             expect(eRPAREN);
+            factor_type=expr_type;
             break;
         default:
             throw(eERR_SYNTAX);
     }//switch
     if (op==eMINUS){
-        bytecode(INEG);
+        if (factor_type==eVAR_INT){ 
+            bytecode(INEG);
+        }else{
+            bytecode(IFNEG);
+        }
+    } 
+      
+    if (!expr_type){
+        expr_type=factor_type;
+    }
+    if (factor_type!=expr_type){
+       if (factor_type==eVAR_INT){
+           bytecode(II2FLOAT);
+       }else{
+           bytecode(IF2INT);
+       }
     }
 }//f()
+
 
 static void term(){
     int op;
@@ -1615,13 +1756,25 @@ static void term(){
         factor();
         switch(op){
             case eMUL:
-                bytecode(ISTAR);
+                if (expr_type==eVAR_INT){
+                    bytecode(ISTAR);
+                }else{
+                    bytecode(IFMUL);
+                }
                 break;
             case eDIV:
-                bytecode(ISLASH);
+                if (expr_type==eVAR_INT){
+                    bytecode(ISLASH);
+                }else{
+                    bytecode(IFDIV);
+                }
                 break;
             case eMOD:
-                bytecode(IMOD);
+                if (expr_type==eVAR_INT){
+                    bytecode(IMOD);
+                }else{
+                    throw(eERR_SYNTAX);
+                }
                 break;
         }//switch
     }
@@ -1636,9 +1789,17 @@ static void expression(){
         op=token.id;
         term();
         if (op==ePLUS){
-            bytecode(IPLUS);
+            if (expr_type==eVAR_INT){
+                bytecode(IPLUS);
+            }else{
+                bytecode(IFADD);
+            }
         }else{
-            bytecode(ISUB);
+            if (expr_type==eVAR_INT){
+                bytecode(ISUB);
+            }else{
+                bytecode(IFSUB);
+            }
         }
     }
     if (dptr==mark_dp) throw(eERR_SYNTAX);
@@ -1647,11 +1808,13 @@ static void expression(){
 static void condition(){
     int rel;
     //print(con,"condition\n");
+    expr_type=eVAR_UNKNOWN;
     expression();
     if (!try_relation()){
         return;
     }
     rel=token.id;
+    expr_type=eVAR_UNKNOWN;
     expression();
     switch(rel){
         case eEQUAL:
@@ -1854,7 +2017,7 @@ static void init_int_array(var_t *var){
     while (!rparen){
         switch (token.id){
             case eCHAR:
-            case eNUMBER: 
+            case eINT: 
                 if (state) throw(eERR_SYNTAX);
                 if (var->vtype==eVAR_INT){
                     iarray[count++]=token.n;
@@ -1951,7 +2114,7 @@ static void dim_array(char *var_name){
     
     len=strlen(var_name);
     next_token();
-    if (token.id==eNUMBER){
+    if (token.id==eINT){
         size=token.n;
     }else if (token.id==eIDENT){
         var=var_search(token.str);
@@ -1959,6 +2122,7 @@ static void dim_array(char *var_name){
             switch (var->vtype){
                 case eVAR_INT:
                 case eVAR_BYTE:
+                case eVAR_FLOAT:
                     size=var->n;
                     break;
                 default:
@@ -2023,11 +2187,11 @@ static void kw_dim(){
                 new_var=var_create(var_name,vtype,NULL);
                 if (new_var->vtype==eVAR_STR){
                     string_expression();
-                    lit((uint32_t)&new_var->adr);
+                    code_lit32(_addr(&new_var->adr));
                     bytecode(ISTRSTORE);
                 }else{
                     expression();
-                    lit((uint32_t)&new_var->n);
+                    code_lit32(_addr(&new_var->n));
                     bytecode(ISTORE);
                 }
                 break;
@@ -2099,13 +2263,13 @@ static void kw_ref(){
     var=var_search(token.str);
     if (!var) throw(eERR_BAD_ARG);
     if (var->array){
-        lit(((uint32_t)var->adr)+sizeof(int));
+        code_lit32(_addr((void*)var->adr+sizeof(int)));
     }else{
         switch(var->vtype){
             case eVAR_INT:
             case eVAR_BYTE:
             case eVAR_FLOAT:
-                lit((uint32_t)&var->n);
+                code_lit32(_addr(&var->n));
                 break;
             case eVAR_STR:
                 if (var->ro){
@@ -2113,7 +2277,7 @@ static void kw_ref(){
                 }
             case eVAR_FUNC:
             case eVAR_SUB:
-                lit((uint32_t)var->adr);
+                code_lit32(_addr(var->adr));
                 break;
             default:
                 throw(eERR_BAD_ARG);
@@ -2132,7 +2296,7 @@ static void kw_ubound(){
     expect(eRPAREN);
     var=var_search(name);
     if (!(var && var->array)) throw(eERR_BAD_ARG);
-    lit((uint32_t)var->adr);
+    code_lit32(_addr(var->adr));
     bytecode(IFETCH);
 }//f
 
@@ -2205,7 +2369,7 @@ static void kw_const(){
             var->vtype=eVAR_STR;
             *(var->str-1)=1; // compte référence.
         }else{
-            expect(eNUMBER);
+            expect(eINT);
             var->n=token.n;
         }
         next_token();
@@ -2329,10 +2493,11 @@ static void kw_bye(){
 // RETURN expression
 // utilisé dans les fonctions
 static void kw_return(){
-        expression();
-        bytecode(ILCSTORE);
-        bytecode(0);
-        bytecode(ILEAVE);
+    expr_type=eVAR_UNKNOWN;
+    expression();
+    bytecode(ILCSTORE);
+    bytecode(0);
+    bytecode(ILEAVE);
 //        bytecode(FRAME_FUNC);
 }//f
 
@@ -2411,11 +2576,16 @@ static void movecode(var_t *var){
 #ifdef DEBUG
     {
         uint8_t * bc;   
-        crlf(con);print_hex(con,(uint32_t)var->adr,0);put_char(con,':');
+        crlf(con);
+        print_hex(con,(uint32_t)var->adr,0);
+        print(con,var->name);
+        put_char(con,':');
         for(bc=(uint8_t*)adr;bc<((uint8_t*)adr+size);bc++){
             print_int(con,*bc,0);
         }
         print_int(con,*bc,0);
+        print(con,"\nsize: "); 
+        print_int(con,size,0);
         crlf(con);
     }
 #endif
@@ -2479,6 +2649,7 @@ static void kw_select(){
     complevel++;
     cpush(eKW_SELECT);
     cpush(0); // compteur clauses CASE
+    expr_type=eVAR_UNKNOWN;
     expression();
 }//f
 
@@ -2490,6 +2661,7 @@ static void compile_case_list(){
     unget_token=true; 
     while (token.id != eNL){
         bytecode(IDUP); 
+        expr_type=eVAR_UNKNOWN;
         expression();  
         bytecode(IEQUAL);  
         bytecode(IQBRA);  
@@ -2740,7 +2912,7 @@ static void kw_exist(){
 static void kw_open(){
     char *fname;
     PF_BYTE mode;
-    
+
     string_term();
     expect(eKWORD);
     if (token.kw!=eKW_FOR){throw(eERR_SYNTAX);}
@@ -2766,7 +2938,7 @@ static void kw_open(){
     bytecode(IFOPEN);
     if (mode==(FA_OPEN_ALWAYS|FA_WRITE)){
         _litc(token.n);
-        lit(-1);
+        code_lit32(-1);
         bytecode(ISEEK);
     }
 }
@@ -2884,9 +3056,11 @@ static void kw_for(){
     kw_let(); // valeur initale de la variable de boucle
     expect(eIDENT);
     if (strcmp(token.str,"TO")) throw (eERR_SYNTAX);
+    expr_type=eVAR_UNKNOWN;
     expression(); // valeur de la limite
     next_token();
     if (token.id==eIDENT && !strcmp(token.str,"STEP")){
+        expr_type=eVAR_UNKNOWN;
         expression(); //valeur de l'incrément
     }else{
         _litc(1);
@@ -3056,12 +3230,13 @@ static void array_let(char * name){
     if (!var || !var->array) throw(eERR_NOT_ARRAY);
     code_array_address(var);
     expect(eEQUAL);
+    expr_type=eVAR_UNKNOWN;
     switch (var->vtype){
         case eVAR_STR:
             expect(eSTRING);
             adr=string_alloc(strlen(token.str));
             strcpy(adr,token.str);
-            lit((uint32_t)adr);
+            code_lit32(_addr(adr));
             bytecode(ISWAP);
             bytecode(ISTORE);
             break;
@@ -3131,7 +3306,7 @@ static void compile_input(int file_no){
     }else{
         _litc('?');
         bytecode(IEMIT);
-        lit((uint32_t)pad); // ( var_addr -- var_addr pad* )
+        code_lit32(_addr(pad)); // ( var_addr -- var_addr pad* )
         _litc(PAD_SIZE); // ( var_addr pad* -- var_addr pad* buf_size )
         bytecode(IREADLN); // ( var_addr pad* buf_size  -- var_adr pad* str_size )
     }
@@ -3241,7 +3416,7 @@ static void string_term(){
         case eSTRING:
             string=string_alloc(strlen(token.str));
             strcpy(string,token.str);
-            lit((uint32_t)string);
+            code_lit32(_addr(string));
             break;
         case eKWORD:
             if ((KEYWORD[token.n].fntype==eFN_STR)){
@@ -3277,6 +3452,7 @@ static void string_expression(){
 
 // assigne une valeur à une variable chaîne.
 static void code_let_string(var_t *var){
+    expr_type=eVAR_STR;
     bytecode(IDUP);
     bytecode(IFETCH);
     bytecode(ISWAP);
@@ -3320,15 +3496,22 @@ static void kw_let(){
             code_let_string(var);
             break;
         case eVAR_INT: 
-        case eVAR_BYTE:
-        case eVAR_FLOAT:
+            expr_type=eVAR_INT;
             expression();
             bytecode(ISWAP);
-            if (var->vtype==eVAR_BYTE){
-                bytecode(ICSTORE);
-            }else{
-                bytecode(ISTORE);
-            }
+            bytecode(ISTORE);
+            break;
+        case eVAR_BYTE:
+            expr_type=eVAR_INT;
+            expression();
+            bytecode(ISWAP);
+            bytecode(ICSTORE);
+            break;
+        case eVAR_FLOAT:
+            expr_type=eVAR_FLOAT;
+            expression();
+            bytecode(ISWAP);
+            bytecode(ISTORE);
             break;
         default:
             throw(eERR_SYNTAX);
@@ -3363,6 +3546,7 @@ static void kw_local(){
 }//f
 
 static void print_string(int file_no){
+    expr_type=eVAR_STR;
     unget_token=true;
     string_expression();
     bytecode(IDUP);
@@ -3394,15 +3578,26 @@ static void print_string(int file_no){
 
 // parse une expression arithmétique et imprime le résultat.
 static void print_expr(int file_no){
-    expression();
+    expr_type=eVAR_UNKNOWN;
+    expression(); //print_int(2,expr_type,0);
     if (file_no){
-        lit((uint32_t)pad);
-        bytecode(I2STR);
+        code_lit32(_addr(pad));
+        if (expr_type==eVAR_FLOAT){
+            bytecode(IF2STR);
+        }else{
+            bytecode(I2STR);
+        }
         _litc(file_no);
         bytecode(ISWAP);
         bytecode(IWRITEFIELD);
     }else{
-        bytecode(IDOT);
+        if (expr_type==eVAR_INT){
+            bytecode(IDOT);
+        }else{
+            code_lit32(_addr(pad));
+            bytecode(IF2STR);
+            bytecode(ITYPE);
+        }
         _litc(1);
         bytecode(ISPACES);
     }
@@ -3415,6 +3610,7 @@ static void kw_print(){
     char *str;
     int file_no=0;
     
+    expr_type=eVAR_UNKNOWN;
     next_token();
     if (token.id==eFILENO){
         file_no=token.n;
@@ -3428,7 +3624,7 @@ static void kw_print(){
             case eSTRING:
                 print_string(file_no);
                 break;
-            case eIDENT:
+            case eIDENT: // println(2,"eIDENT"); println(2,var->name);
                 if (!(var=var_search(token.str))){throw(eERR_UNKNOWN);}
                     if ((var->vtype==eVAR_STR)||((var->vtype==eVAR_FUNC)&&
                             (var->name[strlen(var->name-1)]=='$'))){
@@ -3472,6 +3668,7 @@ static void kw_putc(){
     int file_no;
 
     next_token();
+    expr_type=eVAR_UNKNOWN;
     if (token.id==eFILENO){
         _litc(token.n);
         expect(eCOMMA);
@@ -3590,7 +3787,7 @@ static void kw_chr(){
 //convertie une expression numérique en chaîne
 static void kw_string(){
     parse_arg_list(1);
-    lit((uint32_t)pad);
+    code_lit32(_addr(pad));
     bytecode(I2STR);
 }
 
@@ -3599,7 +3796,7 @@ static void kw_string(){
 // de caractère
 static void kw_hex(){
     parse_arg_list(1);
-    lit((uint32_t)pad);
+    code_lit32(_addr(pad));
     bytecode(ISTRHEX);
 }
 
@@ -3690,6 +3887,7 @@ static void kw_instr(){
     int count=0;
     
     expect(eLPAREN);
+    expr_type=eVAR_UNKNOWN;
     do{
         next_token();
         switch (token.id){
@@ -3768,7 +3966,7 @@ static void compile(){
                             _litc(0);
                         } 
                         parse_arg_list(var->dim);
-                        lit(adr);
+                        code_lit32(adr);
                         bytecode(IFETCH);
                         bytecode(ICALL);
                         if (var->vtype==eVAR_FUNC){
@@ -3897,6 +4095,7 @@ void BASIC_shell(unsigned basic_heap, unsigned option, const char* file_or_strin
             activ_reader->eof=false;
             compile();
             if (!complevel && (dptr>program_end)){
+
 #ifdef DEBUG
                 print_prog(program_end);
 #endif

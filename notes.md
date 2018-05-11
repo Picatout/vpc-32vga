@@ -1,3 +1,10 @@
+2018-05-10
+----------
+1. Travail sur les nombres à virgules flotttantes.
+2. Corrigé bogue dans factor().
+3. Corrigé bogue dans VM:negfloat
+4. Corrigé inversion de l'orde de float_to_int et int_to_float dans opcodes_table.
+
 2018-05-09
 ----------
 1. Modifié BASIC:putc pour accepter les sorties sur fichier.
