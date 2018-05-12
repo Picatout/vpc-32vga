@@ -1,9 +1,17 @@
+2018-05-11
+----------
+bogue dans spread save/load sequence échoue.
+
+
 2018-05-10
 ----------
 1. Travail sur les nombres à virgules flotttantes.
 2. Corrigé bogue dans factor().
 3. Corrigé bogue dans VM:negfloat
 4. Corrigé inversion de l'orde de float_to_int et int_to_float dans opcodes_table.
+5. Modifié le fonctionnement des expression(). Maintenant les expressions retourne
+   type eVAR_INT ou eVAR_FLOAT. Élimination de la variable globale **expr_type**.
+6. Corrigé bogue dans var_type_from_name(). break oublié dans case '!'.
 
 2018-05-09
 ----------
