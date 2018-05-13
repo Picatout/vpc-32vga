@@ -253,20 +253,20 @@ void sram_move(unsigned dest, unsigned src, unsigned size){
 //  dest  addresse spi ram destination
 //  file_name  nom du fichier à charger
 // retourne:
-//   nombre d'octets chargés, ou -1 si erreur i/o
+//   nombre d'octets chargés, ou -100 problème malloc ou -error si erreur i/o
 int sram_load(unsigned dest,const char *file_name){
    FIL *fh;
    FRESULT error=FR_OK;
    char *buffer;
    DWORD buf_size,size;
    int total,count;
-   
+
    fh=malloc(sizeof(FIL));
    if (!fh){
-       return -1;
+       return -100;
    }
    error=f_open(fh,file_name,FA_READ);
-   if (error!=FR_OK) return -1;
+   if (error!=FR_OK) return -error;
    size=fh->fsize;
    size=min(SRAM_SIZE-dest,size);
    buf_size=min(size,512);
@@ -274,7 +274,7 @@ int sram_load(unsigned dest,const char *file_name){
    if (!buffer){
        f_close(fh);
        free(fh);
-       return -1;
+       return -100;
    }
    total=0;
    while ((error==FR_OK) && (size>0)){
@@ -288,7 +288,7 @@ int sram_load(unsigned dest,const char *file_name){
    f_close(fh);
    free(fh);
    free(buffer);
-   return total;
+   return error?-error:total;
 }
 
 // sram_save()
@@ -298,26 +298,27 @@ int sram_load(unsigned dest,const char *file_name){
 //     file_name nom du fichier destination
 //     size  nombre d'octets à sauvegarder.
 // reotourne:
-//      nombre d'octets écris dans le fichier ou -1 si erreur.
+//      code d'erreur fichier ou 0 si ok
+//      retourne -100 si problème d'allocation mémoire.
 int sram_save(unsigned src,const char *file_name,unsigned size){
     FIL *fh;
     FRESULT error=FR_OK;
     char *buffer;
     int buf_size,total,count;
-    
+
     fh=malloc(sizeof(FIL));
-    if (!fh) return -1;
+    if (!fh) return -100;
     error=f_open(fh,file_name,FA_WRITE|FA_CREATE_ALWAYS);
     if (error!=FR_OK){
         free(fh);
-        return -1;
+        return error;
     }
     buf_size=min(512,size);
     buffer=malloc(buf_size);
     if (!buffer){
         f_close(fh);
         free(fh);
-        return -1;
+        return -100;
     }
     total=0;
     while (size && (error==FR_OK)){
@@ -331,5 +332,5 @@ int sram_save(unsigned src,const char *file_name,unsigned size){
     f_close(fh);
     free(fh);
     free(buffer);
-    return error==FR_OK?total:-1; 
+    return error; 
 }

@@ -16,6 +16,7 @@
     
     
 // fonctions en C
+.extern free_not_ref    
 .extern abort_signal    
 .extern sys_ticks
 .extern con  
@@ -864,11 +865,8 @@ type: // ( addr -- ) // imprime la chaîne ascciz
     _console
     jal print
     move a1,T
+    jal free_not_ref
     move a0,T
-    lbu t0,-1(a0)
-    bne t0,zero,1f
-    jal string_free
-    nop
 1:  _drop_b_next
  
 _dict DOT  ,"dot"  
@@ -1172,15 +1170,13 @@ str_len: // ( adr -- length )
     addu count,zero,zero
 1:  lbu chr,0(str)
     beqz chr,2f
+    nop
     addiu count,count,1
     b 1b
     addiu str,str,1
-2:  move str,T
+2:  move a0,T
     move T,count
-    lbu chr,-1(str)
-    bne chr,zero,next
-    nop
-    jal str_free
+    jal free_not_ref
     nop
     b next
     nop
@@ -1264,7 +1260,7 @@ readln: // ( addr n1 -- addr n2 )
     b next
     move T,v0
     
-_dict ATOI ,"atoi"  
+_dict ATOI ,"VAL"  
 // convertie la chaîne en entier    
 // addr adresse de la châine asciiz
 // n valeur entière extraite de la chaîne    
@@ -1273,10 +1269,7 @@ to_int: // addr -- n )
     move a0,T
     move a0,T
     move T,v0
-    lbu t0,-1(a0)
-    bne t0,zero, 1f
-    nop
-    jal string_free
+    jal free_not_ref
     nop
  1: b next
     nop
@@ -1312,10 +1305,7 @@ _dict ASC,"ASC"
 to_asc: // ( addr -- n )
     move a0,T
     lbu T,0(a0)
-    lbu t0,-1(a0)
-    bne t0,zero,1f
-    nop
-    jal string_free
+    jal free_not_ref
     nop
 1:  b next
     nop
@@ -1326,7 +1316,7 @@ to_asc: // ( addr -- n )
 _dict CHR,"CHR$"
 to_char: // ( n -- addr )
     jal string_alloc
-    addiu a0,zero,2
+    addiu a0,zero,1
     sb T,0(v0)
     move T,v0
     b next
@@ -1366,11 +1356,11 @@ append: // ( s1 s2 -- s3 )
     nop
     addiu dp,dp,-CELL_SIZE
     b next
-    lw T,0(dp)
+    lw T,0(dp) // s2 NULLL retourn s1
 1:  lw a0,-CELL_SIZE(dp)
-    bne a0,zero,1f
+    bne a0,zero,1f 
     nop
-    b next
+    b next   // s1 NULL retourne s2
     addiu dp,dp,-CELL_SIZE
 1:  jal strlen
     lw a0,-CELL_SIZE(dp)
@@ -1388,23 +1378,14 @@ append: // ( s1 s2 -- s3 )
     jal strcat
     move a0,T
     // libère s1 et s2 si elles ne sont pas référencées
-    lw t0,-2*CELL_SIZE(dp)
-    lbu t1,-1(t0)
-    bne t1,zero, 1f
-    nop
-    jal string_free
-    move a0,t0
-1:  lw t0,-CELL_SIZE(dp)
-    lbu t1,-1(t0)
-    bne t1,zero,1f
-    nop
-    jal string_free
-    move a0,t0
-1:    
+    jal free_not_ref
+    lw a0,-2*CELL_SIZE(dp)
+    jal free_not_ref
+    lw t0,-CELL_SIZE(dp)
     b next
     addiu dp,dp,-2*CELL_SIZE
 
-// retourne une chaîne contenant les n premier caractères de s1
+// retourne une chaîne contenant les n premiers caractères de s1
 // si n==0 retourne NULL
 _dict LEFT, "LEFT$"
     dest=v0
@@ -1420,13 +1401,11 @@ left:// ( s1 n -- s2 )
     lw T,0(dp)
 0:  bgtz T, 2f
     nop
+    // n==0 retourne chaîne vide.
     //libère s1 si non référencé.
-0:  lw src,-CELL_SIZE(dp)
-    lbu count,-1(src)
-    bne count,zero,1f
-    jal string_free
-    move a0,src
-1:  b next
+0:  jal free_not_ref
+    lw a0,-CELL_SIZE(dp)
+    b next
     addiu dp,dp,-CELL_SIZE
 2:  jal string_alloc
     move a0,T
@@ -1517,23 +1496,15 @@ insert: // ( s1 s2 n -- s3 )
     b 5b
     addiu dest,dest,1
 6:  // libère s1 et s2 si elles ne sont pas référencées.
-    lw src,-3*CELL_SIZE(dp)
-    lbu count,-1(src)
-    bne count,zero,7f
-    nop
-    jal string_free
-    move a0,src
-7:  lw src, -2*CELL_SIZE(dp)
-    lbu count,-1(src)
-    bne count,zero,8f
-    nop
-    jal string_free
-    move a0,src
-8:  b next
+    jal free_not_ref
+    lw a0,-3*CELL_SIZE(dp)
+    jal free_not_ref
+    lw a0, -2*CELL_SIZE(dp)
+    b next
     addiu dp,dp,-3*CELL_SIZE
     
 
-// extrait n2 caractères de la chaîne s1 -à partir de la position n1    
+// extrait n2 caractères de la chaîne s1 à partir de la position n1    
 _dict MID,"MID$"
     dest=v0
     src=t0
@@ -1549,12 +1520,8 @@ mid: // ( s1 n1 n2 -- s2 )
 0:  bgtz T,2f
     nop
     //n2==0
-0:  lw src,-2*CELL_SIZE(dp)
-    lbu count,-1(src)
-    bne count,zero,1f
-    nop
-    jal string_free
-    move a0,src
+0:  jal free_not_ref
+    lw a0,-2*CELL_SIZE(dp)
 1:  b next
     addiu dp,dp,-2*CELL_SIZE
 2:  
@@ -1598,6 +1565,8 @@ right: // ( s1 n -- s2 )
     lw T,0(dp)
 1:  bgtz T,2f
     nop
+    jal free_not_ref
+    lw a0,-CELL_SIZE(dp)
     addu T,zero,zero
     b next
     addiu dp,dp,-CELL_SIZE
@@ -1617,118 +1586,100 @@ _dict SUBST,"SUBST$"
     src=a0
     pos=a1
 subst: // ( s1 s2 n -- s3 )  
-    // si s1 est NULL retourne NULL
-    lw a0,-2*CELL_SIZE(dp)
-    bne a0,zero,1f
-    nop
-    addiu dp,dp,-2*CELL_SIZE
-    b next
-    lw T,0(dp)
-1:  // si s2 est NULL retourne s1
-    lw a0,-CELL_SIZE(dp)
-    bne a0,zero,2f
-    nop
-    addiu dp,dp,-2*CELL_SIZE
-    b next
-    lw T,0(dp)
-2:  //Si s1 n'est par référencé modification in-situ
-    lw t0,-2*CELL_SIZE(dp)
-    addiu t0,t0,-1
-    lbu t0,0(t0)
-    beq t0,zero,3f
-    lw dest,-2*CELL_SIZE(dp);
     // alloue l'espace pour s3
     jal strlen
-    move a0,dest
+    lw a0,-2*CELL_SIZE(dp)
+    _dpush 
+    move T,v0 // ( s1 s2 n len --
+    // si n<1 ou  n>strlen(s1) abandonnne.
+    lw t0,-CELL_SIZE(dp)
+    bgtz t0,1f
+    nop
+    // n<=0 abandonne retourne s1
+0:  jal free_not_ref  // libère s2 si non référencé.
+    lw a0,-2*CELL_SIZE(dp)
+    lw T, -3*CELL_SIZE(dp)
+    b next
+    addiu dp,dp,-3*CELL_SIZE
+1:  // si n>len abandonne et retourne s1
+    sub t1,t0,T
+    bgtz t1,0b
+    addiu t0,t0,-1
+    sw t0,-CELL_SIZE(dp)
     jal string_alloc
-    move a0,v0
-    move dest,v0 
+    move a0,T
+    move T,v0 // ( s1 s2 n s3 -- 
+    lw a1,-3*CELL_SIZE(dp)
     // copie s1 dans s3
-    lw a1,-2*CELL_SIZE(dp)
     jal strcpy
     move a0,v0
-    // sn<1 ou  n>strlen(s1) abandonnne.
-3:  blez T, 6f
-    jal strlen
-    move a0,dest
-    subu t0,v0,T
-    bltz t0,6f
-    addu dest,dest,T 
-    addiu dest,dest,-1
-    lw src,-CELL_SIZE(dp)
+    // libère s1 si par référencé
+    jal free_not_ref
+    lw a0,-3*CELL_SIZE(dp)
+    lw t0,-CELL_SIZE(dp)
+    addu dest,T,t0 
+    lw src,-2*CELL_SIZE(dp)
 4:  lbu t0,0(src)
     beqz t0, 6f
-    lbu t1,(dest)
+    lbu t1,0(dest)
     beqz t1, 6f
     sb t0,0(dest)
     addiu src,src,1
     b 4b
     addiu dest,dest,1
-6:  // si s1 et s2 ne sont pas référencés on les libères.
-    lw src,-CELL_SIZE(dp)
-    lbu t0,-1(src)
-    bne t0,zero, 7f
-    nop
-    jal string_free
-    move a0,src
-7:  // si s1<>s3 et s1 n'est pas référencé on le libère
-    lw src,-2*CELL_SIZE(dp)
-    sub pos,src,dest
-    beqz pos,8f
-    nop
-    lbu pos,-1(src)
-    bne pos,zero,8f
-    nop
-    jal string_free
-    move a0,src
-8:  addiu dp,dp,-2*CELL_SIZE
+6:  // libère s2 si non référencé.
+    jal free_not_ref
+    lw a0,-2*CELL_SIZE(dp) // s2
     b next
-    move T,dest
+    addiu dp,dp,-3*CELL_SIZE
 
 // retourne la position de s2 dans s1 ou 0 si non trouvé
 // la recherche se fait à partir de n0    
 _dict INSTR,"INSTR"
 instr: // ( n0 s1 s2 -- n )
     // si s1 est NULL retourne 0
-    lw a0,-2*CELL_SIZE(dp)
+    lw a0,-CELL_SIZE(dp)
     bne a0,zero,1f
     nop
     addiu dp,dp,-2*CELL_SIZE
     b next
     addu T,zero,zero
 1:  // si s2 est NULL reotourne 0
-    lw a0,-CELL_SIZE(dp)
-    bne a0,zero,1f
+    bne T,zero,1f
     nop
+    // libère s1 si non référencé.
+    jal free_not_ref
     addiu dp,dp,-2*CELL_SIZE
     b next
     addu T,zero,zero
 1:  jal strlen
     lw a0,-CELL_SIZE(dp)
+   // si n0>len(s1) retourne NULL
     lw a0,-2*CELL_SIZE(dp)
-    bgtz a0, 2f
-    nop
-1:  addu T,zero,zero
-    b next
-    addiu dp,dp,-2*CELL_SIZE
-2:  // si n0>len(s1) retourne NULL
     subu t0,v0,a0
     bgez t0,3f
     nop
-    b 1b 
+    b 4f
+    nop
 3:  addiu a0,a0,-1
-    lw a1,-CELL_SIZE(dp)
+    lw a1,-CELL_SIZE(dp) // search$
     addu a0,a0,a1
     jal strstr
-    move a1,T
+    move a1,T   // find$
+    move a0,T
     move T,v0
-    beqz T, 1b
-    nop
-    lw a0,-CELL_SIZE(dp)
-    subu T,v0,a0
+    beqz T,4f
+    lw t0,-CELL_SIZE(dp)
+    subu T,T,t0
     addiu T,T,1
+4:  jal free_not_ref // libère s2
+    nop
+    lw a0,-CELL_SIZE(dp) // libère s1
+    jal free_not_ref
+    nop
     b next
     addiu dp,dp,-2*CELL_SIZE
+    
     
 _dict ALLOC, "var_alloc"    
 // alloue de la mémoire dans l'espace progamme.
@@ -1778,7 +1729,7 @@ str_store: // ( s v -- )
     lbu t1,-1(t0)
     addiu t2,zero,128
     beq t2,t1,1f   // n'incrémente pas si == 128 (chaîne imbriquée).
-    addiu t1,zero,1
+    addiu t1,t1,1
     sb t1,-1(t0)
     // enregistre le pointeur de chaîne dans la variable.
 1:  sw t0,0(T)
@@ -1823,18 +1774,10 @@ vm_strcmp: // ( s1 s2 -- -1|0|1)
     move a1,T
     _dpush
     move T,v0
+    jal free_not_ref
     lw a0,-3*CELL_SIZE(dp)
-    lbu a1,-1(a0)
-    bne a1,zero,1f
-    nop
-    jal string_free
-    nop
-1:  lw a0,-2*CELL_SIZE(dp)
-    lbu a1,-1(a0)
-    bne a1,zero, 1f
-    nop
-    jal string_free
-    nop
+    jal free_not_ref
+    lw a0,-2*CELL_SIZE(dp)
 1:  b next
     addiu dp,dp,-2*CELL_SIZE
     
@@ -2130,7 +2073,7 @@ vm_sram_load: // ( addr_ram char* -- size )
 
 _dict SRSAV, "SRSAVE"    
 // sauvegarde un bloc de la mémoire SPI RAM dans un fichier    
-vm_sram_save: // ( addr_ram char* size -- )
+vm_sram_save: // ( addr_ram char* size -- exit_code )
     lw a0,-2*CELL_SIZE(dp)
     lw a1,-CELL_SIZE(dp)
     jal sram_save
@@ -2475,7 +2418,7 @@ print_state:
     jr ra
     addiu sp,sp,16
     
-
+  
     
 // routines names must be in same order as OP_CODES enum in vm.h    
 opcodes_table:

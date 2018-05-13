@@ -834,10 +834,16 @@ char* string_alloc(unsigned length){
     if (!dstr){
         throw(eERR_STR_ALLOC);
     }
-    *(uint8_t*)dstr=0;
+    *(int8_t*)dstr=0;
     str=(char*)dstr+1;
     *str=0; // chaîne de longueur zéro
     return str;
+}
+
+// libère la chaîne si elle n'est pas référencée
+void free_not_ref(char *str){
+    str--;
+    if (!str)free(str);
 }
 
 // libération de l'espace réservée pour une chaîne asciiz sur le heap.
@@ -847,19 +853,23 @@ char* string_alloc(unsigned length){
 // les chaînes imbriquées dans le code ont un ref_count==128,
 // ce ref_count n'est jamais modifié.
 void string_free(char *str){
-    uint8_t *dstr;
-    uint8_t ref_count;
+    int8_t *dstr;
+    int8_t ref_count;
     if (!str) return;
     
-    dstr=(uint8_t*)str-1;
+    dstr=(int8_t*)str-1;
     ref_count=*dstr;
+    if (ref_count>0){
+        ref_count--;
+    }
     if (!ref_count){
         free(dstr);
-    }else if (ref_count<128){
-        ref_count--;
+    }else{
         *dstr=ref_count;
     }
 }
+
+
 
 
 void free_string_vars(){
@@ -876,7 +886,7 @@ void free_string_vars(){
             if (!var->array){
                 dstr=var->str;
                 if (dstr){
-                    *((uint8_t*)dstr-1)=0;
+                    *((int8_t*)dstr-1)=0;
                     string_free(dstr);
                 }
             }else{
@@ -885,7 +895,7 @@ void free_string_vars(){
                 for (i=1;i<=count;i++){
                     dstr=(void*)str_array[i];
                     if (dstr){
-                        *((uint8_t*)dstr-1)=0;
+                        *((int8_t*)dstr-1)=0;
                         string_free(dstr);
                     }
                 }
@@ -2282,7 +2292,7 @@ static void kw_ref(){
     var=var_search(token.str);
     if (!var) throw(eERR_BAD_ARG);
     if (var->array){
-        code_lit32(_addr((void*)var->adr+sizeof(int)));
+        code_lit32(_addr(var->adr)+sizeof(int));
     }else{
         switch(var->vtype){
             case eVAR_INT:
@@ -3182,7 +3192,7 @@ static void literal_string(char *lit_str){
     size=strlen(lit_str)+2;
     if ((void*)&progspace[dptr+size]>endmark) throw(eERR_PROGSPACE);
     strcpy((void*)&progspace[dptr+1],lit_str);
-    progspace[dptr]=128;
+    progspace[dptr]=255;
     dptr+=size;
 }//f
 
@@ -4075,7 +4085,7 @@ extern bool f_trace;
 void BASIC_shell(unsigned basic_heap, unsigned option, const char* file_or_string){
 
     pad=string_alloc(PAD_SIZE);
-    *(pad-1)=128;
+    *(pad-1)=255;
     prog_size=(biggest_chunk()-basic_heap)&0xfffffff0;
     progspace=malloc(prog_size);
     if (!(option==EXEC_STRING || option==EXEC_FILE)){

@@ -1,7 +1,9 @@
-2018-05-11
+2018-05-12
 ----------
-bogue dans spread save/load sequence échoue.
-
+1. Corrigé bogue dans VM:str_store, compteur référence était mis à 1 au lieu d'être incrémenté.
+2. Modifié BASIC:string_free()
+3. Ajout de free_not_free() dans basic.c, modification des mots dans la VM pour utilisé cette fonction.
+4. Corrigé bogue dans VM: str_len
 
 2018-05-10
 ----------
