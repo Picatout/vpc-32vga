@@ -65,7 +65,7 @@
 //math 
 .extern srand    
 .extern rnd
-// fonctios virgule flottante    
+// fonctions virgule flottante    
 .extern print_float
 .extern sinf
 .extern cosf
@@ -1026,27 +1026,6 @@ pick: // ( xu...,x1,x0,u -- xu...,x1,x0,xu ) empile une copie du Uième élément d
     subu w,w,T
     b next
     lw T, 0(w)
-
-_dict SINE ,"sine"   
-sine: // (angle -- sine)
-    move a0, T
-    jal sinf
-    b next
-    move T, v0
-
-_dict ACOS, "acos"    
-acos: // (angle -- cos)
-    move a0, T
-    jal cosf
-    b next
-    move T, v0
-
-_dict ASIN , "asine"   
-asin: // (sine -- angle)
-    move a0, T
-    jal asinf
-    b next
-    move T, v0
 
 _dict RANDOMIZE ,"randomize"   
 // initialize le générateur pseudo-hasard
@@ -2302,7 +2281,128 @@ fdiv: // ( float1 float2 -- float1/float2 )
     addiu dp,dp,-CELL_SIZE
     b next
     move T,v0
+
+/*********************************/
+/*  fonctions trigonométriques   */
+/*********************************/
+// Les angles sont en radians.
+_dict SINE,"SINUS"
+sine: // ( float -- float )
+    jal sinf
+    move a0,T
+    b next
+    move T,v0
+
+_dict COSINUS,"COS"    
+cos: // ( float -- float )
+    jal cosf
+    move a0,T
+    b next
+    move T,v0
+
+_dict TANGEANT, "TAN"
+tan: // ( float -- float )
+    jal tanf
+    move a0,T
+    b next
+    move T,v0
     
+_dict ATAN,"ATAN"    
+atan: // ( float -- float )
+    jal atanf
+    move a0,T
+    b next
+    move T,v0
+    
+_dict FACOS,"ACOS"    
+acos: // ( float -- float )
+    jal acosf
+    move a0,T
+    b next
+    move T,v0
+
+_dict ASINE,"ASINE"    
+asine: // ( float -- float )
+    jal asinf
+    move a0,T
+    b next
+    move T,v0
+    
+    
+_dict FSQRT,"SQRT"    
+fsqrt: // ( float -- float )
+    jal sqrtf
+    move a0,T
+    b next
+    move T,v0
+
+_dict EXP,"EXP"
+// base e^f    
+fexp: // ( float -- float )
+    jal expf
+    move a0,T
+    b next
+    move T,v0
+    
+_dict POWER,"POWER"    
+// puissance fb^fn    
+fpower: // ( fb fn -- float )
+    lw a0,-CELL_SIZE(dp)
+    jal powf
+    move a1,T
+    addiu dp,dp,-CELL_SIZE
+    b next
+    move T,v0
+    
+_dict LOGN,"LOGN" 
+// logarithme base e    
+flog: // ( float -- float )
+    jal logf
+    move a0,T
+    b next
+    move T,v0
+    
+_dict LOG10,"LOG10"
+// logarithme base 10    
+flog10: // ( float -- float )
+    jal log10f
+    move a0,T
+    b next
+    move T,v0
+    
+_dict FABS,"FABS"    
+// valeur absolue d'un float
+vm_fabs: // ( float -- float )   
+    lui t0,0x7fff
+    ori t0,t0,0xffff
+    b next
+    and T,T,t0
+
+_dict FLOOR,"FLOOR"
+// réduit la vers zéro    
+floor: // ( float -- float )
+    jal floorf
+    move a0,T
+    b next
+    move T, v0
+    
+_dict CEIL,"CEIL"    
+fceil: // ( float -- float )
+    jal ceilf
+    move a0,T
+    b next
+    move T,v0
+    
+_dict FMOD,"MOD"
+// opération modulo sur nombre float
+fmod: // ( float1 float2 -- float )    
+    lw a0,-CELL_SIZE(dp)
+    jal fmodf
+    move a1,T
+    addiu dp,dp,-CELL_SIZE
+    b next
+    move T,v0
+
     
 .end StackVM
     
@@ -2449,11 +2549,13 @@ opcodes_table:
 .word file_getc,file_putc,write_field,read_field
 .word ftostr, vm_strtof, negfloat,float_to_int,int_to_float
 .word fplus,fminus,fmul,fdiv
+.word sine, cos, tan, atan, acos, asine,fsqrt,fexp,fpower,flog,flog10
+.word vm_fabs,floor,fceil,fmod
     
 bad_op: 
 .word rfetch,tor,rfrom    
-.word ustar,mstar,umstar,uslash, twostar, twoslash, twodrop, twodup
-.word sine, cos, tan, atan, acos, asin,trunc, divmod
+.word ustar,mstar,umstar,uslash, twostar, twoslash, twodrop, twodup,divmod
+
     
 badop_msg: .asciz "bad operating code: "    
 trace_msg: .asciz "\ntrace: "

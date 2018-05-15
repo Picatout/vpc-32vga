@@ -173,6 +173,21 @@ enum OP_CODES{
  IFSUB,
  IFMUL,
  IFDIV,
+ ISINE , 
+ ICOS ,  
+ ITAN , 
+ IATAN ,
+ IACOS ,
+ IASINE ,
+ ISQRT,
+ IEXP,
+ IPOWER,
+ ILOG,
+ ILOG10,
+ IFABS,
+ IFLOOR,
+ ICEIL,
+ IFMOD,
  
  // IRFETCH ,
 // ITOR   , 
@@ -186,13 +201,6 @@ enum OP_CODES{
 // I2STAR , 
 // I2SLASH, // 40
 // IDDROP,
-// ISINE , 
-// ICOS ,  
-// ITAN , 
-// IATAN ,
-// IACOS ,
-// IASIN ,
-// ITRUNC ,
 
 };
 

@@ -126,7 +126,8 @@ enum FN_TYPE{
     eFN_NOT, // ce n'est pas une fonction
     eFN_INT, // la fonction retourne un entier 32 bits ou un octet non signé
     eFN_STR, // la fonction retourne une chaîne
-    eFN_FPT  // la fonction retourne un nombre virgule flottante, float32
+    eFN_FPT,  // la fonction retourne un nombre virgule flottante, float32
+    eFN_NUM, // le résultat peut-être INTEGER ou FLOAT, le compilateur consulte cstack 
 };
 
 //types de données
@@ -207,19 +208,24 @@ static bool unget_token=false;
 // prototypes des fonctions
 static void clear();
 static void kw_abs();
+static void kw_acos();
 static void kw_append();
 static void kw_asc();
+static void kw_asine();
+static void kw_atan();
 static void bad_syntax();
 static void kw_beep();
 static void kw_box();
 static void kw_btest();
 static void kw_bye();
 static void kw_case();
+static void kw_ceil();
 static void kw_chr();
 static void kw_circle();
 static void kw_close();
 static void kw_cls();
 static void kw_const();
+static void kw_cos();
 static void kw_curcol();
 static void kw_curline();
 static void kw_date();
@@ -232,7 +238,9 @@ static void kw_end();
 static void kw_eof();
 static void kw_exist();
 static void kw_exit();
+static void kw_exp();
 static void kw_fill();
+static void kw_floor();
 static void kw_for();
 static void kw_free();
 static void kw_func();
@@ -253,16 +261,20 @@ static void kw_let();
 static void kw_line();
 static void kw_local();
 static void kw_locate();
+static void kw_log();
+static void kw_log10();
 static void kw_loop();
 static void kw_max();
 static void kw_mdiv();
 static void kw_mid();
 static void kw_min();
+static void kw_mod();
 static void kw_next();
 static void kw_open();
 static void kw_peek();
 static void kw_play();
 static void kw_polygon();
+static void kw_power();
 static void kw_prepend();
 static void kw_print();
 static void kw_putc();
@@ -284,9 +296,11 @@ static void kw_setpixel();
 static void kw_set_timer();
 static void kw_shl();
 static void kw_shr();
+static void kw_sine();
 static void kw_sleep();
 static void kw_sound();
 static void kw_sprite();
+static void kw_sqrt();
 static void kw_srclear();
 static void kw_srload();
 static void kw_srread();
@@ -295,6 +309,7 @@ static void kw_srwrite();
 static void kw_string();
 static void kw_sub();
 static void kw_subst();
+static void kw_tan();
 static void kw_then();
 static void kw_ticks();
 static void kw_time();
@@ -575,24 +590,26 @@ char *file_read_field(unsigned file_no){
 
 //identifiant KEYWORD doit-être dans le même ordre que
 //dans la liste KEYWORD
-enum {eKW_ABS,eKW_AND,eKW_FILE_APPEND,eKW_APPEND,eKW_AS,eKW_ASC,eKW_BEEP,eKW_BOX,
-      eKW_BTEST,eKW_BYE,eKW_CASE,
+enum {eKW_ABS,eKW_ACOS,eKW_AND,eKW_FILE_APPEND,eKW_APPEND,
+      eKW_AS,eKW_ASC,eKW_ASIN,eKW_ATAN,eKW_BEEP,eKW_BOX,
+      eKW_BTEST,eKW_BYE,eKW_CASE,eKW_CEIL,
       eKW_CHR,eKW_CIRCLE,
       eKW_CLEAR,eKW_CLOSE,eKW_CLS,
-      eKW_CONST,eKW_CURCOL,eKW_CURLINE,eKW_DATE,eKW_DECLARE,eKW_DIM,eKW_DO,
+      eKW_CONST,eKW_COS,eKW_CURCOL,eKW_CURLINE,eKW_DATE,eKW_DECLARE,eKW_DIM,eKW_DO,
       eKW_ELLIPSE,eKW_ELSE,
-      eKW_END,eKW_EOF,eKW_EXIST,eKW_EXIT,eKW_FGETC,eKW_FILL,
+      eKW_END,eKW_EOF,eKW_EXIST,eKW_EXIT,eKW_EXP,eKW_FGETC,eKW_FILL,eKW_FLOOR,
       eKW_FOR,eKW_FREE,eKW_FUNC,eKW_HEX,eKW_GETPIXEL,eKW_IF,
       eKW_INPUT,eKW_INSERT,eKW_INSTR,
       eKW_INSERTLN,
       eKW_INVVID,eKW_KEY,eKW_LCASE,eKW_LEFT,eKW_LEN,
-      eKW_LET,eKW_LINE,eKW_LOCAL,eKW_LOCATE,eKW_LOOP,eKW_MAX,eKW_MDIV,eKW_MID,eKW_MIN,eKW_NEXT,
-      eKW_NOT,eKW_OPEN,eKW_OR,eKW_FILE_OUTPUT,eKW_PEEK,eKW_PLAY,eKW_POLYGON,eKW_PREPEND,
+      eKW_LET,eKW_LINE,eKW_LOCAL,eKW_LOCATE,eKW_LOG,eKW_LOG10,eKW_LOOP,eKW_MAX,
+      eKW_MDIV,eKW_MID,eKW_MIN,eKW_MOD,eKW_NEXT,
+      eKW_NOT,eKW_OPEN,eKW_OR,eKW_FILE_OUTPUT,eKW_PEEK,eKW_PLAY,eKW_POLYGON,eKW_POWER,eKW_PREPEND,
       eKW_PRINT,eKW_PSET,eKW_PUTC,eKW_RANDOMISIZE,eKW_RECT,eKW_REF,eKW_REM,eKW_RESTSCR,
       eKW_RETURN,eKW_RIGHT,eKW_RND,eKW_RUN,eKW_SAVESCR,eKW_SCRLUP,eKW_SCRLDN,eKW_SEEK,
-      eKW_SELECT,eKW_SETTMR,eKW_SHL,eKW_SHR,eKW_SLEEP,eKW_SOUND,
-      eKW_SPRITE,eKW_SRCLEAR,eKW_SRLOAD,eKW_SRREAD,eKW_SRSSAVE,eKW_SRWRITE,eKW_STR,
-      eKW_SUB,eKW_SUBST,eKW_TIME,eKW_THEN,eKW_TICKS,
+      eKW_SELECT,eKW_SETTMR,eKW_SHL,eKW_SHR,eKW_SINE,eKW_SLEEP,eKW_SOUND,
+      eKW_SPRITE,eKW_SQRT,eKW_SRCLEAR,eKW_SRLOAD,eKW_SRREAD,eKW_SRSSAVE,eKW_SRWRITE,eKW_STR,
+      eKW_SUB,eKW_SUBST,eKW_TAN,eKW_TIME,eKW_THEN,eKW_TICKS,
       eKW_TIMEOUT,eKW_TKEY,eKW_TRACE,eKW_TUNE,eKW_UBOUND,eKW_UCASE,eKW_UNTIL,eKW_USE,eKW_VAL,
       eKW_VGACLS,
       eKW_WAITKEY,eKW_WEND,eKW_WHILE,eKW_XOR,eKW_XORPIXEL
@@ -600,23 +617,28 @@ enum {eKW_ABS,eKW_AND,eKW_FILE_APPEND,eKW_APPEND,eKW_AS,eKW_ASC,eKW_BEEP,eKW_BOX
 
 //mots réservés BASIC
 static const dict_entry_t KEYWORD[]={
-    {kw_abs,3,eFN_INT,"ABS"},
+    {kw_abs,3,eFN_NUM,"ABS"},
+    {kw_acos,4,eFN_FPT,"ACOS"},
     {bad_syntax,3,eFN_NOT,"AND"},
     {bad_syntax,6,eFN_NOT,"APPEND"},
     {kw_append,7,eFN_STR,"APPEND$"},
     {bad_syntax,2,eFN_NOT,"AS"},
     {kw_asc,3,eFN_INT,"ASC"},
+    {kw_asine,5,eFN_FPT,"ASINE"},
+    {kw_atan,4,eFN_FPT,"ATAN"},
     {kw_beep,4,eFN_NOT,"BEEP"},
     {kw_box,3,eFN_NOT,"BOX"},
     {kw_btest,5,eFN_INT,"BTEST"},
     {kw_bye,3,eFN_NOT,"BYE"},
     {kw_case,4,eFN_NOT,"CASE"},
     {kw_chr,4,eFN_STR,"CHR$"},
+    {kw_ceil,4,eFN_FPT,"CEIL"},
     {kw_circle,6,eFN_NOT,"CIRCLE"},
     {clear,5,eFN_NOT,"CLEAR"},
     {kw_close,5,eFN_NOT,"CLOSE"},
     {kw_cls,3,eFN_NOT,"CLS"},
     {kw_const,5,eFN_NOT,"CONST"},
+    {kw_cos,3,eFN_FPT,"COS"},
     {kw_curcol,6,eFN_INT,"CURCOL"},
     {kw_curline,7,eFN_INT,"CURLINE"},
     {kw_date,5,eFN_STR,"DATE$"},
@@ -629,8 +651,10 @@ static const dict_entry_t KEYWORD[]={
     {kw_eof,3,eFN_NOT,"EOF"},
     {kw_exist,5,eFN_INT,"EXIST"},
     {kw_exit,4,eFN_NOT,"EXIT"},
+    {kw_exp,3,eFN_FPT,"EXP"},
     {kw_fgetc,5,eFN_INT,"FGETC"},
     {kw_fill,4,eFN_NOT,"FILL"},
+    {kw_floor,5,eFN_FPT,"FLOOR"},
     {kw_for,3,eFN_NOT,"FOR"},
     {kw_free,4,eFN_NOT,"FREE"},
     {kw_func,4,eFN_NOT,"FUNC"},
@@ -650,11 +674,14 @@ static const dict_entry_t KEYWORD[]={
     {kw_line,4,eFN_NOT,"LINE"},
     {kw_local,5,eFN_NOT,"LOCAL"},
     {kw_locate,6,eFN_NOT,"LOCATE"},
+    {kw_log,3,eFN_FPT,"LOG"},
+    {kw_log10,5,eFN_FPT,"LOG10"},
     {kw_loop,4,eFN_NOT,"LOOP"},
     {kw_max,3,eFN_INT,"MAX"},
     {kw_mdiv,4,eFN_INT,"MDIV"},
     {kw_mid,4,eFN_STR,"MID$"},
     {kw_min,3,eFN_INT,"MIN"},
+    {kw_mod,3,eFN_FPT,"MOD"},
     {kw_next,4,eFN_NOT,"NEXT"},
     {bad_syntax,3,eFN_NOT,"NOT"},
     {kw_open,4,eFN_NOT,"OPEN"},
@@ -663,6 +690,7 @@ static const dict_entry_t KEYWORD[]={
     {kw_peek,4,eFN_INT,"PEEK"},
     {kw_play,4,eFN_NOT,"PLAY"},
     {kw_polygon,7,eFN_NOT,"POLYGON"},
+    {kw_power,5,eFN_FPT,"POWER"},
     {kw_prepend,8,eFN_STR,"PREPEND$"},
     {kw_print,5,eFN_NOT,"PRINT"},
     {kw_setpixel,4,eFN_NOT,"PSET"},
@@ -684,8 +712,10 @@ static const dict_entry_t KEYWORD[]={
     {kw_set_timer,6,eFN_NOT,"SETTMR"},
     {kw_shl,3,eFN_INT,"SHL"},
     {kw_shr,3,eFN_INT,"SHR"},
+    {kw_sine,4,eFN_FPT,"SINE"},
     {kw_sleep,5,eFN_NOT,"SLEEP"},
     {kw_sound,5,eFN_NOT,"SOUND"},
+    {kw_sqrt,4,eFN_FPT,"SQRT"},
     {kw_sprite,6,eFN_NOT,"SPRITE"},
     {kw_srclear,7,eFN_NOT,"SRCLEAR"},
     {kw_srload,6,eFN_INT,"SRLOAD"},
@@ -695,6 +725,7 @@ static const dict_entry_t KEYWORD[]={
     {kw_string,4,eFN_STR,"STR$"},
     {kw_sub,3,eFN_NOT,"SUB"},
     {kw_subst,6,eFN_STR,"SUBST$"},
+    {kw_tan,3,eFN_FPT,"TAN"},
     {kw_then,4,eFN_NOT,"THEN"},
     {kw_time,5,eFN_STR,"TIME$"},
     {kw_ticks,5,eFN_INT,"TICKS"},
@@ -1346,7 +1377,7 @@ static void next_token(){
     if (isalpha(c)){
         token.str[0]=toupper(c);
         parse_identifier();
-    }else if (isdigit(c)){
+    }else if (isdigit(c)||(c=='.')){
         reader_ungetc(activ_reader);
         parse_number();
     }else{
@@ -1554,12 +1585,13 @@ static bool try_mulop(){
 static void code_array_address(var_t *var){
     int factor_type;
     //obtien l'index.
+    code_lit32(_addr(var->adr));
     factor_type=factor();
     if (factor_type!=eVAR_INT){throw(eERR_SYNTAX);}
     // limite l'index de 1 à ubound()
     _litc(1);
     bytecode(IMAX);
-    code_lit32(_addr(var->adr));
+    bytecode(IOVER);
     bytecode(IFETCH);
     bytecode(IMIN);
     if (var->vtype==eVAR_INT || var->vtype==eVAR_FLOAT || var->vtype==eVAR_STR){
@@ -1577,7 +1609,7 @@ static void code_array_address(var_t *var){
         patch_fore_jump(cpop());
     }
     //index dans le tableau
-    code_lit32(_addr(var->adr));
+//    code_lit32(_addr(var->adr));
     bytecode(IPLUS);
 }//f
 
@@ -1684,14 +1716,21 @@ static int factor(){
     while (token.id==eNL){next_token();}
     switch(token.id){
         case eKWORD:
-            if ((KEYWORD[token.kw].fntype==eFN_INT)){ 
-                KEYWORD[token.kw].cfn();
-                factor_type=eVAR_INT;
-            }else if ((KEYWORD[token.kw].fntype==eFN_INT)){  
-                KEYWORD[token.kw].cfn();
-                factor_type=eVAR_FLOAT;
-            }else{
-                throw(eERR_SYNTAX);
+            switch (KEYWORD[token.kw].fntype){
+                case eFN_INT:
+                    KEYWORD[token.kw].cfn();
+                    factor_type=eVAR_INT;
+                    break;
+                case eFN_FPT:
+                    KEYWORD[token.kw].cfn();
+                    factor_type=eVAR_FLOAT;
+                    break;
+                case eFN_NUM:
+                    KEYWORD[token.kw].cfn();
+                    factor_type=cpop();
+                    break;
+                default:
+                    throw(eERR_SYNTAX);
             }
             break;
         case eIDENT:
@@ -2391,15 +2430,24 @@ static void kw_const(){
         expect(eEQUAL);
         var=var_create(name,-1,NULL);
         var->ro=true;
-        if (var->vtype==eVAR_STR){
-            expect(eSTRING);
-            var->str=string_alloc(strlen(token.str));
-            strcpy(var->str,token.str);
-            var->vtype=eVAR_STR;
-            *(var->str-1)=1; // compte référence.
-        }else{
-            expect(eINT);
-            var->n=token.n;
+        switch (var->vtype){
+            case eVAR_STR:
+                expect(eSTRING);
+                var->str=string_alloc(strlen(token.str));
+                strcpy(var->str,token.str);
+                *(var->str-1)=1; // compte référence.
+                break;
+            case eVAR_BYTE:
+            case eVAR_INT:
+                expect(eINT);
+                var->n=token.n;
+                break;
+            case eVAR_FLOAT:
+                expect(eFLOAT);
+                var->f=token.f;
+                break;
+            default:
+                throw(eERR_SYNTAX);
         }
         next_token();
         if (token.id==eCOMMA)
@@ -2410,11 +2458,104 @@ static void kw_const(){
     unget_token=true;
 }//f
 
+// encode une fonction virgule flottante à 1 argument.
+static void code_1arg_fpt_func(unsigned opcode){
+    expect(eLPAREN);
+    if (expression()==eVAR_INT){
+        bytecode(II2FLOAT);
+    }
+    bytecode(opcode);
+    expect(eRPAREN);
+}
+
+// ACOS(expression)
+// retourne l'angle du cosinus
+// expression doit-être un float
+static void kw_acos(){
+    code_1arg_fpt_func(IACOS);
+}
+
+// ASINE(expression)
+static void kw_asine(){
+    code_1arg_fpt_func(IASINE);
+}
+
+// ATAN(expression)
+static void kw_atan(){
+    code_1arg_fpt_func(IATAN);
+}
+
+// COS(expression)
+static void kw_cos(){
+    code_1arg_fpt_func(ICOS);
+}
+
+// SINE(expression)
+static void kw_sine(){
+    code_1arg_fpt_func(ISINE);
+}
+
+// TAN(expression)
+static void kw_tan(){
+    code_1arg_fpt_func(ITAN);
+}
+
+// EXP(expression)
+static void kw_exp(){
+    code_1arg_fpt_func(IEXP);
+}
+
+// POWER(base, exposant)
+static void kw_power(){
+    parse_arg_list(2);
+    bytecode(IPOWER);
+}
+
+// SQRT(expressin)
+static void kw_sqrt(){
+    code_1arg_fpt_func(ISQRT);
+}
+
+// LOG(expression)
+static void kw_log(){
+    code_1arg_fpt_func(ILOG);
+}
+
+// LOG10(expression)
+static void kw_log10(){
+    code_1arg_fpt_func(ILOG10);
+}
+
+// CEIL(expression)
+// arrondie vers l'infinie
+static void kw_ceil(){
+    code_1arg_fpt_func(ICEIL);
+}
+
+// FLOOR(expression)
+// arrondie vers zéro
+static void kw_floor(){
+    code_1arg_fpt_func(IFLOOR);
+}
+
+// MOD(expression)
+// opération modulo sur float
+static void kw_mod(){
+    parse_arg_list(2);
+    bytecode(IFMOD);
+}
+
+
 // ABS(expression)
 // fonction retourne valeur absolue
 static void kw_abs(){
-    parse_arg_list(1);
-    bytecode(IABS);
+    if (expression()==eVAR_INT){
+        bytecode(IABS);
+        cpush(eVAR_INT);
+    }else{
+        bytecode(IFABS);
+        cpush(eVAR_FLOAT);
+    }
 }//f
 
 // SHL(expression,n)
@@ -4124,7 +4265,7 @@ void BASIC_shell(unsigned basic_heap, unsigned option, const char* file_or_strin
             activ_reader=sr_reader;
             compile();
             exec_basic();
-        }else{
+        }else {
             clear();
         }
         activ_reader=&std_reader;
@@ -4145,10 +4286,15 @@ void BASIC_shell(unsigned basic_heap, unsigned option, const char* file_or_strin
                 print_prog(program_end);
 #endif
                 exec_basic();
+                token_count=0;
             }
         }else{
-            if (exit_basic) break;
-            clear();
+            dptr=program_end;
+            var_local=false;
+            complevel=0;
+            line_count=0;
+            token_count=0;
+            csp=0;
             reader_init(&std_reader,eDEV_KBD,NULL);
             activ_reader=&std_reader;
         }// if (!setjump(failed))

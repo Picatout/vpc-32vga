@@ -1,3 +1,15 @@
+2018-05-14
+----------
+1. Modification throw() n'appelle plus clear()
+2. Ajout de MOD!, FLOOR! et CEIL! 
+3. Corrigé bogue dans vm_fabs
+4. Corrigé kw_const() pour tenir compte des constantes float.
+
+2018-05-13
+----------
+1. Ajout de fonctions pour virgule flottantes à la VM.
+2. Ajout des fonctions BASIC pour virgule flottante.
+
 2018-05-12
 ----------
 1. Corrigé bogue dans VM:str_store, compteur référence était mis à 1 au lieu d'être incrémenté.
