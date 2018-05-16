@@ -107,7 +107,7 @@ static reader_t file_reader; // source fichier
 static reader_t *activ_reader=NULL; // source active
 static uint32_t prog_size;
 static uint32_t line_count;
-static uint32_t token_count;
+static int32_t token_count;
 static bool program_loaded;
 static bool run_it=false;
 static uint32_t program_end;
@@ -813,15 +813,12 @@ static void throw(int error){
     
         crlf(con);
         if (error<FIRST_VM_ERROR){
-            if (activ_reader->device==eDEV_SDCARD){
-                print(con,"line: ");
-                print_int(con,line_count,0);
-                crlf(con);
-            }else{
-                print(con,"token#: ");
-                print_int(con,token_count,0);
-                crlf(con);
-            }
+            print(con,"line: ");
+            print_int(con,line_count,0);
+            crlf(con);
+            print(con,"token#: ");
+            print_int(con,token_count,0);
+            crlf(con);
         }
         strcpy(message,error_msg[error]);
         print(con,message);
@@ -1371,8 +1368,6 @@ static void next_token(){
     if (c==-1){
         token.id=eNONE;
         token_count=0;
-    }else{
-        token_count++;
     }
     if (isalpha(c)){
         token.str[0]=toupper(c);
@@ -1508,6 +1503,7 @@ static void next_token(){
                 break;
             case '\n':
             case '\r':
+                token_count=-1; 
                 line_count++;
                 if (complevel){
                     next_token();
@@ -1523,6 +1519,7 @@ static void next_token(){
                 break;
         }//switch(c)
     }//if
+    token_count++;
 }//next_token()
 
 // Pour les commandes qui n'utilise aucun arguments
@@ -2663,7 +2660,55 @@ static void kw_bye(){
 // RETURN expression
 // utilisé dans les fonctions
 static void kw_return(){
-    expression();
+    var_t *var;
+    int fn_type;
+    next_token();
+    unget_token=true;
+    switch(token.id){
+        case eSTRING:
+            string_expression();
+            break;
+        case eKWORD:
+            switch(KEYWORD[token.kw].fntype){
+                case eFN_FPT:
+                case eFN_INT:
+                case eFN_NUM:
+                    expression();
+                    break;
+                case eFN_STR:
+                    string_expression();
+                    break;
+                default:
+                    throw(eERR_SYNTAX);
+            }
+            break;
+        case eIDENT:
+            var=var_search(token.str);
+            if (!var) {throw(eERR_SYNTAX);}
+            switch(var->vtype){
+                case eVAR_BYTE:
+                case eVAR_INT:
+                case eVAR_FLOAT:
+                    expression();
+                    break;
+                case eVAR_STR:
+                    string_expression();
+                    break;
+                case eVAR_FUNC:
+                    fn_type=var_type_from_name(var->name);
+                    if (fn_type==eVAR_STR){
+                        string_expression();
+                    }else{
+                        expression();
+                    }
+                    break;
+                default:
+                    throw(eERR_SYNTAX);
+            }
+            break;
+        default:
+            expression();
+    }
     bytecode(ILCSTORE);
     bytecode(0);
     bytecode(ILEAVE);
@@ -3615,9 +3660,21 @@ static void string_term(){
             break;
         case eIDENT:
             if (!(svar=var_search(token.str))){throw(eERR_UNKNOWN);}
-            if (!(svar->vtype==eVAR_STR)){throw(eERR_BAD_ARG);}
-            code_var_address(svar);
-            bytecode(IFETCH);
+            switch(svar->vtype){
+                case eVAR_STR:
+                    code_var_address(svar);
+                    bytecode(IFETCH);
+                    break;
+                case eVAR_FUNC:
+                    _litc(0);
+                    parse_arg_list(svar->dim);
+                    code_lit32(_addr(&svar->adr));
+                    bytecode(IFETCH);
+                    bytecode(ICALL);
+                    break;
+                default:
+                    throw(eERR_BAD_ARG);
+            }
             break;
         default:
             throw(eERR_SYNTAX);
@@ -3768,6 +3825,8 @@ static void print_string(int file_no){
 // parse une expression arithmétique et imprime le résultat.
 static void print_expr(int file_no){
     int expr_type;
+    
+    unget_token=true;
     expr_type=expression(); //print_int(2,expr_type,0);
     if (file_no){
         code_lit32(_addr(pad));
@@ -3812,21 +3871,19 @@ static void kw_print(){
             case eSTRING:
                 print_string(file_no);
                 break;
-            case eIDENT: // println(2,"eIDENT"); println(2,var->name);
+            case eIDENT: 
                 if (!(var=var_search(token.str))){throw(eERR_UNKNOWN);}
-                    if ((var->vtype==eVAR_STR)||((var->vtype==eVAR_FUNC)&&
-                            (var->name[strlen(var->name-1)]=='$'))){
-                        print_string(file_no);
-                    }else{
-                        unget_token=true;
-                        print_expr(file_no);
-                    }
+                if ((var->vtype==eVAR_STR)||((var->vtype==eVAR_FUNC)&&
+                        (var_type_from_name(var->name)==eVAR_STR))){ 
+                    print_string(file_no);
+                }else{
+                    print_expr(file_no);
+                }
                 break;
             case eKWORD:
                 if (KEYWORD[token.n].fntype==eFN_STR){
                     print_string(file_no);
                 }else{
-                    unget_token=true;
                     print_expr(file_no);
                 }
                 break;
@@ -3834,7 +3891,6 @@ static void kw_print(){
                 bytecode(ICR);
                 break;
             default:
-                unget_token=true;
                 print_expr(file_no);
         }//switch
         next_token();
@@ -4191,7 +4247,7 @@ static void clear(){
     complevel=0;
     endmark=(void*)progspace+prog_size;
     memset((void*)progspace,0,prog_size);
-    line_count=0;
+    line_count=1;
     token_count=0;
     program_loaded=false;
     run_it=false;
@@ -4279,6 +4335,7 @@ void BASIC_shell(unsigned basic_heap, unsigned option, const char* file_or_strin
     while (!exit_basic){
         if (!setjmp(failed)){
             activ_reader->eof=false;
+            token_count=0;
             compile();
             if (!complevel && (dptr>program_end)){
 
@@ -4286,14 +4343,15 @@ void BASIC_shell(unsigned basic_heap, unsigned option, const char* file_or_strin
                 print_prog(program_end);
 #endif
                 exec_basic();
-                token_count=0;
             }
         }else{
             dptr=program_end;
-            var_local=false;
+            if (var_local){
+                varlist=globals;
+                var_local=false;
+            }
             complevel=0;
-            line_count=0;
-            token_count=0;
+            line_count=1;
             csp=0;
             reader_init(&std_reader,eDEV_KBD,NULL);
             activ_reader=&std_reader;

@@ -1,3 +1,12 @@
+2018-05-15
+----------
+1. Corrigé bogue dans vt_get_curpos().
+2. Modification à kw_return pour accepter les expression chaînes.
+3. Corrigé bogue dans kw_print et string_expression. Ne tenais pas compte des
+   fonctions usagé retournant une chaîne.
+4. Modifié next_token() pour décrémenté token_count lorsque le token est '\n'
+5. Modifié throw pour toujours affiché le no. de ligne.
+
 2018-05-14
 ----------
 1. Modification throw() n'appelle plus clear()

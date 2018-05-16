@@ -455,7 +455,7 @@ static char* cmd_hdump(int tok_count, char  **tok_list){ // affiche un fichier e
             fmt=malloc(CHAR_PER_LINE);
             if (fmt && buff){
                 key=0;
-                line[16]=CR;
+                line[16]=LF;
                 line[17]=0;
                 while (key!=ESC && f_read(fh,buff,512,&n)==FR_OK){
                     if (!n) break;
@@ -551,22 +551,22 @@ static char* cmd_more(int tok_count, char  **tok_list){
             fmt=malloc(CHAR_PER_LINE);
             if (fmt && buff){
                 key=0;
-                while (key!=ESC && f_read(fh,buff,512,&n)==FR_OK){
+                while ((key!='q' || key!='Q') && f_read(fh,buff,512,&n)==FR_OK){
                     if (!n) break;
                     rbuff=buff;
                     for(;n;n--){
                         c=*rbuff++;
-                        if ((c!=TAB && c!=CR && c!=LF) && (c<32 || c>126)) {c=32;}
+                        if (!(c==TAB || c==LF) && (c<32 || c>126)) {c=32;}
                         put_char(con,c);
                         cpos.xy=get_curpos(con);
                         if (cpos.x==0){
                             if (cpos.y>=(LINE_PER_SCREEN-1)){
                                 cpos.y=LINE_PER_SCREEN-1;
+                                set_curpos(con,cpos.x,cpos.y);
                                 invert_video(con,TRUE);
                                 print(con,"-- next --");
                                 invert_video(con,FALSE);
                                 key=wait_key(con);
-                                if (key=='q' || key==ESC){key=ESC; break;}
                                 if (key==CR){
                                     set_curpos(con,cpos.x,cpos.y);
                                     clear_eol(con);

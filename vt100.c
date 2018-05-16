@@ -106,10 +106,10 @@ unsigned vt_get_curpos(){
     send_esc_seq();
     ser_print("6n");
     if (wait_esc()){
-        vt_col=get_param(';');
-        vt_line=get_param('R');
-        coord.x=vt_col-1;
-        coord.y=vt_line-1;
+        vt_line=get_param(';');
+        vt_col=get_param('R');
+        if (vt_col){coord.x=vt_col-1;}
+        if (vt_line){coord.y=vt_line-1;}
     }
     return coord.xy;
 }
