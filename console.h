@@ -40,39 +40,41 @@ extern "C" {
 #include "hardware/ps2_kbd/keyboard.h"
     
 
-//typedef  unsigned char dev_t;
+//typedef  unsigned char console_t;
 
 typedef enum{
     VGA_CONSOLE,
     SERIAL_CONSOLE            
-}console_t;
-    
-extern dev_t con;
+}console_e;
+ 
+typedef uint8_t console_t;
+
+extern console_t con;
 extern volatile unsigned abort_signal;
 
 // fonctions de l'interface
 void uppercase(char *str);// in situ uppercase
-void clear_screen(dev_t dev); // efface l'écran et positionne le curseur à {0,0}
-void clear_line(dev_t dev, unsigned line); // efface la ligne désignée au complet. et laisse le curseur au début
-void clear_eol(dev_t dev); // efface la fin de la ligne à partir du curseur.
-unsigned char get_key(dev_t dev); // lecture touches clavier
-unsigned char wait_key(dev_t dev); // attend qu'une touche soit enfoncée.
-unsigned char read_line(dev_t dev, unsigned char *ibuff,unsigned char max_char); // lit une ligne au clavier, retourne la longueur de texte.
-unsigned get_curpos(dev_t dev);
-void set_curpos(dev_t dev,int x, int y);
-void put_char(dev_t dev, char c);
-void print(dev_t dev, const char *str);
-void spaces(dev_t dev, unsigned char count);
-void invert_video(dev_t dev, BOOL yes);
-void crlf(dev_t dev);
-void print_int(dev_t dev, int number, int width);
-void print_hex(dev_t dev, unsigned hex, int width);
-void println(dev_t dev,const char *str);
-void scroll_down(dev_t dev);
-void scroll_up(dev_t dev);
-void set_tab_witdh(dev_t dev, int width);
-int get_tab_width(dev_t dev);
-void insert_line(dev_t dev);
+void clear_screen(console_t dev); // efface l'écran et positionne le curseur à {0,0}
+void clear_line(console_t dev, unsigned line); // efface la ligne désignée au complet. et laisse le curseur au début
+void clear_eol(console_t dev); // efface la fin de la ligne à partir du curseur.
+unsigned char get_key(console_t dev); // lecture touches clavier
+unsigned char wait_key(console_t dev); // attend qu'une touche soit enfoncée.
+unsigned char read_line(console_t dev, unsigned char *ibuff,unsigned char max_char); // lit une ligne au clavier, retourne la longueur de texte.
+unsigned get_curpos(console_t dev);
+void set_curpos(console_t dev,int x, int y);
+void put_char(console_t dev, char c);
+void print(console_t dev, const char *str);
+void spaces(console_t dev, unsigned char count);
+void invert_video(console_t dev, BOOL yes);
+void crlf(console_t dev);
+void print_int(console_t dev, int number, int width);
+void print_hex(console_t dev, unsigned hex, int width);
+void println(console_t dev,const char *str);
+void scroll_down(console_t dev);
+void scroll_up(console_t dev);
+void set_tab_witdh(console_t dev, int width);
+int get_tab_width(console_t dev);
+void insert_line(console_t dev);
 
 #ifdef	__cplusplus
 }

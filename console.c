@@ -31,6 +31,9 @@
 
 static int tab_width=4;
 
+//console_t con=SERIAL_CONSOLE;
+console_t con=VGA_CONSOLE;
+
 volatile unsigned abort_signal=false;
 
 void uppercase(char *str){// in situ uppercase
@@ -41,7 +44,7 @@ void uppercase(char *str){// in situ uppercase
 }
 
  // efface l'écran et positionne le curseur à {0,0}
-void clear_screen(dev_t dev){
+void clear_screen(console_t dev){
     if (dev==VGA_CONSOLE){
         vga_clear_screen();
     }else{
@@ -50,7 +53,7 @@ void clear_screen(dev_t dev){
 }
 
 // efface la fin de la ligne à partir du curseur.
-void clear_eol(dev_t dev){
+void clear_eol(console_t dev){
     if (dev==VGA_CONSOLE){
         vga_clear_eol();
     }else{
@@ -60,7 +63,7 @@ void clear_eol(dev_t dev){
 
 // retourne une touche du clavier si disponible
 // sinon retourne 0.
-unsigned char get_key(dev_t dev){
+unsigned char get_key(console_t dev){
     if (dev==VGA_CONSOLE){
         return kbd_get_key();
     }else{
@@ -69,7 +72,7 @@ unsigned char get_key(dev_t dev){
 }
 
  // attend réception d'un caractère
-unsigned char wait_key(dev_t dev){
+unsigned char wait_key(console_t dev){
     if (dev==VGA_CONSOLE){
         return kbd_wait_key();
     }else{
@@ -77,7 +80,7 @@ unsigned char wait_key(dev_t dev){
     }
 }
 
-unsigned char read_line(dev_t dev, unsigned char *ibuff,unsigned char max_char){ // lit une ligne au clavier, retourne la longueur de texte.
+unsigned char read_line(console_t dev, unsigned char *ibuff,unsigned char max_char){ // lit une ligne au clavier, retourne la longueur de texte.
     if (dev==VGA_CONSOLE){
         return kbd_read_line(ibuff,max_char);
     }else{
@@ -86,7 +89,7 @@ unsigned char read_line(dev_t dev, unsigned char *ibuff,unsigned char max_char){
 }
 
 // retourne les coordonnées du curseur texte.
-unsigned get_curpos(dev_t dev){
+unsigned get_curpos(console_t dev){
     if (dev==VGA_CONSOLE){
         return vga_get_curpos();
     }else{
@@ -95,7 +98,7 @@ unsigned get_curpos(dev_t dev){
 }
 
 // positionnne le curseur texte
-void set_curpos(dev_t dev,int x, int y){
+void set_curpos(console_t dev,int x, int y){
     if (dev==VGA_CONSOLE){
         vga_set_curpos(x,y);
     }else{
@@ -103,7 +106,7 @@ void set_curpos(dev_t dev,int x, int y){
     }
 }
 
-void put_char(dev_t dev, char c){
+void put_char(console_t dev, char c){
     if (dev==VGA_CONSOLE){
         vga_put_char(c);
     }else{
@@ -111,7 +114,7 @@ void put_char(dev_t dev, char c){
     }
 }
 
-void print(dev_t dev, const char *str){
+void print(console_t dev, const char *str){
     if (!str) return;
     if (dev==VGA_CONSOLE){
         vga_print(str);
@@ -120,7 +123,7 @@ void print(dev_t dev, const char *str){
     }
 }
 
-void spaces(dev_t dev, unsigned char count){
+void spaces(console_t dev, unsigned char count){
     if (dev==VGA_CONSOLE){
         vga_spaces(count);
     }else{
@@ -128,7 +131,7 @@ void spaces(dev_t dev, unsigned char count){
     }
 }
 
-void invert_video(dev_t dev, BOOL yes){
+void invert_video(console_t dev, BOOL yes){
     if (dev==VGA_CONSOLE){
         vga_invert_video(yes);
     }else{
@@ -136,7 +139,7 @@ void invert_video(dev_t dev, BOOL yes){
     }
 }
 
-void crlf(dev_t dev){
+void crlf(console_t dev){
     if (dev==VGA_CONSOLE){
         vga_crlf();
     }else{
@@ -144,7 +147,7 @@ void crlf(dev_t dev){
     }
 }
 
-void print_int(dev_t dev, int number, int width){
+void print_int(console_t dev, int number, int width){
     int sign=0;
     char str[18], *d;
     str[17]=0;
@@ -173,7 +176,7 @@ void print_int(dev_t dev, int number, int width){
     print(dev,++d);
 }
 
-void print_hex(dev_t dev, unsigned hex, int width){
+void print_hex(console_t dev, unsigned hex, int width){
     char c[18], *d;
     int i;
     c[17]=0;
@@ -197,7 +200,7 @@ void print_hex(dev_t dev, unsigned hex, int width){
     print(dev,++d);
 }
 
-void println(dev_t dev,const char *str){
+void println(console_t dev,const char *str){
     if (!str){
         crlf(dev);
     }else if (dev==VGA_CONSOLE){
@@ -207,7 +210,7 @@ void println(dev_t dev,const char *str){
     }
 }
 
-void scroll_down(dev_t dev){
+void scroll_down(console_t dev){
     if (dev==VGA_CONSOLE){
         vga_scroll_down();
     }else{
@@ -215,7 +218,7 @@ void scroll_down(dev_t dev){
     }
 }
 
-void scroll_up(dev_t dev){
+void scroll_up(console_t dev){
     if (dev==VGA_CONSOLE){
         vga_scroll_up();
     }else{
@@ -224,7 +227,7 @@ void scroll_up(dev_t dev){
 }
 
 
-void set_tab_witdh(dev_t dev, int width){
+void set_tab_witdh(console_t dev, int width){
     if (dev==VGA_CONSOLE){
         vga_set_tab_width(width);
     }else{
@@ -232,7 +235,7 @@ void set_tab_witdh(dev_t dev, int width){
     }
 }
 
-int get_tab_width(dev_t dev){
+int get_tab_width(console_t dev){
     if (dev==VGA_CONSOLE){
         return vga_get_tab_width();
     }else{
@@ -242,7 +245,7 @@ int get_tab_width(dev_t dev){
 }
 
  // efface la ligne désignée au complet. et laisse le curseur au début
-void clear_line(dev_t dev, unsigned line){
+void clear_line(console_t dev, unsigned line){
     if (dev==VGA_CONSOLE){
         vga_clear_line(line);
     }else{
@@ -251,7 +254,7 @@ void clear_line(dev_t dev, unsigned line){
 }
 
 // insère une ligne vide à la position du curseur
-void insert_line(dev_t dev){
+void insert_line(console_t dev){
     if (dev==VGA_CONSOLE){
         vga_insert_line();
     }else{

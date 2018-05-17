@@ -170,7 +170,7 @@ typedef struct _var{
     uint16_t len:5; // longueur du nom
     uint16_t ro:1; // booléen, c'est une constante
     uint16_t array:1; // booléen, c'est un tableau
-    uint16_t local:1; // bookéen, c'est une variable locale.
+    uint16_t local:1; // booléen, c'est une variable locale.
     uint16_t vtype:3; // var_type_e
     uint16_t dim:5; // nombre de dimension du tableau ou nombre arguments FUNC|SUB
     char *name;  // nom de la variable
@@ -780,6 +780,7 @@ static  const char* error_msg[]={
     "missing argument\n",
     "too much arguments\n",
     "bad argument\n",
+    "String variable not authorized as local\n",
     "syntax error\n",
     "memory allocation error\n",
     "Constant can't be redefined\n",
@@ -1505,12 +1506,12 @@ static void next_token(){
             case '\r':
                 token_count=-1; 
                 line_count++;
-                if (complevel){
-                    next_token();
-                }else{
+//                if (complevel){
+//                    next_token();
+//                }else{
                     token.id=eNL;
                     token.str[0]=0;
-                }
+//                }
                 break;
             case ':':    
                 token.id=eCOLON;
@@ -2418,14 +2419,16 @@ static void kw_curcol(){
 static void kw_const(){
     char name[32];
     var_t *var;
+    int ctype;
     
     if (var_local) throw(eERR_CONST_FORBID);
     expect(eIDENT);
     while (token.id==eIDENT){
         strcpy(name,token.str);
         if ((var=var_search(name))) throw(eERR_REDEF);
+        ctype=try_type_cast();
         expect(eEQUAL);
-        var=var_create(name,-1,NULL);
+        var=var_create(name,ctype,NULL);
         var->ro=true;
         switch (var->vtype){
             case eVAR_STR:
@@ -3771,17 +3774,22 @@ static void kw_let(){
 static void kw_local(){
     var_t *var;
     int i,lc=0;
+    int vtype;
+    char name[32];
+    
     if (!var_local) throw(eERR_SYNTAX);
     next_token();
     while(token.id==eIDENT){
-        if (//token.str[strlen(token.str)-1]=='#' || 
-                token.str[strlen(token.str)-1]=='$' ) throw(eERR_BAD_ARG);
+        strcpy(name,token.str);
+        vtype=try_type_cast();
+        if (vtype==-1 ){vtype=var_type_from_name(name);}
+        if (vtype==eVAR_STR) throw(eERR_BAD_VAR);
         if (globals>varlist){
             i=varlist->n+1; 
         }else{
             i=1;
         }
-        var=var_create(token.str,-1,(char*)&i);
+        var=var_create(name,vtype,(char*)&i);
         lc++;
         next_token();
         if (token.id!=eCOMMA) break;
@@ -3945,12 +3953,17 @@ static void kw_invert_video(){
 // la compilation des SUB|FUNC
 static uint8_t create_arg_list(){
     var_t *var;
-    int i=0;
+    int i=0,vtype;
+    char name[32];
+    
     expect(eLPAREN);
     next_token();
     while (token.id==eIDENT){
+        strcpy(name,token.str);
+        vtype=try_type_cast();
+        if (vtype==-1){vtype=var_type_from_name(name);}
         i++;
-        var=var_create(token.str,-1,(char*)&i);
+        var=var_create(name,vtype,(char*)&i);
         next_token();
         if (token.id!=eCOMMA) break;
         next_token();

@@ -1,3 +1,12 @@
+2018-05-16
+----------
+1. modification à console, redéfinition de console_t
+2. Travail dans module syscall
+3. Modification de kw_const pour accepter les typecast: const name [as type]=value.
+4. Modification de kw_local pour accepter les typecast: local name [as type]
+5. Modification de create_arg_list pour accepter les typecase.
+6. Ajout code d'erreur eERR_BAD_VAR.
+
 2018-05-15
 ----------
 1. Corrigé bogue dans vt_get_curpos().

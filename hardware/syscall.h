@@ -20,20 +20,24 @@ extern "C" {
 #include "spiram/spiram.h"
 #include "store/store_spi.h"
 #include "tvout/vga.h"
-    
+#include "../console.h"    
 
 typedef enum SERVICES{
-        PUTCHAR,
+        PUTCHAR=1,
         GETCHAR,
         WAITCHAR,
         PRINT,
         PRINTINT,
         PRINTHEX,
-        
+        PSET,
+                
 }service_t;
 
     
 typedef union argument{
+    int16_t i16;
+    uint16_t u16;
+    console_t dev;
     int i;
     unsigned int u;
     long l;
@@ -44,7 +48,8 @@ typedef union argument{
     const char *cstr;
 }arg_t;    
 
-extern int __attribute__((address(0x9d000000))) syscall (service_t service, arg_t *arg_list);    
+extern int __attribute__((address(0x9d000000))) syscall (service_t service, arg_t *arg_list); 
+extern void systest();
 #ifdef	__cplusplus
 }
 #endif

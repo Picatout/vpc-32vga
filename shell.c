@@ -66,8 +66,6 @@ static const char _nil[]="";
 
 //jmp_buf back_to_cmd_line;
 
-//dev_t con=SERIAL_CONSOLE;
-dev_t con=VGA_CONSOLE;
 
 static const env_var_t shell_version={NULL,"SHELL_VERSION",(char*)_version};
 static const env_var_t T={(env_var_t*)&shell_version,"TRUE",(char*)_true};
