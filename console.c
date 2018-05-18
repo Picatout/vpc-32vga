@@ -25,6 +25,7 @@
  */
 
 #include <string.h>
+#include <stdio.h>
 #include "hardware/HardwareProfile.h"
 #include "console.h"
 
@@ -199,6 +200,13 @@ void print_hex(console_t dev, unsigned hex, int width){
     }
     print(dev,++d);
 }
+
+void print_float(console_t dev, float f){
+    char buffer[16];
+    sprintf(buffer,"%G",f);
+    print(dev,buffer);
+}
+
 
 void println(console_t dev,const char *str){
     if (!str){

@@ -36,6 +36,7 @@
 .extern crlf
 .extern print_int
 .extern print_hex
+.extern print_float    
 .extern println
 .extern scroll_down
 .extern scroll_up
@@ -74,6 +75,7 @@
 .extern asinf
 .extern atanf
 .extern sqrtf
+.extern cbrtf    
 .extern fabsf
 .extern powf
 .extern expf
@@ -84,6 +86,13 @@
 .extern ceilf
 .extern strtof
 .extern dtostrf
+// fonctions hyperbolique
+.extern coshf
+.extern sinhf
+.extern tanhf
+.extern acoshf
+.extern asinhf
+.extern atanhf    
     
  //graphiques
 .extern getPixel
@@ -869,13 +878,23 @@ type: // ( addr -- ) // imprime la chaîne ascciz
     move a0,T
 1:  _drop_b_next
  
-_dict DOT  ,"dot"  
+_dict DOT  ,"DOT"  
 dot: // "." ( n -- ) imprime un entier en format libre
     _console
     move a1,T
     jal print_int
     move a2,zero
     _drop_b_next
+   
+_dict FDOT,"FDOT"
+// imprime un nombre en virgule flottante 
+fdot: // ( float -- )
+    _console
+    jal print_float
+    move a1,T
+    addiu dp,dp,-CELL_SIZE
+    b next
+    lw T,0(dp)
     
 _dict SLEEP ,"sleep"   
 delay: // 'delay' ( msec -- ) delais en millisecondes
@@ -1256,6 +1275,8 @@ to_int: // addr -- n )
 _dict HEX,"HEX$"
 //convertie l'arguement entier en chaîne hexadécimal.
 to_hex: // ( n pad  -- s )
+    addiu t0,zero,'$'
+    sb t0,0(T)
     b str16
     addiu a2,zero,16
    
@@ -1263,11 +1284,15 @@ _dict STR,"STR$"
 // convertie un entier en chaîne
 // la chaîne est alloué sur le heap   
 to_str: // ( n pad -- str* )
+    addiu t0,zero, ' '
+    sb t0,0(T)
     addiu a2,zero,10  // base
 str16:
     lw a1,-CELL_SIZE(dp) // value
+    addiu T,T,1
     jal itoa  // buf,val,base
     move a0,T // buffer
+    addiu T,T,-1
     jal strlen
     move a0,T
     jal string_alloc
@@ -2193,13 +2218,11 @@ read_field: // ( n -- s )
     
 _dict FTOSTR,"FTOSTR$"
 // conversion float vers chaîne    
-ftostr: //  ( f buf -- buf )
-    la a1,float_fmt
-    lw a2,-CELL_SIZE(dp)
-    jal sprintf
+ftostr: //  ( f -- s )
+    jal float_to_str
     move a0,T
     b next
-    addiu dp,dp,-CELL_SIZE
+    move T,v0
     
 _dict STRTOF,"STRTOF"
 // converstion chaîne vers float
@@ -2313,8 +2336,8 @@ atan: // ( float -- float )
     move a0,T
     b next
     move T,v0
-    
-_dict FACOS,"ACOS"    
+  
+_dict ACOS,"ACOS"    
 acos: // ( float -- float )
     jal acosf
     move a0,T
@@ -2327,7 +2350,6 @@ asine: // ( float -- float )
     move a0,T
     b next
     move T,v0
-    
     
 _dict FSQRT,"SQRT"    
 fsqrt: // ( float -- float )
@@ -2550,7 +2572,8 @@ opcodes_table:
 .word ftostr, vm_strtof, negfloat,float_to_int,int_to_float
 .word fplus,fminus,fmul,fdiv
 .word sine, cos, tan, atan, acos, asine,fsqrt,fexp,fpower,flog,flog10
-.word vm_fabs,floor,fceil,fmod
+.word vm_fabs,floor,fceil,fmod,fdot
+
     
 bad_op: 
 .word rfetch,tor,rfrom    

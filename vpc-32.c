@@ -168,7 +168,7 @@ void init_msg(int output, int code, const char *msg){
     }//switch
 }
 
-
+#include <math.h>
 //__attribute__((mips16))
 void main(void) {
     cold_start_init();
@@ -189,7 +189,6 @@ void main(void) {
     crlf(con);
     last_shutdown();
     display_date_time();
-//    systest();while(1);
     shell();
 } // main()
 

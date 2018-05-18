@@ -188,6 +188,8 @@ enum OP_CODES{
  IFLOOR,
  ICEIL,
  IFMOD,
+ IFDOT,        
+         
  
  // IRFETCH ,
 // ITOR   , 

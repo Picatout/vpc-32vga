@@ -1,3 +1,11 @@
+2018-05-17
+----------
+1. Vérifier le code BASIC pour s'assurer que les tokens eNL sont traités correctement
+   dans toutes les situation.
+2. Ajout de print_float() dans la console et d'un opcode pour l'accéder.
+3. Modification dans la vm de to_hex et to_str pour ajouter un '$ au début pour HEX$()
+   d'un espace pour STR$().
+
 2018-05-16
 ----------
 1. modification à console, redéfinition de console_t
@@ -6,6 +14,7 @@
 4. Modification de kw_local pour accepter les typecast: local name [as type]
 5. Modification de create_arg_list pour accepter les typecase.
 6. Ajout code d'erreur eERR_BAD_VAR.
+7. Modification à next_token(), passe maintenant les token eNL.
 
 2018-05-15
 ----------

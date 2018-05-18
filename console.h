@@ -69,6 +69,7 @@ void invert_video(console_t dev, BOOL yes);
 void crlf(console_t dev);
 void print_int(console_t dev, int number, int width);
 void print_hex(console_t dev, unsigned hex, int width);
+void print_float(console_t dev, float f);
 void println(console_t dev,const char *str);
 void scroll_down(console_t dev);
 void scroll_up(console_t dev);

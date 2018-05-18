@@ -359,6 +359,8 @@ static int get_file_no(FIL *fh);
 static FIL *get_file_handle(int i);
 static void throw(int error);
 static void string_term();
+static void skip_newline();
+static void next_token();
 
 #ifdef DEBUG
 static void print_prog(int start);
@@ -366,9 +368,13 @@ static void print_cstack();
 #endif
 
 
-char *float_to_str(char * buffer, float f){
-    sprintf(buffer,"%G",f);
-    return buffer;
+char *float_to_str(float f){
+    char buffer[16], *nstr;
+    int len;
+    len=sprintf(buffer,"%G",f);
+    nstr=string_alloc(len);
+    strcpy(nstr,buffer);
+    return nstr;
 }
 
 #define MAX_FILES 5
@@ -625,7 +631,7 @@ static const dict_entry_t KEYWORD[]={
     {bad_syntax,2,eFN_NOT,"AS"},
     {kw_asc,3,eFN_INT,"ASC"},
     {kw_asine,5,eFN_FPT,"ASINE"},
-    {kw_atan,4,eFN_FPT,"ATAN"},
+    {kw_atan,3,eFN_FPT,"ATN"},
     {kw_beep,4,eFN_NOT,"BEEP"},
     {kw_box,3,eFN_NOT,"BOX"},
     {kw_btest,5,eFN_INT,"BTEST"},
@@ -1090,32 +1096,6 @@ static void code_lit32(uint32_t u){
     }
 }
 
-// compile le contenu de la variable n
-static void code_value(void *p){
-    int i;
-    uint32_t u;
-    u=*(uint32_t*)p; // print_hex(2,u,0);
-    bytecode(ILIT); 
-    for (i=0;i<4;i++){
-        bytecode(u&0xff); //print_hex(2,u&0xff,0);
-        u>>=8;
-    }
-}
-
-// compile l'adresse du pointeur
-static void code_ptr(void *ptr){
-    int i;
-    uint32_t addr;
-    
-    addr=(uint32_t)&ptr;
-    bytecode(ILIT);
-    for (i=0;i<4;i++){
-        bytecode(addr&0xff);
-        addr>>=8;
-    }
-}
-
-
 //calcul la distance entre slot_address+1 et dptr.
 // le déplacement maximal authorizé est de 32767 octets.
 // la valeur du déplacement est déposée dans la fente 'slot_address'.
@@ -1183,6 +1163,15 @@ static void ctrl_stack_rot(){
     _cpick(2)=_cnext();
     _cnext()=_ctop();
     _ctop()=temp;
+}
+
+// ignore les token eNL
+static void skip_newline(){
+    token.id=eNL;
+    while (!activ_reader->eof && token.id==eNL){
+        next_token();
+    }
+    unget_token=true;
 }
 
 //caractères qui séparent les unitées lexicale
@@ -1534,13 +1523,6 @@ static void optional_parens(){
     }
 }
 
-//devrait-être à la fin de la commande
-static void expect_end(){
-    next_token();
-    if (!((token.id>=eNONE) && (token.id<=eCOLON))) throw(eERR_EXTRA_ARG);
-}//f()
-
-
 static bool try_relation(){
     next_token();
     if (!((token.id>=eEQUAL) && (token.id<=eLE))){
@@ -1691,6 +1673,7 @@ static void parse_arg_list(unsigned arg_count){
 
 // si type2 différent de type1 convertie type2 en type1
 // une expression numérique n'a que 2 types: eVAR_INT ou eVAR_FLOAT
+// Le premier terme détermine le type de l'expression.
 static void convert_term_type(int type1, int type2){
     if (type1!=type2){
         if (type2==eVAR_INT){
@@ -2480,7 +2463,7 @@ static void kw_asine(){
     code_1arg_fpt_func(IASINE);
 }
 
-// ATAN(expression)
+// ATN(expression)
 static void kw_atan(){
     code_1arg_fpt_func(IATAN);
 }
@@ -3850,9 +3833,7 @@ static void print_expr(int file_no){
         if (expr_type==eVAR_INT){
             bytecode(IDOT);
         }else{
-            code_lit32(_addr(pad));
-            bytecode(IF2STR);
-            bytecode(ITYPE);
+            bytecode(IFDOT);
         }
         _litc(1);
         bytecode(ISPACES);
@@ -4042,16 +4023,29 @@ static void kw_chr(){
 //STR$(expression)
 //convertie une expression numérique en chaîne
 static void kw_string(){
-    parse_arg_list(1);
-    code_lit32(_addr(pad));
-    bytecode(I2STR);
+    int expr_type;
+    expect(eLPAREN);
+    expr_type=expression();
+    expect(eRPAREN);
+    if (expr_type==eVAR_INT){
+        code_lit32(_addr(pad));
+        bytecode(I2STR);
+    }else{
+        bytecode(IF2STR);
+    }
 }
 
 //hex$(expression)
 // convertie une expression numérique en chaîne
 // de caractère
 static void kw_hex(){
-    parse_arg_list(1);
+    int expr_type;
+    expect(eLPAREN);
+    expr_type=expression();
+    expect(eRPAREN);
+    if (expr_type==eVAR_FLOAT){
+        bytecode(IF2INT);
+    }
     code_lit32(_addr(pad));
     bytecode(ISTRHEX);
 }
@@ -4296,6 +4290,7 @@ void BASIC_shell(unsigned basic_heap, unsigned option, const char* file_or_strin
 
     pad=string_alloc(PAD_SIZE);
     *(pad-1)=255;
+    pad[PAD_SIZE-1]=0;
     prog_size=(biggest_chunk()-basic_heap)&0xfffffff0;
     progspace=malloc(prog_size);
     if (!(option==EXEC_STRING || option==EXEC_FILE)){
