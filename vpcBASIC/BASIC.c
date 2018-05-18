@@ -2490,7 +2490,11 @@ static void kw_exp(){
 
 // POWER(base, exposant)
 static void kw_power(){
-    parse_arg_list(2);
+    expect(eLPAREN);
+    if (expression()==eVAR_INT)bytecode(II2FLOAT);
+    expect(eCOMMA);
+    if (expression()==eVAR_INT)bytecode(II2FLOAT);
+    expect(eRPAREN);
     bytecode(IPOWER);
 }
 
@@ -2532,6 +2536,7 @@ static void kw_mod(){
 // ABS(expression)
 // fonction retourne valeur absolue
 static void kw_abs(){
+    expect(eLPAREN);
     if (expression()==eVAR_INT){
         bytecode(IABS);
         cpush(eVAR_INT);
@@ -2539,6 +2544,7 @@ static void kw_abs(){
         bytecode(IFABS);
         cpush(eVAR_FLOAT);
     }
+    expect(eRPAREN);
 }//f
 
 // SHL(expression,n)

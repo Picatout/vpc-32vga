@@ -15,8 +15,49 @@ mode graphique:
 
 480x240 pixels monochrome
 
+détails matériel:
+----------------
 
-Cet ordinateur est basé sur un MCU PIC32MX170F256B
+ 1. processeur principal MCU PIC32MX170F256B
+ 2. interface utilisateur locale ou remote.
+ 3. Interface locale par clavier et moniteur VGA
+ 4. Interface remote via le port sériel émulation VT-100.
+ 5. Carte SD pour la sauvegarde des fichiers. Système FAT32.
+ 6. RTCC MCP7940N. conserve l'heure et la date même lorsque l'ordinateur est éteint.
+ 7. Possibilité de définir 2 alarmes sur le RTCC.
+ 8. Processeur clavier PIC12F1572. Gère le clavier en mode PS/2 et communique en RS-232 avec le PIC32MX.
+ 9. Mémoire RAM supplémentaire de 64Ko sous la forme d'un 23LC512.
+ 10. Ampli audio incorporé sous la forme d'un LM386.
+ 
+
+détails logiciel:
+-----------------
+1. Shell de commande pour la gestion des fichiers, des alarmes et autres fonctions.
+2. interpréteur BASIC procédural interactif.
+3. Un programme BASIC peut-être lancer à partir du shell de commande simplement en invoquant le nom du fichier.
+4. À faire: développer un API de programmation pour les programmes binaire natif qui s'éxécuteraient à partir de la RAM.
+
+Interpréteur BASIC:
+-------------------
+J'ai démarrer à partir du code source du projet [pv16sog](https://picatout.github.io/pv16sog/) mais les fonctionnalités ont étées
+étendues et le code a subies de nombreuses modifications. Le compilateur génère toujours du bytecode qui s'exécute sur une machine
+virtuelle écrite en assembleur. Comme il s'agit d'un processeur différent du projet **pv16sog** la machine virtuelle est évidemment
+complètement réécrite.
+
+Il s'agit d'un dialecte BASIC procédural et qui supporte les types de données suivants:
+
+1. **BYTE** entier 8 bits non signés.
+2. **INTEGER** entier 32 bits signés.
+3. **FLOAT** nombre à virgule flottante 32 bits.
+4. **STR** chaîne de caractère ASCII terminée par un zéro.
+
+Pour le moment seul les tableaux à 1 dimension sont supportées.
+
+Les références avant des SUB et FUNC sont permises si elles sont préalablement déclarées avec le mot réservé **DECLARE**.
+
+
+LICENCE:
+--------
 
 Copyright 2013,2014,2015,2017,2018 Jacques Deschênes
 
