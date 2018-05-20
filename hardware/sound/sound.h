@@ -73,7 +73,7 @@ void tune(const note_t *buffer);
 // fait entendre un son cours de 1000 hertz
 void beep();
 //fait jouer une mélodie
-bool play(const char *melody);
+int play(const char *melody);
 
 #ifdef	__cplusplus
 }

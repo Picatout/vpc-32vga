@@ -27,7 +27,7 @@
 #include <plib.h>
 #include "../HardwareProfile.h"
 #include "sound.h"
-
+#include "../../vpcBASIC/BASIC.h"
 
 enum MUSIC_CTRL_CODE{
     ePLAY_PAUSE,   // "Pn"
@@ -70,15 +70,13 @@ const float tone_fraction[]={
 
 volatile unsigned int duration;
 volatile unsigned int audible;
-
-
 volatile unsigned char tone_play;
 volatile unsigned char tune_play;
 
 
-static tone_fraction_t fraction=eTONE_NORMAL;
+static volatile tone_fraction_t fraction=eTONE_NORMAL;
 
-static note_t *tones_list;
+static volatile note_t *tones_list;
 
 int sound_init(){
     OC3CONbits.OCM = 5; // PWM mode
@@ -86,11 +84,13 @@ int sound_init(){
     T3CON=(3<<4); // timer 3 prescale 1/8.
     IPC3bits.T3IP=2; // timer interrupt priority
     IPC3bits.T3IS=0; // sub-priority
+    IEC0bits.T3IE=0;
     tone_play=0;
     tune_play=0;
     duration=0;
     audible=0;
     fraction=eTONE_LEGATO;
+    tones_list=NULL;
     return 0;
 }
 
@@ -120,7 +120,7 @@ void tone(float freq, // fréquence hertz
 
 // play a sequence of tones
 void tune(const note_t *buffer){
-    if (buffer && buffer->duration){
+    if (buffer && buffer->freq>0.0 && buffer->duration){
         tones_list=(note_t*)buffer;
         IFS0bits.T3IF=0;
         IEC0bits.T3IE=1;
@@ -150,7 +150,8 @@ static uint8_t tempo=120; // nombre de noires par minute
 static uint8_t octave=4; // {0..6}
 static bool syntax_error;
 static char *play_str;
-static volatile note_t *play_list, *walking;
+static volatile note_t *play_list=NULL;
+static note_t *walking;
 static bool play_background;
 static volatile bool free_list;
 
@@ -333,23 +334,36 @@ static void parse_options(){
 
 // joue la mélodie représentée par la chaîne de caractère
 // ref: https://en.wikibooks.org/wiki/QBasic/Full_Book_View#PLAY
-bool play(const char *melody){
+int play(const char *melody){
 #define SIZE_INCR 32
     int i=0,n,o;
     char c,*pstr;
     int size=SIZE_INCR;
+    
+    if (tune_play){
+        IEC0bits.T3IE=0;
+        tune_play=false;
+        if (play_list){
+           free((void*)play_list);
+       }
+    }
     play_list=malloc((size)*sizeof(note_t));
-    walking=play_list;
-    play_str=malloc(strlen(melody)+1);
-    strcpy(play_str,melody);
-    pstr=play_str;
+    if (!play_list){return eERR_ALLOC; }
+    walking=(note_t*)play_list;
+    pstr=malloc(strlen(melody)+1);
+    if (!pstr){
+        free((void*)play_list);
+        return eERR_ALLOC;
+    }
+    strcpy(pstr,melody);
+    play_str=pstr;
     uppercase(play_str);
     play_background=false;
+    free_list=true;
     note_len=QUARTER;
     octave=4;
     tempo=120;
     fraction=eTONE_NORMAL;
-    free_list=true;
     syntax_error=false;
     //compile la mélodie dans play_list
     while (!syntax_error && (c=*play_str)){
@@ -430,8 +444,8 @@ bool play(const char *melody){
         if (i==size){
             size+=SIZE_INCR;
             play_list=realloc((void*)play_list,size*sizeof(note_t));
-            if (!play_list){return false;}
-            walking=play_list+i;
+            if (!play_list){return eERR_ALLOC;}
+            walking=(note_t*)play_list+i;
         }
     }//while
     if (!syntax_error){
@@ -442,14 +456,14 @@ bool play(const char *melody){
         if (!play_background){
             while (tune_play);
         }
-        return true;
+        return eERR_NONE;
     }else{
+        free((void*)play_list);
         println(1,pstr);
         spaces(1,(int)(play_str-pstr));
         put_char(1,*play_str);
         free(pstr);
-        free((void*)play_list);
-        return false;
+        return eERR_PLAY;
     }
 }//play()
 
@@ -460,23 +474,28 @@ bool play(const char *melody){
 void __ISR(_TIMER_3_VECTOR, IPL2SOFT)  T3Handler(void){
     
        mT3ClearIntFlag();
-       if (tune_play && !tone_play){
+       if (tune_play && !tone_play){ 
            set_tone_fraction(tones_list->fraction);
-           if (tones_list->freq>0.0){
+           if (tones_list->freq>0.0){// tonalitée
                tone(tones_list->freq,tones_list->duration);
-           }else if (tones_list->duration>0){
-               duration=tones_list->duration;
-               audible=duration;
-               tone_play=1;
-           }else{
-               tune_play=0;
-               if (free_list){
-                   free((void*)play_list);
-                   free_list=false;
+               tones_list++;
+           }else{ // pause ou fin de liste 
+               if (tones_list->duration>0){  // pause
+                    duration=tones_list->duration;
+                    audible=duration;
+                    tone_play=1;
+                    tones_list++;
+               }else{ // fin de la liste
+                    IEC0bits.T3IE=0;
+                    tune_play=0;
+                    if (free_list){
+                        free((void*)play_list);
+                        play_list=NULL;
+                        free_list=false;
+                    }
+                    set_tone_fraction(eTONE_LEGATO); //valeur par défaut.
                }
-               set_tone_fraction(eTONE_LEGATO); //valeur par défaut.
            }
-           tones_list++;
        }// if
 }// T3Handler
 

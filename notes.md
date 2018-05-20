@@ -1,3 +1,28 @@
+2018-05-19
+----------
+1. corrigé bogue dans commande BASIC PLAY().
+2. Modification au code de play() dans sound.c retourne un code d'erreur maintenant.
+3. Corrigé bogue dans code_let_string()
+4. Corrigé bogue dans vm:append  s2 n'était pas libéré argumant passé dans t0 au lieu de a0.
+5. Modification a vm:instr
+6. Corrigé bogue dans basic:free_not_ref().
+7. corrigé bogue dans string_term(). Les chaînes litérales doivent-être allouées dans 
+   l'espace programme.
+
+2018-05-18
+----------
+1. Modification à readme.md
+2. Modification à la gestion des exceptions. Lors de la compilation d'une SUB|FUNC
+   la définition défecteuse doit-être supprimée. 
+3. Création de free_last_var().
+
+bogues à corriger:
+1. coulage mémoire dans BASIC. 
+2. plantage Fatal error at address: 9d021114 après avoir lancé à partir du shell
+   ode_joie, clairf, ode_joie
+   Addess error exception (load or instruction fetch). erreur dans malloc()
+
+
 2018-05-17
 ----------
 1. Vérifier le code BASIC pour s'assurer que les tokens eNL sont traités correctement

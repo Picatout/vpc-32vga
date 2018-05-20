@@ -128,7 +128,7 @@ enum FN_TYPE{
     eFN_STR, // la fonction retourne une chaîne
     eFN_FPT,  // la fonction retourne un nombre virgule flottante, float32
     eFN_NUM, // le résultat peut-être INTEGER ou FLOAT, le compilateur consulte cstack 
-};
+}fn_type_e;
 
 //types de données
 typedef enum {
@@ -167,12 +167,14 @@ typedef struct{
 
 typedef struct _var{
     struct _var* next; // prochaine variable dans la liste
-    uint16_t len:5; // longueur du nom
-    uint16_t ro:1; // booléen, c'est une constante
-    uint16_t array:1; // booléen, c'est un tableau
-    uint16_t local:1; // booléen, c'est une variable locale.
-    uint16_t vtype:3; // var_type_e
-    uint16_t dim:5; // nombre de dimension du tableau ou nombre arguments FUNC|SUB
+    uint32_t len:5; // longueur du nom
+    uint32_t ro:1; // booléen, c'est une constante
+    uint32_t array:1; // booléen, c'est un tableau
+    uint32_t local:1; // booléen, c'est une variable locale.
+    uint32_t vtype:3; // type de la variable var_type_e
+    uint32_t dim:5; // nombre de dimension du tableau ou nombre arguments FUNC|SUB
+    uint32_t argc:5; // nombre d'arguments de la fonctions 
+    int32_t fntype:3; // type de donnée retournée par la fonction 'fn_type_e'
     char *name;  // nom de la variable
     union{
         uint8_t byte; // variable octet
@@ -811,7 +813,7 @@ static  const char* error_msg[]={
     "VM parameters stack overflow\n",
     "VM call stack overflow\n",
     "Program aborted by user\n",
-    "Erreur dans la commande PLAY",
+    "Erreur de syntaxe dans la commande PLAY",
  };
  
  
@@ -877,8 +879,10 @@ char* string_alloc(unsigned length){
 
 // libère la chaîne si elle n'est pas référencée
 void free_not_ref(char *str){
-    str--;
-    if (!str)free(str);
+    if (str){
+        str--;
+        if (!*str)free(str);
+    }
 }
 
 // libération de l'espace réservée pour une chaîne asciiz sur le heap.
@@ -892,7 +896,7 @@ void string_free(char *str){
     int8_t ref_count;
     if (!str) return;
     
-    dstr=(int8_t*)str-1;
+    dstr=--str;
     ref_count=*dstr;
     if (ref_count>0){
         ref_count--;
@@ -940,13 +944,34 @@ void free_string_vars(){
     }
 }
 
+// libère l'espace occupée par la dernière variable.
+static void free_last_var(){
+    void *last;
+    void *newmark;
+    
+    last=(void*)varlist;
+    varlist=varlist->next;
+    if (!varlist){
+        endmark=(void*)progspace+prog_size;
+    }else{
+        if (varlist->array){
+        newmark=(void*)varlist->adr;
+        }else{
+            newmark=(void*)varlist->name;
+        }
+        if ((newmark>last) && (newmark<((void*)progspace+prog_size))){
+            endmark=newmark;
+        }
+    }
+}
+
 // déclenche une exeption en cas d'échec.
 void *alloc_var_space(int size){
     void *newmark;
     
     newmark=endmark-size;
     if (((unsigned)newmark)&3){//alignement
-        newmark=(void*)((unsigned)newmark&0xfffffff8);
+        newmark=(void*)((unsigned)newmark&0xfffffffc);
     }
     if (newmark<=(void*)&progspace[dptr]){
         throw(eERR_ALLOC);
@@ -1720,7 +1745,7 @@ static int factor(){
                 switch(var->vtype){ 
                     case eVAR_FUNC:
                         _litc(0);
-                        parse_arg_list(var->dim);
+                        parse_arg_list(var->argc);
                         code_lit32(_addr(&var->adr));
                         bytecode(IFETCH);
                         bytecode(ICALL);
@@ -2299,7 +2324,7 @@ static void kw_declare(){
     }
     expect(eIDENT);
     var=var_create(token.str,var_type,(void*)undefined_sub);
-    var->dim=count_arg();
+    var->argc=count_arg();
 }
 
 
@@ -3639,9 +3664,11 @@ static void string_term(){
     while (token.id==eNL){next_token();}
     switch (token.id){
         case eSTRING:
-            string=string_alloc(strlen(token.str));
-            strcpy(string,token.str);
-            code_lit32(_addr(string));
+            bytecode(ISTRADR);
+            literal_string(token.str);
+//            string=string_alloc(strlen(token.str));
+//            strcpy(string,token.str);
+//            code_lit32(_addr(string));
             break;
         case eKWORD:
             if ((KEYWORD[token.n].fntype==eFN_STR)){
@@ -3658,8 +3685,9 @@ static void string_term(){
                     bytecode(IFETCH);
                     break;
                 case eVAR_FUNC:
+                    
                     _litc(0);
-                    parse_arg_list(svar->dim);
+                    parse_arg_list(svar->argc);
                     code_lit32(_addr(&svar->adr));
                     bytecode(IFETCH);
                     bytecode(ICALL);
@@ -3695,8 +3723,6 @@ static void code_let_string(var_t *var){
     string_expression();
     bytecode(ISWAP); 
     bytecode(ISTRSTORE);
-    bytecode(IDUP);
-    bytecode(IDECREF);
     bytecode(ISTRFREE);
 }
 
@@ -3800,19 +3826,7 @@ static void print_string(int file_no){
     }else{
         bytecode(ITYPE);
     }
-    bytecode(IDUP);
-    bytecode(IGETREF);
-    bytecode (IQBRA);
-    cpush(dptr);
-    dptr+=2;
-    bytecode(ISTRFREE);
-    bytecode(IBRA);
-    cpush(dptr);
-    dptr+=2;
-    patch_fore_jump(_cnext());
-    bytecode(IDROP);
-    patch_fore_jump(cpop());
-    cdrop();
+    bytecode(IFREENOTREF);
     if (!file_no){
         _litc(1);
         bytecode(ISPACES);
@@ -3989,10 +4003,10 @@ static void subrtn_create(int var_type, int blockend){
     cpush(blockend);
     cpush((uint32_t)var);
     arg_count=create_arg_list();
-    if (declared && arg_count!=var->dim){
+    if (declared && arg_count!=var->argc){
         throw(eERR_BAD_ARG_COUNT);
     }
-    var->dim=arg_count;
+    var->argc=arg_count;
 }//f
 
 // FUNC identifier (arg_list)
@@ -4220,7 +4234,7 @@ static void compile(){
                         if (var->vtype==eVAR_FUNC){
                             _litc(0);
                         } 
-                        parse_arg_list(var->dim);
+                        parse_arg_list(var->argc);
                         code_lit32(adr);
                         bytecode(IFETCH);
                         bytecode(ICALL);
@@ -4361,8 +4375,13 @@ void BASIC_shell(unsigned basic_heap, unsigned option, const char* file_or_strin
         }else{
             dptr=program_end;
             if (var_local){
+                // exception générée pendant la compilation d'une SUB|FUNC
                 varlist=globals;
                 var_local=false;
+                // suppression de cette SUB|FUNC défectueuse.
+                if (varlist->vtype==eVAR_FUNC || varlist->vtype==eVAR_SUB){
+                    free_last_var();
+                }
             }
             complevel=0;
             line_count=1;

@@ -1110,10 +1110,10 @@ _dict PLAY,"PLAY"
 vm_play: // ( saddr -- )
     jal play
     move a0,T
-    bne v0,zero,1f
+    beq v0,zero,1f
     nop
     b abort
-    addiu T,zero,ERR_PLAY
+    move T, v0
 1:  addiu dp,dp,-CELL_SIZE
     b next
     lw T,0(dp)
@@ -1360,20 +1360,21 @@ append: // ( s1 s2 -- s3 )
     nop
     addiu dp,dp,-CELL_SIZE
     b next
-    lw T,0(dp) // s2 NULLL retourn s1
+    lw T,0(dp) // s2 NULL retourn s1
 1:  lw a0,-CELL_SIZE(dp)
     bne a0,zero,1f 
     nop
     b next   // s1 NULL retourne s2
     addiu dp,dp,-CELL_SIZE
-1:  jal strlen
+1:  jal strlen // longueur de s1
     lw a0,-CELL_SIZE(dp)
     _dpush
     move T,v0 // ( s1 s2 len_s1 -- 
-    jal strlen
+    jal strlen // longueur de s2
     lw a0,-CELL_SIZE(dp)
+    addu T,T,v0
     jal string_alloc
-    addu a0,T,v0 
+    move a0,T 
     move T, v0  // ( s1 s2 s3 --
     lw a1,-2*CELL_SIZE(dp)
     jal strcpy
@@ -1385,7 +1386,7 @@ append: // ( s1 s2 -- s3 )
     jal free_not_ref
     lw a0,-2*CELL_SIZE(dp)
     jal free_not_ref
-    lw t0,-CELL_SIZE(dp)
+    lw a0,-CELL_SIZE(dp)
     b next
     addiu dp,dp,-2*CELL_SIZE
 
@@ -1641,46 +1642,49 @@ subst: // ( s1 s2 n -- s3 )
 // la recherche se fait à partir de n0    
 _dict INSTR,"INSTR"
 instr: // ( n0 s1 s2 -- n )
-    // si s1 est NULL retourne 0
+    // si s1 est NULL retourne NULL
     lw a0,-CELL_SIZE(dp)
     bne a0,zero,1f
     nop
-    addiu dp,dp,-2*CELL_SIZE
-    b next
-    addu T,zero,zero
-1:  // si s2 est NULL reotourne 0
+    move a0,T // a0=s2
+    b 4f
+    addu T,zero,zero // T=0
+1:  // si s2 est NULL retourne 0
     bne T,zero,1f
     nop
     // libère s1 si non référencé.
+    // s1 déjà dans a0
     jal free_not_ref
     addiu dp,dp,-2*CELL_SIZE
     b next
     addu T,zero,zero
 1:  jal strlen
     lw a0,-CELL_SIZE(dp)
-   // si n0>len(s1) retourne NULL
-    lw a0,-2*CELL_SIZE(dp)
-    subu t0,v0,a0
+   // si n0>len(s1) retourne 0
+    lw a0,-2*CELL_SIZE(dp) // a0=n0
+    subu t0,v0,a0  // len(s1)-n0
     bgez t0,3f
     nop
-    b 4f
-    nop
-3:  addiu a0,a0,-1
+    move a0,T // a0=s2
+    b 4f  // sortie p.c.q. n0>len(s1)
+    addu T,zero,zero // T=0
+3:  addiu a0,a0,-1 // n0-1
     lw a1,-CELL_SIZE(dp) // search$
     addu a0,a0,a1
     jal strstr
     move a1,T   // find$
-    move a0,T
-    move T,v0
+    move a0,T   // a0=s2
+    move T,v0   // T=strstr(s1,s2)
     beqz T,4f
-    lw t0,-CELL_SIZE(dp)
-    subu T,T,t0
-    addiu T,T,1
-4:  jal free_not_ref // libère s2
+    lw t0,-CELL_SIZE(dp) // t0=s1
+    subu T,T,t0  // T=target*-s1
+    addiu T,T,1  // T= position de s2 dans s1
+4:  // a0 contient déjà s2
+    // T contient pos ou 0
+    jal free_not_ref // libère s2 si non référencée
     nop
-    lw a0,-CELL_SIZE(dp) // libère s1
     jal free_not_ref
-    nop
+    lw a0,-CELL_SIZE(dp) // libère s1 si non référencée
     b next
     addiu dp,dp,-2*CELL_SIZE
     
@@ -1710,6 +1714,17 @@ str_free: // ( addr -- )
     jal string_free
     move a0,T
     _drop_b_next
+  
+_dict FREENOTREF,"FREENOTREF"
+// libère la chaîne si elle n'est pas référencée.
+freenotref: // ( addr -- )
+    jal free_not_ref
+    move a0,T
+    addiu dp,dp,-CELL_SIZE
+    b next
+    lw T,0(dp)
+    
+    
     
 _dict STRCPY , "STRCPY$"   
 // copie une chaîne asciiz de src vers dest
@@ -2556,7 +2571,7 @@ opcodes_table:
 .word key,qrx,emit,prt_str,cr,dot,type,vm_spaces
 .word vm_sound,vm_beep,melody,vm_play,clr_scr,array_bound    
 .word local_store,local_fetch,local_addr,set_frame,sr_call,leave,lc_space
-.word trace,str_adr,str_len,readln,to_int,alloc,str_alloc,str_free,str_cpy
+.word trace,str_adr,str_len,readln,to_int,alloc,str_alloc,str_free,freenotref,str_cpy
 .word curline,curcolon,setcursor
 .word extbit,settimer,qtimeout,inv_vid,scrldn,scrlup,insertln    
 .word get_pixel,put_pixel,xor_pixel,vm_line,vm_rectangle,vm_box,vm_circle,vm_ellipse
