@@ -1,3 +1,9 @@
+2018-05-20
+----------
+1. Corrigé bogue dans basic: free_string_var(), libérais les chaînes imbriquées.
+2. Modification de l'allocation des chaînes imbriquées, maintenant réservées à la 
+   fin de progspace avec les variables.
+
 2018-05-19
 ----------
 1. corrigé bogue dans commande BASIC PLAY().

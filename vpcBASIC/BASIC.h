@@ -48,6 +48,7 @@ enum ERROR_CODES{
     eERR_FILE_IO,
     eERR_FILE_ALREADY_OPEN,
     eERR_FILE_NOT_OPENED,
+    eERR_NO_FILE_HANDLE,
     eERR_BADOP,
     eERR_DSTACK_NOT_EMPTY,
     eERR_DSTACK_OVF,
@@ -56,7 +57,7 @@ enum ERROR_CODES{
     eERR_PLAY,
     };
 
-#define FIRST_VM_ERROR 24
+#define FIRST_VM_ERROR 25
     
 #else
     FIRST_VM_ERROR=24

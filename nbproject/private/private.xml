@@ -10,6 +10,7 @@
             <file>file:/home/jacques/github/vpc-32vga/vpcBASIC/BASIC.c</file>
             <file>file:/home/jacques/github/vpc-32vga/hardware/HardwareProfile.h</file>
             <file>file:/home/jacques/github/vpc-32vga/hardware/HardwareProfile.c</file>
+            <file>file:/home/jacques/github/vpc-32vga/hardware/exception.c</file>
             <file>file:/home/jacques/github/vpc-32vga/notes.md</file>
             <file>file:/home/jacques/github/vpc-32vga/vpcBASIC/BASIC.h</file>
         </group>

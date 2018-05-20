@@ -415,11 +415,11 @@ static FIL *open_file(const char *file_name,int mode){
     FRESULT result;
     
     file_no=get_file_free();
-    if (file_no==-1){return NULL;}
+    if (file_no==-1){throw(eERR_NO_FILE_HANDLE);}
     fh=malloc(sizeof(FIL));
-    if (!fh){return NULL;}
+    if (!fh){throw(eERR_ALLOC);}
     result=f_open(fh,file_name,mode);
-    if (!result){
+    if (result==FR_OK){
         files_handles[file_no]=fh;
         file_count++;
         return fh;
@@ -808,6 +808,7 @@ static  const char* error_msg[]={
     "File open error\n",
     "File already open",
     "File not opened",
+    "No file handle available",
     "VM bad operating code\n",
     "VM exited with data stack not empty\n",
     "VM parameters stack overflow\n",
@@ -908,9 +909,6 @@ void string_free(char *str){
     }
 }
 
-
-
-
 void free_string_vars(){
     var_t *var;
     void *limit;
@@ -924,7 +922,7 @@ void free_string_vars(){
         if ((var->vtype==eVAR_STR) && !(var->local)){
             if (!var->array){
                 dstr=var->str;
-                if (dstr){
+                if (dstr && (*((int8_t*)dstr-1)!=-1)){
                     *((int8_t*)dstr-1)=0;
                     string_free(dstr);
                 }
@@ -933,7 +931,7 @@ void free_string_vars(){
                 count=*(unsigned*)str_array;
                 for (i=1;i<=count;i++){
                     dstr=(void*)str_array[i];
-                    if (dstr){
+                    if (dstr  && (*((int8_t*)dstr-1)!=-1)){
                         *((int8_t*)dstr-1)=0;
                         string_free(dstr);
                     }
@@ -2047,10 +2045,10 @@ static void compiler_msg(int msg_id,const char *detail){
     crlf(con);
 }//f
 
-/*************************
- * commandes BASIC
- *************************/
 
+/*************************
+ * compilateur BASIC
+ *************************/
 
 static int try_type_cast(){
     int vtype;
@@ -2068,8 +2066,6 @@ static int try_type_cast(){
         return -1;
     }
 }
-
-
 
 // '(' number {','number}')'
 static void init_int_array(var_t *var){
@@ -2972,9 +2968,9 @@ static void exec_basic(){
 //compile un fichier basic
 static void compile_file(const char *file_name){
     FIL *fh;
-    
-    if ((fh=open_file(file_name,FA_READ))){
-        reader_init(&file_reader,eDEV_SDCARD,fh);
+//    println(con,"entering compile_file()");
+    if ((fh=open_file(file_name,FA_READ))){//println(con,"initializing file reader");
+        reader_init(&file_reader,eDEV_SDCARD,fh); //println(con,"file reader initialized");
         activ_reader=&file_reader;
         compiler_msg(COMPILING,file_name);
         line_count=1;
@@ -3391,12 +3387,14 @@ static void kw_loop(){
 // compile une chaîne litérale
 static void literal_string(char *lit_str){
     int size;
+    void *dstr;
     
     size=strlen(lit_str)+2;
-    if ((void*)&progspace[dptr+size]>endmark) throw(eERR_PROGSPACE);
-    strcpy((void*)&progspace[dptr+1],lit_str);
-    progspace[dptr]=255;
-    dptr+=size;
+    dstr=alloc_var_space(size);
+    *(int8_t*)dstr=-1;
+    (char*)dstr++;
+    strcpy((char*)dstr,lit_str);
+    code_lit32(_addr(dstr));
 }//f
 
 
@@ -3591,8 +3589,8 @@ static void kw_input(){
             expect(eIDENT);
             break;
         case eSTRING:
-            bytecode(IPSTR);
             literal_string(token.str);
+            bytecode(ITYPE);
             bytecode(ICR);
             expect(eCOMMA);
             expect(eIDENT);
@@ -3664,11 +3662,7 @@ static void string_term(){
     while (token.id==eNL){next_token();}
     switch (token.id){
         case eSTRING:
-            bytecode(ISTRADR);
             literal_string(token.str);
-//            string=string_alloc(strlen(token.str));
-//            strcpy(string,token.str);
-//            code_lit32(_addr(string));
             break;
         case eKWORD:
             if ((KEYWORD[token.n].fntype==eFN_STR)){
@@ -4167,7 +4161,6 @@ static void kw_instr(){
                 }
                 break;
             case eSTRING:
-                bytecode(ISTRADR);
                 literal_string(token.str);
                 break;
             case eKWORD:

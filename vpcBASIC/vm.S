@@ -1142,7 +1142,7 @@ trace: // ( f -- )
     sw T,0(t0)
     _drop_b_next
   
-_dict STRADR , "$adr"   
+_dict STRADR , "$ADR"   
 // retourne l'adresse de la chaîne imbriquée dans le code
 // ip pointe le compteur de référence
 str_adr: // ( -- addr )    
@@ -1156,7 +1156,7 @@ str_adr: // ( -- addr )
     b 1b
     lbu t0,0(ip)
 
-_dict STRLEN ,"len"   
+_dict STRLEN ,"LEN"   
 // retourne la longueur de la chaîne dont l'adresse est sur dstack
     str=a0
     count=a1
@@ -1740,14 +1740,15 @@ str_cpy: // ( src dest -- dest )
 _dict STRSTORE,"STR!"
 // store une chaîne dans une variable
 // incrémente le compteur de référence
-str_store: // ( s v -- )
+str_store: // ( str var -- )
     //incrémente le compteur de référence
     lw t0,-CELL_SIZE(dp)
     beq t0,zero,1f
     nop
     lbu t1,-1(t0)
-    addiu t2,zero,128
-    beq t2,t1,1f   // n'incrémente pas si == 128 (chaîne imbriquée).
+    addiu t2,zero,255
+    beq t2,t1,1f   // n'incrémente pas si ref_count==255 (chaîne imbriquée).
+    nop
     addiu t1,t1,1
     sb t1,-1(t0)
     // enregistre le pointeur de chaîne dans la variable.
