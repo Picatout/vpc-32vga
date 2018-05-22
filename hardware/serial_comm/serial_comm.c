@@ -126,7 +126,7 @@ int ser_read_line(char *buffer, int buff_len){
     while ((c!=CR) && (count < (buff_len-1))){
         switch((c=ser_wait_char())){
             case CR:
-                ser_put_char('\n'); 
+                ser_put_char('\r'); 
                 break;
             case BS:
                 if (count){

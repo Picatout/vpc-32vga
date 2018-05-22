@@ -80,7 +80,7 @@ unsigned char kbd_read_line(unsigned char *ibuff,unsigned char buf_len){
     while ((c!='\r') && (count<(buf_len-1))){
         c=kbd_wait_key();
         if (c==CR){
-            vga_put_char('\n');
+            vga_put_char('\r');
             break;
         }else if (c==BS){
             if (count){

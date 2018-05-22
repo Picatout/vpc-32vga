@@ -154,14 +154,13 @@ static void invert_display(bool enable){
 
 
 static void prompt_continue(){
-    print(con,"\nany key...");//static uint8_t *llen;
+    printf("\rany key...");//static uint8_t *llen;
     wait_key(con);
 }
 
 static void ed_error(const char *msg, int code){//static uint8_t *llen;
     println(con,msg);
-    print(con,"error code: ");
-    print_int(con,code,0);
+    printf("error code: %d",code);
     if (con==VGA_CONSOLE){
         prompt_continue();
         clear_screen(con);
@@ -176,7 +175,7 @@ static void ask_save_changes(){
     if (state->flags.modified){
         beep();
         invert_display(true);
-        print(con,"Save changes (y/n)?");
+        printf("Save changes (y/n)?");
         key= wait_key(con);
         invert_display(false);
         if ((key=='y')||(key=='Y')){
@@ -391,13 +390,13 @@ static void search(){
     int len;
 
     invert_display(true);
-    print(con,"USAGE: target [-I] [-L]\n");
+    printf("USAGE: target [-I] [-L]\r");
     search_info->found=false;
     search_info->loop=false;
     search_info->ignore_case=false;
     print(con,"? ");
     len=read_line(con,search_info->target,CHAR_PER_LINE);
-    if (search_info->target[len-1]=='\n'){
+    if (search_info->target[len-1]=='\r'){
         search_info->target[len-1]=0;
         len--;
     }
@@ -430,18 +429,18 @@ static void load_file(const char *name){
     strcpy(fname,name);
     result=f_open(&fh,fname,FA_READ);
     if (result){
-        ed_error("File open failed!\n",result);
+        ed_error("File open failed!\r",result);
         return;
     }
     if (fh.fsize>MAX_SIZE){
-        ed_error("File too big!\n",0);
+        ed_error("File too big!\r",0);
         return;
     }
     count=0;
     saddr=MAX_SIZE-fh.fsize;
     state->tail=saddr;
     state->fsize=fh.fsize;
-    print(con,"loading file...\n");
+    print(con,"loading file...\r");
     print_int(con,fsize,0);
     print(con," bytes");
     reader_init(&r,eDEV_SDCARD,&fh);
@@ -452,12 +451,13 @@ static void load_file(const char *name){
             case A_CR:
                 break;
             case A_LF:
-               break;
+                c=A_CR;
+                break;
             default:
                 if (c>=32 && c<(32+FONT_SIZE)) buffer[count++]=c; else buffer[count++]=' ';
         }//switch(c)
-        if ((c==A_LF) || (count==(CHAR_PER_LINE-1))){
-            buffer[count++]=A_LF;
+        if ((c==A_CR) || (count==(CHAR_PER_LINE-1))){
+            buffer[count++]=A_CR;
             lines++;
             sram_write_block(saddr,(uint8_t*)buffer,count);
             saddr+=count;
@@ -500,7 +500,7 @@ static void open_file(){
     ask_save_changes();
     clear_all_states();
     invert_display(true);
-    print(con,"open file\n");
+    print(con,"open file\r");
     if (get_file_name(name) && file_exist(name)){
         load_file(name);
     }else{
@@ -527,16 +527,16 @@ static void save_file(){
             return;
         }
         invert_display(true);
-        print(con,"saving file...\n");
+        print(con,"saving file...\r");
         saddr=0;
         while ((result==FR_OK) && (saddr < MAX_SIZE)){
             size=get_line(buffer,&saddr);
-            buffer[size]=A_LF;
+            buffer[size]=A_CR;
             result=f_write(&fh,buffer,size+1,&size);
         }
         f_close(&fh);
         if (result){
-            ed_error("diksI/O error...\n",result);
+            ed_error("diksI/O error...\r",result);
             return;
         }
         state->flags.modified=false;
@@ -563,21 +563,21 @@ static void save_file_as(){
 
 
 const char* hkeys[]={
-  "<CTRL-DEL> delete to end of line\n",
-  "<CTRL-A> save as\n",
-  "<CTRL-END> file end\n",
-  "<CTRL-F> list SDcard files\n",
-  "<CTRL-G> goto line...\n",
-  "<CTRL-HOME> file start\n",
-  "<CTRL_LEFT> word left\n",
-  "<CTRL-N> new file...\n",
-  "<CTRL-O> open file...\n",
-  "<CTRL-Q> Quit editor\n",
-  "<CTRL-RIGHT> word right\n",
-  "<CTRL-S> save file\n",
-  "<F1> display hotkeys\n",
-  "<F3> set search criterion\n",
-  "<F4> search next\n",
+  "<CTRL-DEL> delete to end of line\r",
+  "<CTRL-A> save as\r",
+  "<CTRL-END> file end\r",
+  "<CTRL-F> list SDcard files\r",
+  "<CTRL-G> goto line...\r",
+  "<CTRL-HOME> file start\r",
+  "<CTRL_LEFT> word left\r",
+  "<CTRL-N> new file...\r",
+  "<CTRL-O> open file...\r",
+  "<CTRL-Q> Quit editor\r",
+  "<CTRL-RIGHT> word right\r",
+  "<CTRL-S> save file\r",
+  "<F1> display hotkeys\r",
+  "<F3> set search criterion\r",
+  "<F4> search next\r",
   ""
 };
 
@@ -755,7 +755,7 @@ static bool sram_insert_char(char c){
         result=false;
     }else if (state->flags.insert){
         llen=strlen(_screen_line(state->scr_line));
-        if ((llen<LINE_MAX_LEN)||(c==A_LF)){
+        if ((llen<LINE_MAX_LEN)||(c==A_CR)){
             sram_write_byte(state->gap_first++,c);
             state->fsize++;
         }else{
@@ -815,7 +815,7 @@ int sram_line_home(char *line, bool move_back){
         sram_read_block(from-size,buf,size);
         j=size-1;
         llen=0;
-        while((j>-1) && (llen<LINE_MAX_LEN) && ((c=buf[j--])!=A_LF)){
+        while((j>-1) && (llen<LINE_MAX_LEN) && ((c=buf[j--])!=A_CR)){
             llen++;
         }//while
         if (llen){
@@ -844,11 +844,11 @@ int sram_line_end(char *line, bool move_forward){
     char c;
     
     c=sram_get_char();
-    if (c && (c!=A_LF)){
+    if (c && (c!=A_CR)){
         size=min(LAST_COL,MAX_SIZE-state->tail);
         sram_read_block(state->tail,(uint8_t*)line,size);
         llen=0;
-        while ((llen<size) && (line[llen]!=A_LF)){
+        while ((llen<size) && (line[llen]!=A_CR)){
             llen++;
         }
         line[llen]=0;
@@ -874,7 +874,7 @@ static void sram_delete_to_end(){
     size=min(CHAR_PER_LINE,MAX_SIZE-state->gap_first);
     if (size){
         sram_read_block(state->tail,buf,size);
-        while(j<size && buf[j++]!=A_LF){
+        while(j<size && buf[j++]!=A_CR){
             deleted++;
         }
         state->tail+=deleted;
@@ -915,10 +915,10 @@ static int get_line(char *line, unsigned *from){
         size+=llen;
     }
     llen=0;
-    while ((llen<size) && ((c=line[llen])!=A_LF)){llen++;}
+    while ((llen<size) && ((c=line[llen])!=A_CR)){llen++;}
     line[llen]=0;
     saddr=(*from)+llen;
-    if (c==A_LF){saddr++;}
+    if (c==A_CR){saddr++;}
     if (((*from)<state->tail) && (saddr>=state->gap_first)){
         *from=state->tail+saddr-state->gap_first;
     }else{
@@ -1091,7 +1091,7 @@ static void delete_at(){
            }else{
                count=LINE_MAX_LEN-llen;
                sram_move(state->tail,state->tail+1,count);
-               sram_write_byte(state->tail+count,A_LF);
+               sram_write_byte(state->tail+count,A_CR);
            }
            fill_screen();
         }
@@ -1124,7 +1124,7 @@ static void delete_to_end(){
         state->tail+=llen;
         state->fsize-=llen;
         state->scr_col=0;
-        if (sram_get_char()==A_LF){
+        if (sram_get_char()==A_CR){
             state->tail++;
             state->fsize--;
             state->lines_count--;
@@ -1206,7 +1206,7 @@ static void line_end(){
 }//f()
 
  static void line_break(){
-     if (sram_insert_char(A_LF)){
+     if (sram_insert_char(A_CR)){
          state->lines_count++;
          state->file_line++;
          state->scr_col=0;

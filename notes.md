@@ -1,3 +1,9 @@
+2018-05-21
+----------
+1. Travail sur console, ajout de _mon_putc() pour supporté printf() définie dans stdio
+2. Modificaction dans vpc32.c et shell.c pour utiliser printf() au lieu de sprintf() suivie de print().
+3. Modification vga_put_char() et vt_put_char(), LF ignorés.
+
 2018-05-20
 ----------
 1. Corrigé bogue dans basic: free_string_var(), libérais les chaînes imbriquées.

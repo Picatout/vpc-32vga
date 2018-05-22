@@ -217,11 +217,13 @@ void vga_put_char(char c){
     x=cx;
     y=cy;
     switch (c){
-        case CR:
-        case NL:
+        case A_LF:
+            //ignore les LF
+            break;
+        case A_CR:
             vga_crlf();
             break;
-        case TAB:
+        case A_TAB:
             i=cx%(CHAR_WIDTH*tab_width);
             cx += i?i:tab_width*CHAR_WIDTH;
             if (cx>=(CHAR_PER_LINE*CHAR_WIDTH)){
@@ -233,10 +235,10 @@ void vga_put_char(char c){
                 }
             }
             break;
-        case FF:
+        case A_FF:
             vga_clear_screen();
             break;
-        case '\b':
+        case A_BKSP:
             vga_cursor_left();
             break;
         default:

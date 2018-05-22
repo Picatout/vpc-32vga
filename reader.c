@@ -73,7 +73,7 @@ static bool fill_buffer(reader_t *reader){
         case eDEV_KBD:
             display_prompt();
             reader->count=read_line(con,reader->buffer,CHAR_PER_LINE);
-            reader->buffer[reader->count++]='\n';
+            reader->buffer[reader->count++]=A_CR;
             reader->inp=0;
             return true;
             break;

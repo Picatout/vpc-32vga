@@ -37,6 +37,7 @@ console_t con=VGA_CONSOLE;
 
 volatile unsigned abort_signal=false;
 
+
 void uppercase(char *str){// in situ uppercase
     while (*str){
         if (*str>='a' && *str<='z') *str-=32;
@@ -270,3 +271,21 @@ void insert_line(console_t dev){
     }
     
 }
+
+/********************************
+ * les fonctions suivantes sont
+ * utilisées par les fonctions
+ * stdio définies dans stdlib.h
+ * pour déterminer le périphérique
+ * d'entrée ou de sortie.
+ * ref: http://microchipdeveloper.com/faq:81
+ ********************************/
+
+// utilisé par printf() et puts()
+void _mon_putc(char c){
+    put_char(con,c);
+}
+
+
+
+

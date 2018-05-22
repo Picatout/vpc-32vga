@@ -88,36 +88,30 @@ typedef struct{
 static void skip(parse_str_t *parse, const char *skip);
 
 static const char *ERR_MSG[]={
-    "no error\n",
-    "unknown command.\n",
-    "syntax error.\n",
-    "not implemented yet.\n",
-    "Memory allocation error.\n",
-    "Bad usage.\n",
-    "File open error.\n",
-    "Copy error.\n",
-    "Mkdir error.\n",
-    "file does not exist.\n",
-    "operation denied.\n",
-    "disk operation error, code is %d\n",
-    "no SD card detected.\n"
+    "no error\r",
+    "unknown command.\r",
+    "syntax error.\r",
+    "not implemented yet.\r",
+    "Memory allocation error.\r",
+    "Bad usage.\r",
+    "File open error.\r",
+    "Copy error.\r",
+    "Mkdir error.\r",
+    "file does not exist.\r",
+    "operation denied.\r",
+    "disk operation error, code is %d\r",
+    "no SD card detected.\r"
 };
 
 
 void print_error_msg(SH_ERROR err_code,const char *detail,FRESULT io_code){
-    char *fmt;
     if (err_code==ERR_FIO){
-        fmt=malloc(64);
-        if (fmt){
-            sprintf(fmt,ERR_MSG[ERR_FIO],io_code);
-            print(con,fmt);
-            free(fmt);
-        }
+            printf(ERR_MSG[ERR_FIO],io_code);
     }else{
        print(con,ERR_MSG[err_code]);
     }
     if (detail){
-       print(con,detail);
+       printf(detail);
     }
 }//print_error_msg()
 
@@ -135,13 +129,11 @@ static const shell_cmd_t commands[];
 //enerigistré dans le RTCC.
 void last_shutdown(){
     alm_state_t shutdown;
-    char fmt[32];
     
     rtcc_power_down_stamp(&shutdown);
     if (shutdown.day){
-        sprintf(fmt,"Last power down: %s %02d/%02d %02d:%02d\n",weekdays[shutdown.wkday],
+        printf("Last power down: %s %02d/%02d %02d:%02d\r",weekdays[shutdown.wkday],
                 shutdown.month,shutdown.day,shutdown.hour,shutdown.min);
-        print(con,fmt);
     }
 }
 
@@ -163,9 +155,9 @@ static char* cmd_help(int tok_count, char  **tok_list){
         if (pos.x>(CHAR_PER_LINE-strlen(commands[i].name)-2)){
             put_char(con,'\n');
         }
-        print(con,commands[i].name);
+        printf(commands[i].name);
         if (i<(nbr_cmd-1)){
-            print(con," ");
+            put_char(con,' ');
         }
     }
     put_char(con,'\n');
@@ -181,20 +173,18 @@ static char* cmd_cls(int tok_count, char  **tok_list){
 // +-127 ppm
 static char* cmd_clktrim(int tok_count, char  **tok_list){
     int trim;
-    char fmt[64];
+    //char fmt[64];
     if (tok_count>1){
         trim=atoi(tok_list[1]);
         trim=rtcc_calibration(trim);
     }else{
-        print(con,
-            "RTCC oscillator calibration\n"
-            "USAGE: clktrim n\n"
-            "n is added to actual value\n"
-            "n is in range {-127..127}\n");
+        printf("RTCC oscillator calibration\r"
+               "USAGE: clktrim n\r"
+               "n is added to actual value\r"
+               "n is in range {-127..127}\r");
         trim=rtcc_calibration(0);
     }
-    sprintf(fmt,"Actual RTCC oscillator trim value: %d",trim);
-    print(con,fmt);
+    printf("Actual RTCC oscillator trim value: %d",trim);
     return NULL;
 }
 
@@ -214,8 +204,8 @@ static char* cmd_uptime(int tok_count, char  **tok_list){
     min=remainder/60000;
     remainder%=60000;
     sec=remainder/1000;
-    sprintf(fmt,"%02dd%02dh%02dm%02ds\n",day,hour,min,sec);
-    print(con,fmt);
+    printf("%02dd%02dh%02dm%02ds\r",day,hour,min,sec);
+    //print(con,fmt);
     return NULL;
 }
 
@@ -224,7 +214,7 @@ static char* cmd_format(int tok_count, char  **tok_list){
     if (tok_count==2){
         print_error_msg(ERR_NOT_DONE,NULL,0);
     }else{
-        print(con,"USAGE: format volume_name\n");
+        printf("USAGE: format volume_name\r");
     }
     return NULL;
 }
@@ -232,11 +222,11 @@ static char* cmd_format(int tok_count, char  **tok_list){
 #include "vpcBASIC/BASIC.h"
 
 static void cmd_basic_help(){
-    println(con,"USAGE: basic [-?]|[-c|-k string]| file_name");
-    println(con,"-?  display this help.");
-    println(con,"-c or -k \"code\", \"code\" is BASIC code to be executed.");
-    println(con,"Use -c to leave BASIC or -k to stay after code execution.");
-    println(con,"file_name, is a basic file to execute. Stay in BASIC at program exit.");
+    printf("USAGE: basic [-?]|[-c|-k string]| file_name\r"
+           "-?  display this help.\r"
+           "-c or -k \"code\", \"code\" is BASIC code to be executed.\r"
+           "Use -c to leave BASIC or -k to stay after code execution.\r"
+           "file_name, is a basic file to execute. Stay in BASIC at program exit.\r");
 }
 
 // basic [-h n] [fichier.bas]
@@ -247,13 +237,6 @@ static char* cmd_basic(int tok_count, char  **tok_list){
     unsigned heap=DEFAULT_HEAP;
     unsigned option=BASIC_PROMPT;
     
-//#define TEST_VM
-#ifdef TEST_VM
-    int exit_code;
-    exit_code=test_vm();
-    fmt=malloc(32);
-    sprintf(fmt,"VM exit code: %d\n",exit_code);
-#else    
     for (i=1;i<tok_count;i++){
         if (!strcmp(tok_list[i],"-?")){
             i=tok_count;
@@ -277,7 +260,6 @@ static char* cmd_basic(int tok_count, char  **tok_list){
         }
     }//for
     BASIC_shell(heap,option,basic_file);
-#endif    
     return fmt;
 }
 
@@ -326,7 +308,7 @@ static char* cmd_del(int tok_count, char  **tok_list){ // efface un fichier
             error=f_stat(tok_list[1],fi);
             if (!error){
                 if (fi->fattrib & (ATT_DIR|ATT_RO)){
-                    print_error_msg(ERR_DENIED,"can't delete directory or read only file.\n",0);
+                    print_error_msg(ERR_DENIED,"can't delete directory or read only file.\r",0);
                 }
                 else{
                     error=f_unlink(tok_list[1]);
@@ -337,10 +319,10 @@ static char* cmd_del(int tok_count, char  **tok_list){ // efface un fichier
                 print_error_msg(ERR_FIO,"",error);
             }
         }else{
-               print_error_msg(ERR_ALLOC,"delete failed.\n",0);
+               print_error_msg(ERR_ALLOC,"delete failed.\r",0);
         }
    }else{
-       print_error_msg(ERR_USAGE, "delete file USAGE: del file_name\n",0);
+       print_error_msg(ERR_USAGE, "delete file\rUSAGE: del file_name\r",0);
    }
     return NULL;
 }//del()
@@ -357,7 +339,7 @@ static char* cmd_ren(int tok_count, char  **tok_list){ // renomme un fichier
     if (tok_count==3){
         f_rename(tok_list[1],tok_list[2]);
     }else{
-        print_error_msg(ERR_USAGE,"rename file, USAGE: ren name new_name\n",0);
+        print_error_msg(ERR_USAGE,"rename file\rUSAGE: ren name new_name\r",0);
     }
     return NULL;
 }//ren
@@ -399,13 +381,13 @@ static char* cmd_copy(int tok_count, char  **tok_list){ // copie un fichier
                 free(fnew);
             }
             if (error){
-                print_error_msg(ERR_FIO,"copy failed.\n",error);
+                print_error_msg(ERR_FIO,"copy failed.\r",error);
             }
         }else{
             print(con,ERR_MSG[ERR_ALLOC]);
         }
     }else{
-        print_error_msg(ERR_USAGE,"copy file USAGE: copy file_name new_file_name\n",0);
+        print_error_msg(ERR_USAGE,"copy file\rUSAGE: copy file_name new_file_name\r",0);
     }
     return NULL;
 }//copy()
@@ -415,7 +397,7 @@ static char* cmd_send(int tok_count, char  **tok_list){ // envoie un fichier via
    if (tok_count==2){
        print_error_msg(ERR_NOT_DONE,NULL,0);
    }else{
-       print(con, "send file via serial, USAGE: send file_name\n");
+       printf("send file via serial\rUSAGE: send file_name\r");
    }
    return NULL;
 }//cmd_send()
@@ -425,7 +407,7 @@ static char* cmd_receive(int tok_count, char  **tok_list){ // reçois un fichier 
    if (tok_count==2){
        print_error_msg(ERR_NOT_DONE,NULL,0);
    }else{
-       print(con, "receive file from serial, USAGE: receive file_name\n");
+       printf("receive file from serial\rUSAGE: receive file_name\r");
    }
    return NULL;
 }//cmd_receive()
@@ -453,21 +435,21 @@ static char* cmd_hdump(int tok_count, char  **tok_list){ // affiche un fichier e
             fmt=malloc(CHAR_PER_LINE);
             if (fmt && buff){
                 key=0;
-                line[16]=LF;
+                line[16]=CR;
                 line[17]=0;
-                while (key!=ESC && f_read(fh,buff,512,&n)==FR_OK){
+                while (key!='q' && key!='Q' && f_read(fh,buff,512,&n)==FR_OK){
                     if (!n) break;
                     rbuff=buff;
                     for(;n && key!=ESC;n--){
                         if (!col){
-                            sprintf(fmt,"%08X  ",addr);
-                            print(con,fmt);
+                            printf("%08X  ",addr);
+                            //print(con,fmt);
                         }
                         c=*rbuff++;
                         sprintf(fmt,"%02X ",c);
                         //print_hex(con,c,2); put_char(con,32);
                         if (c>=32) line[col]=c; else line[col]=32;
-                        print(con,fmt);
+                        printf(fmt);
                         col++;
                         if (col==16){
                             print(con,line);
@@ -475,7 +457,7 @@ static char* cmd_hdump(int tok_count, char  **tok_list){ // affiche un fichier e
                             addr+=16;
                             scr_line++;
                             if (scr_line==(LINE_PER_SCREEN-1)){
-                                print(con,"more...");
+                                printf("more...");
                                 key=wait_key(con);
                                 clear_screen(con);
                                 scr_line=0;
@@ -497,13 +479,13 @@ static char* cmd_hdump(int tok_count, char  **tok_list){ // affiche un fichier e
                 free(buff);
                 free(fmt);
             }else{
-                print_error_msg(ERR_ALLOC,"Can't display file.\n",0);
+                print_error_msg(ERR_ALLOC,"Can't display file.\r",0);
             }
         }else{
-            print_error_msg(ERR_FIO,"File open failed.\n",error);
+            print_error_msg(ERR_FIO,"File open failed.\r",error);
         }
    }else{
-       print_error_msg(ERR_USAGE, "USAGE: more file_name\n",0);
+       print_error_msg(ERR_USAGE, "USAGE: hdump file_name\r",0);
    }
     return NULL;
 }//f
@@ -549,12 +531,13 @@ static char* cmd_more(int tok_count, char  **tok_list){
             fmt=malloc(CHAR_PER_LINE);
             if (fmt && buff){
                 key=0;
-                while ((key!='q' || key!='Q') && f_read(fh,buff,512,&n)==FR_OK){
+                while (key!='q' && key!='Q' && f_read(fh,buff,512,&n)==FR_OK){
                     if (!n) break;
                     rbuff=buff;
                     for(;n;n--){
                         c=*rbuff++;
-                        if (!(c==TAB || c==LF) && (c<32 || c>126)) {c=32;}
+                        if (c==A_LF){c=A_CR;}
+                        if (!(c==A_TAB || c==A_CR) && (c<32 || c>126)) {c=32;}
                         put_char(con,c);
                         cpos.xy=get_curpos(con);
                         if (cpos.x==0){
@@ -562,7 +545,7 @@ static char* cmd_more(int tok_count, char  **tok_list){
                                 cpos.y=LINE_PER_SCREEN-1;
                                 set_curpos(con,cpos.x,cpos.y);
                                 invert_video(con,TRUE);
-                                print(con,"-- next --");
+                                printf("-- next --");
                                 invert_video(con,FALSE);
                                 key=wait_key(con);
                                 if (key==CR){
@@ -580,13 +563,13 @@ static char* cmd_more(int tok_count, char  **tok_list){
                 free(buff);
                 free(fmt);
             }else{
-                print_error_msg(ERR_ALLOC,"Can't display file.\n",0);
+                print_error_msg(ERR_ALLOC,"Can't display file.\r",0);
             }
         }else{
-            print_error_msg(ERR_FIO,"File open failed.\n",error);
+            print_error_msg(ERR_FIO,"File open failed.\r",error);
         }
    }else{
-       print_error_msg(ERR_USAGE, "USAGE: more file_name\n",0);
+       print_error_msg(ERR_USAGE, "USAGE: more file_name\r",0);
    }
     return NULL;
 }//more
@@ -602,7 +585,7 @@ static char* cmd_edit(int tok_count, char  **tok_list){ // lance l'éditeur de te
 
 static char* cmd_mkdir(int tok_count, char  **tok_list){
     FRESULT error=FR_OK;
-    char *fmt;
+    //char *fmt;
     if (!SDCardReady){
         if (!mount(0)){
             print_error_msg(ERR_NO_SDCARD,NULL,0);
@@ -612,19 +595,15 @@ static char* cmd_mkdir(int tok_count, char  **tok_list){
         }
     }
     if (tok_count==2){
-        fmt=malloc(CHAR_PER_LINE+1);
-        if (fmt && (error=f_mkdir(tok_list[1])==FR_OK)){
-            sprintf(fmt,"directory %s created\n",tok_list[1]);
-            print(con,fmt);
+        //fmt=malloc(CHAR_PER_LINE+1);
+        if ((error=f_mkdir(tok_list[1])==FR_OK)){
+            printf("directory %s created\r",tok_list[1]);
+            //print(con,fmt);
         }else{
-            if (!fmt){
-                print(con,ERR_MSG[ERR_ALLOC]);
-            }else{
-                print(con,ERR_MSG[ERR_MKDIR]);
-            }
+            print(con,ERR_MSG[ERR_MKDIR]);
         }
     }else{
-        print_error_msg(ERR_USAGE,"mkdir create a directory, USAGE: mkdir dir_name\n",0);
+        print_error_msg(ERR_USAGE,"mkdir create a directory\rUSAGE: mkdir dir_name\r",0);
     }
     return NULL;
 }// mkdir()
@@ -685,22 +664,12 @@ static char* cmd_dir(int tok_count, char **tok_list){
     return NULL;
 }//list_directory()
 
-static char* cmd_puts(int tok_count, char  **tok_list){
-    print(con, "puts, to be done.\n");
-    return NULL;
-}//puts()
-
-static char* cmd_expr(int tok_count, char  **tok_list){
-    print(con, "expr, to be done.\n");
-    return NULL;
-}//expr()
-
 //display heap status
 static char* cmd_free(int tok_count, char  **tok_list){
-    char *free_ram;
-    free_ram=calloc(sizeof(char),80);
-    sprintf(free_ram,"free RAM %d/%d BYTES\n",free_heap(),heap_size);
-    return free_ram;
+//    char *free_ram;
+//    free_ram=calloc(sizeof(char),80);
+    printf("free RAM %d/%d BYTES\r",free_heap(),heap_size);
+    return NULL;
 }
 
 static void parse_time(char *time_str,stime_t *time){
@@ -778,7 +747,7 @@ static char* cmd_time(int tok_count, char  **tok_list){
 }
 
 static void report_alarms_state(){
-    char fmt[80];
+    //char fmt[80];
     int i,wkday;
     
     sdate_t date;
@@ -787,14 +756,14 @@ static void report_alarms_state(){
     rtcc_get_alarms(state);
     for (i=0;i<2;i++){
         if (state[i].enabled){
-            sprintf(fmt,"alarm %d set to %s %d/%02d/%02d %02d:%02d:%02d  %s\n",i,
+            printf("alarm %d set to %s %d/%02d/%02d %02d:%02d:%02d  %s\r",i,
                     weekdays[state[i].wkday-1],date.year,state[i].month,
                     state[i].day,state[i].hour,state[i].min,state[i].sec,
                     (char*)state[i].msg);
-            print(con,fmt);
+           // print(con,fmt);
         }else{
-            sprintf(fmt,"alarm %d inactive\n",i);
-            print(con,fmt);
+            printf("alarm %d inactive\r",i);
+            //print(con,fmt);
         }
     }
     
@@ -883,15 +852,11 @@ static void erase_var(env_var_t *var){
 }
 
 static void list_vars(){
-    char *name, *value;
     env_var_t *list;
     list=shell_vars;
     while (list){
-        name=list->name;
-        if (name){
-            print(con,name);
-            put_char(con,'=');
-            println(con,list->value);
+        if (list->name){
+            printf("%s=%s\r",list->name,list->value);
         }
         list=list->link;
     }
@@ -1030,7 +995,6 @@ static const shell_cmd_t commands[]={
     {"dir",cmd_dir},
     {"echo",cmd_echo},
     {"edit",cmd_edit},
-    {"expr",cmd_expr},
     {"free",cmd_free},
     {"format",cmd_format},
     {"basic",cmd_basic},
@@ -1039,7 +1003,6 @@ static const shell_cmd_t commands[]={
     {"mkdir",cmd_mkdir},
     {"mount",cmd_mount},
     {"more",cmd_more},
-    {"puts",cmd_puts},
     {"reboot",cmd_reboot},
     {"receive",cmd_receive},
     {"ren",cmd_ren},
@@ -1077,7 +1040,7 @@ static char* execute_cmd(int tok_count, char  **tok_list){
         }
 }// execute_cmd()
 
-static const char *prompt="\n$";
+static const char *prompt="\r$";
 
 
 static void free_tokens(int tok_count , char **tok_list){
@@ -1373,17 +1336,15 @@ static char* exec_script(const char *script){
 void shell(void){
     char *str, cmd_line[CHAR_PER_LINE];
     int len;
-    str=malloc(32);
-    sprintf(str,"\nVPC-32 shell version %s \n",_version);
-    print(con,str);
-    free(str);
+
+    printf("VPC-32 shell version %s\r",_version);
     while (1){
-        print(con,prompt);
+        printf(prompt);
         len=read_line(con,cmd_line,CHAR_PER_LINE);
         if (len){
             str=exec_script((const char*)cmd_line);
             if (str){
-                print(con,str);
+                printf(str);
                 free(str);
             }//if
         }// if

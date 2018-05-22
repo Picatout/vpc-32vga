@@ -506,7 +506,7 @@ void basic_write_field(unsigned file_no,const char *str){
     if (!files_handles[file_no]){throw(eERR_FILE_NOT_OPENED);}
     n=f_puts(str,files_handles[file_no]);
     if (n<0 || n!=strlen(str)){throw(eERR_FILE_IO);}
-    if (str[strlen(str)-1]!='\n'){
+    if (str[strlen(str)-1]!='\r'){
         basic_fputc(file_no,',');
     }
 }
@@ -576,7 +576,7 @@ char *file_read_field(unsigned file_no){
                 pad[i]=32;
                 break;
             case ',':
-            case '\n':
+            case '\r':
                 if (in_quote){
                     pad[i]=c;
                 }else if (i){
@@ -774,64 +774,56 @@ static int dict_search(const  dict_entry_t *dict){
 
 
 static void print_token_info(){
-    print(con,"\ntok_id: ");
-    print_int(con,token.id,0);
-    print(con,"\ntok_value: ");
-    print_int(con,token.n,0);
-    print(con,"token string: ");
-    if (token.str){println(con,token.str);}
+    printf("tok_id: %d\rtok_value: \r",token.id,token.n);
+    if (token.str){
+        printf("token_string: %s\r",token.str);
+    }
 }
 
 // messages d'erreurs correspondants à l'enumération BASIC_ERROR_CODES dans BASIC.h
 static  const char* error_msg[]={
-    "Existing BASIC ",  
-    "missing argument\n",
-    "too much arguments\n",
-    "bad argument\n",
-    "String variable not authorized as local\n",
-    "syntax error\n",
-    "memory allocation error\n",
-    "Constant can't be redefined\n",
-    "undefined array variable\n",
-    "array index out of range\n",
-    "program space full\n",
-    "jump out of range\n",
-    "control stack underflow\n",
-    "control stack overflow\n",
-    "no more string space available\n",
-    "Can't use DIM inside sub-routine\n",
-    "Can't use CONST inside sub-routine\n",
-    "Duplicate identifier\n",
-    "Call to an undefined sub-routine\n",
-    "Parameters count disagree with DECLARE\n",
-    "Unknow variable or constant\n",
-    "File open error\n",
-    "File already open",
-    "File not opened",
-    "No file handle available",
-    "VM bad operating code\n",
-    "VM exited with data stack not empty\n",
-    "VM parameters stack overflow\n",
-    "VM call stack overflow\n",
-    "Program aborted by user\n",
-    "Erreur de syntaxe dans la commande PLAY",
+    "Existing BASIC\r",  
+    "missing argument\r",
+    "too much arguments\r",
+    "bad argument\r",
+    "String variable not authorized as local\r",
+    "syntax error\r",
+    "memory allocation error\r",
+    "Constant can't be redefined\r",
+    "undefined array variable\r",
+    "array index out of range\r",
+    "program space full\r",
+    "jump out of range\r",
+    "control stack underflow\r",
+    "control stack overflow\r",
+    "no more string space available\r",
+    "Can't use DIM inside sub-routine\r",
+    "Can't use CONST inside sub-routine\r",
+    "Duplicate identifier\r",
+    "Call to an undefined sub-routine\r",
+    "Parameters count disagree with DECLARE\r",
+    "Unknow variable or constant\r",
+    "File open error\r",
+    "File already open\r",
+    "File not opened\r",
+    "No file handle available\r",
+    "VM bad operating code\r",
+    "VM exited with data stack not empty\r",
+    "VM parameters stack overflow\r",
+    "VM call stack overflow\r",
+    "Program aborted by user\r",
+    "Erreur de syntaxe dans la commande PLAY\r",
  };
  
  
 static void throw(int error){
-    char message[64];
     
         crlf(con);
         if (error<FIRST_VM_ERROR){
-            print(con,"line: ");
-            print_int(con,line_count,0);
-            crlf(con);
-            print(con,"token#: ");
-            print_int(con,token_count,0);
-            crlf(con);
+            printf("line: %d\r",line_count);
+            printf("token#: %d\r",token_count);
         }
-        strcpy(message,error_msg[error]);
-        print(con,message);
+        printf(error_msg[error]);
         if (error<FIRST_VM_ERROR){
             print_token_info();
         }
@@ -1236,9 +1228,9 @@ static void parse_string(){
                 case 't':
                     token.str[i++]='\t';
                     break;
-                case 'n':
-                case 'r':
-                    token.str[i++]='\n';
+                case A_LF:
+                case A_CR:
+                    token.str[i++]=A_CR;
                     break;
                 default:
                     throw(eERR_SYNTAX);
@@ -1514,8 +1506,8 @@ static void next_token(){
                 token.str[0]='@';
                 token.str[1]=0;
                 break;
-            case '\n':
-            case '\r':
+            case A_CR:
+            case A_LF:
                 token_count=-1; 
                 line_count++;
 //                if (complevel){
@@ -1875,7 +1867,7 @@ static int expression(){
 static void condition(){
     int rel;
     int expr_type;
-    //print(con,"condition\n");
+    
     expr_type=expression();
     if (expr_type==eVAR_FLOAT){
         bytecode(IF2INT);
@@ -1970,7 +1962,6 @@ static bool try_string_compare(){
 
 static void bool_factor(){
     int boolop=0;
-    //print(con,"bool_factor\n");
     
     if (try_string_compare()){return;}
     if (try_boolop()){
@@ -1984,7 +1975,7 @@ static void bool_factor(){
 }//f
 
 
-static void bool_term(){// print(con,"bool_term()\n");
+static void bool_term(){
     int fix_count=0; // pour évaluation court-circuitée.
     bool_factor();
     while (try_boolop() && token.n==eKW_AND){
@@ -2006,7 +1997,7 @@ static void bool_term(){// print(con,"bool_term()\n");
 
 
 // compile les expressions booléenne
-static void bool_expression(){// print(con,"bool_expression()\n");
+static void bool_expression(){
     int fix_count=0; // pour évaluation court-circuitée.
     bool_term();
     while (try_boolop() && token.n==eKW_OR){
@@ -2038,11 +2029,7 @@ static  const char* compile_msg[]={
 #define COMP_END 1
 
 static void compiler_msg(int msg_id,const char *detail){
-    char msg[CHAR_PER_LINE];
-    strcpy(msg,compile_msg[msg_id]);
-    print(con,msg);
-    print(con,detail);
-    crlf(con);
+    printf("%s %s\r",compile_msg[msg_id],detail);
 }//f
 
 
@@ -2375,24 +2362,25 @@ static void kw_ubound(){
 static void kw_use(){
     reader_t *old_reader, freader;
     FIL *fh;
-    int fhandle;
     uint32_t lcount;
+    char name[32];
     
     if (activ_reader->device==eDEV_KBD) throw(eERR_SYNTAX);
     expect(eSTRING);
-    uppercase(token.str);
-    if ((fh=open_file(token.str,FA_READ))){
+    strcpy(name,token.str);
+    uppercase(name);
+    if ((fh=open_file(name,FA_READ))){
         reader_init(&freader,eDEV_SDCARD,fh);
         old_reader=activ_reader;
         activ_reader=&freader;
-        compiler_msg(COMPILING, token.str);
+        compiler_msg(COMPILING, name);
         lcount=line_count;
         line_count=1;
         compile();
         line_count=lcount+1;
         close_file(fh);
         activ_reader=old_reader;
-        compiler_msg(COMP_END,NULL);
+        compiler_msg(COMP_END,name);
     }else{
         throw(eERR_FILE_IO);
     }
@@ -2660,7 +2648,7 @@ static void kw_timeout(){
 //quitte l'interpréteur
 static void kw_bye(){
     if (!complevel && (activ_reader->device==eDEV_KBD)){
-        print(con,error_msg[eERR_NONE]);
+        printf(error_msg[eERR_NONE]);
         exit_basic=true;
     }else{
         if (complevel){
@@ -2756,7 +2744,7 @@ static void kw_locate(){
 // aussi ' commentaire
 static void kw_rem(){
     char c=0;
-    while (!(activ_reader->eof || ((c=reader_getc(activ_reader))=='\n')));
+    while (!(activ_reader->eof || ((c=reader_getc(activ_reader))=='\r')));
     line_count++;
 }//f()
 
@@ -2802,17 +2790,11 @@ static void movecode(var_t *var){
 #ifdef DEBUG
     {
         uint8_t * bc;   
-        crlf(con);
-        print_hex(con,(uint32_t)var->adr,0);
-        print(con,var->name);
-        put_char(con,':');
+        printf("\raddress: %X name: %s\r",(uint32_t)var->adr,var->name);
         for(bc=(uint8_t*)adr;bc<((uint8_t*)adr+size);bc++){
-            print_int(con,*bc,0);
+            printf("%3d ",*bc);
         }
-        print_int(con,*bc,0);
-        print(con,"\nsize: "); 
-        print_int(con,size,0);
-        crlf(con);
+        printf("%3d\rsize: %d\r",*bc,size);
     }
 #endif
 
@@ -2837,10 +2819,10 @@ static void kw_end(){ // IF ->(C: blockend adr -- ) |
             fix_count=cpop();
             if (!fix_count) throw(eERR_SYNTAX);
             cdrop(); //drop eKW_SELECT
-            while (fix_count){ //print_int(con,fix_count,0); crlf(con);
+            while (fix_count){ 
                 patch_fore_jump(cpop());
                 fix_count--;
-            } //print_int(con,csp,0);
+            }
             bytecode(IDROP);
             break;
         case eKW_FUNC:
@@ -2968,9 +2950,9 @@ static void exec_basic(){
 //compile un fichier basic
 static void compile_file(const char *file_name){
     FIL *fh;
-//    println(con,"entering compile_file()");
-    if ((fh=open_file(file_name,FA_READ))){//println(con,"initializing file reader");
-        reader_init(&file_reader,eDEV_SDCARD,fh); //println(con,"file reader initialized");
+    
+    if ((fh=open_file(file_name,FA_READ))){
+        reader_init(&file_reader,eDEV_SDCARD,fh);
         activ_reader=&file_reader;
         compiler_msg(COMPILING,file_name);
         line_count=1;
@@ -2980,7 +2962,7 @@ static void compile_file(const char *file_name){
         program_loaded=true;
         program_end=dptr;
         run_it=true;
-        compiler_msg(COMP_END,NULL);
+        compiler_msg(COMP_END,file_name);
     }else{
         throw(eERR_FILE_IO);
     }
@@ -3016,7 +2998,7 @@ static void kw_run(){
                 run_it=true;
                 exec_basic();
             }else{
-                print(con,"Nothing to run\n");
+                printf("Nothing to run\r");
             }
             break;
         default:
@@ -3253,15 +3235,10 @@ static void kw_vgacls(){
 // FREE[()]
 // commande qui affiche la mémoire programme et chaîne disponible
 static void kw_free(){
-    char fmt[64];
-    
     optional_parens();
-    crlf(con);
-    sprintf(fmt,"Program space (bytes): used %d , available %d\n",program_end,
-                (uint32_t)endmark-(uint32_t)&progspace[program_end]);
-    print(con,fmt);
-    sprintf(fmt,"strings space (bytes): available %d\n",free_heap());
-    print(con,fmt);
+    printf("\rProgram space (bytes): used %d , available %d\r",program_end,
+           (uint32_t)endmark-(uint32_t)&progspace[program_end]);
+    printf("strings space (bytes): available %d\r",free_heap());
 }
 
 
@@ -3390,11 +3367,21 @@ static void literal_string(char *lit_str){
     void *dstr;
     
     size=strlen(lit_str)+2;
-    dstr=alloc_var_space(size);
-    *(int8_t*)dstr=-1;
-    (char*)dstr++;
-    strcpy((char*)dstr,lit_str);
-    code_lit32(_addr(dstr));
+    if (var_local){
+        bytecode(ISTRADR);
+        if ((void*)&progspace[dptr+size]>=endmark){
+            throw(eERR_ALLOC);
+        }
+        strcpy(&progspace[dptr+1],lit_str);
+        progspace[dptr]=255;
+        dptr+=size;
+    }else{
+        dstr=alloc_var_space(size);
+        *(int8_t*)dstr=-1;
+        (char*)dstr++;
+        strcpy((char*)dstr,lit_str);
+        code_lit32(_addr(dstr));
+    }
 }//f
 
 
@@ -3832,7 +3819,7 @@ static void print_expr(int file_no){
     int expr_type;
     
     unget_token=true;
-    expr_type=expression(); //print_int(2,expr_type,0);
+    expr_type=expression(); 
     if (file_no){
         code_lit32(_addr(pad));
         if (expr_type==eVAR_FLOAT){
@@ -4210,7 +4197,7 @@ static void compile(){
     uint32_t adr;
     
     do{
-        next_token(); 
+        next_token();
         switch(token.id){ 
             case eKWORD:
                 if (KEYWORD[token.kw].fntype>eFN_NOT){
@@ -4281,8 +4268,7 @@ static void clear(){
 static void print_prog(int start){
     int i;
     for (i=start;i<dptr;i++){
-        print_int(con,progspace[i],3);
-        put_char(con,' ');
+        printf("%3d ",progspace[i]);
     }
     crlf(con);
 }
@@ -4290,10 +4276,9 @@ static void print_prog(int start){
 static void print_cstack(){
     int i;
     for (i=0;i<csp;i++){
-        print_hex(con,ctrl_stack[i],0);
+        printf("%X",ctrl_stack[i]);
     }
     crlf(con);
-        
 }
 #endif
 
@@ -4308,9 +4293,8 @@ void BASIC_shell(unsigned basic_heap, unsigned option, const char* file_or_strin
     progspace=malloc(prog_size);
     if (!(option==EXEC_STRING || option==EXEC_FILE)){
         clear_screen(con);
-        sprintf((char*)progspace,"vpcBASIC v1.0\nRAM available: %d bytes\n"
-                                 "strings space: %d bytes\n",prog_size,basic_heap);
-        print(con,progspace);
+        printf("vpcBASIC v1.0\nRAM available: %d bytes\r"
+               "strings space: %d bytes\r",prog_size,basic_heap);
     }
     clear();
 //  initialisation lecteur source.

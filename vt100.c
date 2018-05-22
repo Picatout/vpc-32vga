@@ -212,11 +212,13 @@ void vt_put_char(char c){
     unsigned char spaces;
     
     switch(c){
-        case '\b':
+        case A_LF: // ignore LF
+            break;
+        case A_BKSP:
             vt_col--;
             ser_put_char(c);
             break;
-        case '\t':
+        case A_TAB:
             spaces=tab_width+vt_col%tab_width-1;
             vt_spaces(spaces);
             vt_col+=spaces;
@@ -255,12 +257,12 @@ void vt_invert_video(BOOL yes){
 }
 
 void vt_crlf(){
-    ser_put_char('\n');
+    ser_put_char(A_CR);
 }
 
 void vt_scroll_up(){
     vt_set_curpos(79,29);
-    vt_put_char('\n');
+    vt_put_char(A_CR);
     vt_set_curpos(vt_col+1,vt_line+1);
 }
 

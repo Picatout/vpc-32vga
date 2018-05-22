@@ -277,27 +277,23 @@ void print_fileinfo(FILINFO *fi){
     char fmt[64];
     
 // what about other outputs ?
-    sprintf(fmt,"%c%c%c%c%c ",
+    printf("%c%c%c%c%c ",
             (fi->fattrib & AM_DIR) ? 'D' : '-',
             (fi->fattrib & AM_RDO) ? 'R' : '-',
             (fi->fattrib & AM_HID) ? 'H' : '-',
             (fi->fattrib & AM_SYS) ? 'S' : '-',
             (fi->fattrib & AM_ARC) ? 'A' : '-');
-            print(con, fmt);
-    sprintf(fmt,"%u/%02u/%02u %02u:%02u ",
+    printf("%u/%02u/%02u %02u:%02u ",
             (fi->fdate >> 9) + 1980,
             (fi->fdate >> 5) & 15, fi->fdate & 31, (fi->ftime >> 11),
             (fi->ftime >> 5) & 63);
-            print(con, fmt);
-            sprintf(fmt," %9u ", fi->fsize);
-            print(con, fmt);
-    sprintf(fmt, " %-12s %s\n", fi->fname,
+            printf(" %9u ", fi->fsize);
+    printf(" %-12s %s\r", fi->fname,
 #if _USE_LFN
 	Lfname);
 #else
     "");
 #endif
-    print(con,fmt);
 }
 
 /* Prints the directory contents */
@@ -307,18 +303,11 @@ unsigned listDir(const char *path, filter_t *filter) {
 	PF_BYTE res, b;
 	UINT s1, s2;
 	DIR dir; /* Directory object */
-        char * fmt;
         dir.fs=Fat;
 	res = f_opendir(&dir, path);
         if (!res) {
             p1 = s1 = s2 = 0;
-            fmt=malloc(64);
-            if (!fmt) {
-                res=-1;
-            }else{
-                sprintf(fmt,"\nreading dirctory: ('%s')\n", path);
-                print(con,fmt);
-            }
+            printf("\rreading dirctory: ('%s')\r", path);
         }else{
             return res;
         }
@@ -343,15 +332,9 @@ unsigned listDir(const char *path, filter_t *filter) {
         if (res=FR_NO_FILE){
             res=FR_OK;
         }
-        if (!res){
-            sprintf(fmt, "\nfile count %d\ndirectory count %d\ntotal size %d\n",s1,s2,p1);
-            print(con, fmt);
-        }else{
-            if (!fmt){
-                print(con,"Memory allocation error.\n");
-            }
+        if (res==FR_OK){
+            printf("\rfile count %d\rdirectory count %d\rtotal size %d\r",s1,s2,p1);
         }
-        free(fmt);
 	return res;
 } // listDir
 

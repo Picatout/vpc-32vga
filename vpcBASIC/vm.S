@@ -350,7 +350,7 @@ emit:   // 'emit' ( ch -- ) transmet charactère au terminal
     move  a1, T
     _drop_b_next
 
-_dict CR,"cr"    
+_dict CR,"CR"    
 cr: // 'cr' ( -- ) émet un carriage return line feed
     la a0,con
     jal crlf
@@ -2596,13 +2596,13 @@ bad_op:
 .word ustar,mstar,umstar,uslash, twostar, twoslash, twodrop, twodup,divmod
 
     
-badop_msg: .asciz "bad operating code: "    
-trace_msg: .asciz "\ntrace: "
+//badop_msg: .asciz "bad operating code: "    
+trace_msg: .asciz "\rtrace: "
 opcode_msg: .asciz "next opcode: "
 s_msg: .asciz " S("
 dp_msg: .asciz "dp: "
-ip_msg: .asciz "\nip: "
+ip_msg: .asciz "\rip: "
 r_msg: .asciz "R("
-float_fmt: .asciz "%G"
+//float_fmt: .asciz "%G"
     
 #undef _ASM_CODE_

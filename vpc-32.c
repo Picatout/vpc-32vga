@@ -168,6 +168,7 @@ void init_msg(int output, int code, const char *msg){
     }//switch
 }
 
+
 #include <math.h>
 //__attribute__((mips16))
 void main(void) {
@@ -184,9 +185,7 @@ void main(void) {
     text_coord_t cpos;
     init_msg(SERIAL,!mount(0),"SD card");
     init_msg(SERIAL,sram_init(),"SPI RAM");
-    print(con,"free RAM (bytes): ");
-    print_int(con,heap_size,0);
-    crlf(con);
+    printf("free RAM (bytes): %d\r",heap_size);// il faut utilisé '\r' avec printf()
     last_shutdown();
     display_date_time();
     shell();

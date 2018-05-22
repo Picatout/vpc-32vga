@@ -77,6 +77,7 @@ void set_tab_witdh(console_t dev, int width);
 int get_tab_width(console_t dev);
 void insert_line(console_t dev);
 
+
 #ifdef	__cplusplus
 }
 #endif
