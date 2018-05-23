@@ -204,11 +204,29 @@ typedef struct _token{
    char str[MAX_LINE_LEN]; // chaîne représentant le jeton.
 }token_t;
 
+static const char IMG_SIGN[]="BPI"; // signature fichier image
+static const char BCODE_SIGN[]="BCODE"; // segment bytecode
+static const char VAR_SIGN[]="VAR";  // sergment variables
+
+// entête fichier image
 typedef struct _img_header{
-    var_t *varlist;
-    void *endmark;
-    uint32_t program_end;
+    char sign[4]; // signature reconnaissance fichier Basic Pragram Image
+    var_t *varlist; // début des variables
+    void *endmark;  // marqueur fin de variables
+    uint32_t program_end; // marqueur code
 }img_header_t;
+
+// entête enregistrement section bytecode
+typedef struct _img_bcode{
+    char sign[8];
+    unsigned size;
+}img_bcode_t;
+
+// entête enregistrement section variables
+typedef struct _img_vars{
+    char sign[4];
+    uint32_t size;
+}img_vars_t;
 
 
 static token_t token;
@@ -446,6 +464,26 @@ static void close_file(FIL *fh){
             files_handles[i]=NULL;
             return;
         }
+    }
+}
+
+static void write_file(FIL *fh,void* buffer, unsigned size){
+    FRESULT result;
+    unsigned count;
+    result=f_write(fh,buffer,size, &count);
+    if (result!=FR_OK){
+        printf("Error writing to file, code: %d\r", result);
+        throw(eERR_FILE_IO);
+    }
+}
+
+static void read_file(FIL *fh, void *buffer, unsigned size){
+    FRESULT result;
+    unsigned count;
+    result=f_read(fh,buffer,size,&count);
+    if (result!=FR_OK){
+        printf("Error reading from file, code: %d\r",result);
+        throw(eERR_FILE_IO);
     }
 }
 
@@ -831,7 +869,8 @@ static  const char* error_msg[]={
     "Parameters count disagree with DECLARE\r",
     "Unknow variable or constant\r",
     "Command line only\r",
-    "File open error\r",
+    "Bad file type\r",
+    "File I/O error\r",
     "File already open\r",
     "File not opened\r",
     "No file handle available\r",
@@ -2774,7 +2813,7 @@ static void kw_locate(){
 // aussi ' commentaire
 static void kw_rem(){
     char c=0;
-    while (!(activ_reader->eof || ((c=reader_getc(activ_reader))=='\r')));
+    while (!(activ_reader->eof || ((c=reader_getc(activ_reader))==A_CR) || (c==A_LF)));
     line_count++;
 }//f()
 
@@ -2999,32 +3038,35 @@ static void compile_file(const char *file_name){
     }
 }//f
 
+static void valid_signature(char *seg_name, const char *signature){
+    if (strcmp(seg_name,signature)){
+        memset(progspace,0,prog_size);
+        throw(eERR_BAD_FILE);
+    }
+}
+
 static void load_image(const char *file_name){
     FIL *fh;
-    FRESULT result;
-    unsigned size;
-    img_header_t imghdr;
+    img_header_t img_hdr;
+    img_bcode_t bcode_hdr;
+    img_vars_t vars_hdr;
     
     clear();
     if ((fh=open_file(file_name,FA_READ))){
-        result=f_read(fh,(void*)&imghdr,sizeof(img_header_t),&size);
-        if (result==FR_OK && size==sizeof(img_header_t)){
-            result=f_read(fh,(void *)progspace,prog_size,&size);
-            if (result==FR_OK && size==prog_size){
-                program_end=imghdr.program_end;
-                varlist=imghdr.varlist;
-                endmark=imghdr.endmark;
-                dptr=program_end;
-                program_loaded=true;
-                close_file(fh);
-            }else{
-                printf("failed load progspace\r");
-                throw(eERR_FILE_IO);
-            }
-        }else{
-            printf("failed to read file header\r");
-            throw(eERR_FILE_IO);
-        }
+        read_file(fh,(void*)&img_hdr,sizeof(img_header_t));
+        valid_signature(img_hdr.sign,IMG_SIGN);
+        read_file(fh,(void *)&bcode_hdr,sizeof(img_bcode_t));
+        valid_signature(bcode_hdr.sign,BCODE_SIGN);
+        read_file(fh,(void*)progspace,bcode_hdr.size);
+        read_file(fh,(void*)&vars_hdr,sizeof(img_vars_t));
+        valid_signature(vars_hdr.sign,VAR_SIGN);
+        read_file(fh,(void*)endmark-vars_hdr.size,vars_hdr.size);
+        program_end=img_hdr.program_end;
+        varlist=img_hdr.varlist;
+        endmark=img_hdr.endmark;
+        dptr=program_end;
+        program_loaded=true;
+        close_file(fh);
     }else{
         printf("faile to open file %s\r",file_name);
         throw(eERR_FILE_IO);
@@ -3100,27 +3142,27 @@ static void kw_run(){
 
 static void save_image(const char *fname){
     FIL *fh;
-    FRESULT result;
-    img_header_t imgh;
-    unsigned count;
+    img_header_t img_hdr;
+    img_bcode_t bcode_hdr;
+    img_vars_t vars_hdr;
     
     if ((fh=open_file(fname,FA_WRITE|FA_CREATE_ALWAYS))){
-        imgh.endmark=endmark;
-        imgh.program_end=program_end;
-        imgh.varlist=varlist;
-        result=f_write(fh,(void*)&imgh,sizeof(img_header_t),&count);
-        if (result==FR_OK && count==sizeof(img_header_t)){
-            free_string_vars();
-            result=f_write(fh,(void*)progspace,prog_size,&count);
-            close_file(fh);
-            if (!((result==FR_OK) && (count==prog_size))){ 
-                printf("failed to write progspace\r");
-                throw(eERR_FILE_IO);
-            }
-        }else{ 
-            printf("failed to write file header\r");
-            throw(eERR_FILE_IO);
-        }
+        strcpy(img_hdr.sign,IMG_SIGN);
+        img_hdr.endmark=endmark;
+        img_hdr.program_end=program_end;
+        img_hdr.varlist=varlist;
+        write_file(fh,(void*)&img_hdr,sizeof(img_header_t)); 
+        free_string_vars();
+        // écriture de la section code
+        strcpy(bcode_hdr.sign,BCODE_SIGN);
+        bcode_hdr.size=program_end;
+        write_file(fh,(void*)&bcode_hdr,sizeof(img_bcode_t));
+        write_file(fh,(void*)progspace,bcode_hdr.size);
+        strcpy(vars_hdr.sign,VAR_SIGN);
+        vars_hdr.size=(void*)progspace+prog_size-endmark;
+        write_file(fh,(void*)&vars_hdr,sizeof(img_vars_t));
+        write_file(fh,endmark,vars_hdr.size);
+        close_file(fh);
     }else{ 
         printf("failed to create file %s\r",fname);
         throw(eERR_FILE_IO);

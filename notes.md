@@ -1,3 +1,8 @@
+2018-05-23
+----------
+1. Modifié kw_rem pour accepter A_LF et A_CR comme fin de ligne.
+2. Modification à la structure des fichiers images.
+
 2018-05-22
 ----------
 1. Modificiaton à main() pour désactiver les buffers sur stdout et stdin. Ajout de
