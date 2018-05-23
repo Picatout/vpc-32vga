@@ -1,3 +1,10 @@
+2018-05-22
+----------
+1. Modificiaton à main() pour désactiver les buffers sur stdout et stdin. Ajout de
+   _mon_getc() dans console.c NOTE: getchar() n'attend pas le CR.
+2. Création de saveimg, loadimg
+
+
 2018-05-21
 ----------
 1. Travail sur console, ajout de _mon_putc() pour supporté printf() définie dans stdio

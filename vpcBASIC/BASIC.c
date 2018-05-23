@@ -204,6 +204,12 @@ typedef struct _token{
    char str[MAX_LINE_LEN]; // chaîne représentant le jeton.
 }token_t;
 
+typedef struct _img_header{
+    var_t *varlist;
+    void *endmark;
+    uint32_t program_end;
+}img_header_t;
+
 
 static token_t token;
 static bool unget_token=false;
@@ -261,6 +267,7 @@ static void kw_left();
 static void kw_len();
 static void kw_let();
 static void kw_line();
+static void kw_loadimg();
 static void kw_local();
 static void kw_locate();
 static void kw_log();
@@ -289,6 +296,7 @@ static void kw_return();
 static void kw_right();
 static void kw_rnd();
 static void kw_run();
+static void kw_saveimg();
 static void kw_save_screen();
 static void kw_scrlup();
 static void kw_scrldown();
@@ -595,6 +603,23 @@ char *file_read_field(unsigned file_no){
     return pad;
 }
 
+//extraction du nom de fichier
+static char *expect_file_name(char *fname){
+    next_token();
+    switch(token.id){
+        case eSTRING:
+        case eIDENT:
+            strcpy(fname,token.str);
+            uppercase(fname);
+            break;
+        case eNL:
+            return NULL;
+        default:
+            throw(eERR_BAD_ARG);
+    }
+    return fname;
+}
+
 
 //identifiant KEYWORD doit-être dans le même ordre que
 //dans la liste KEYWORD
@@ -610,11 +635,11 @@ enum {eKW_ABS,eKW_ACOS,eKW_AND,eKW_FILE_APPEND,eKW_APPEND,
       eKW_INPUT,eKW_INSERT,eKW_INSTR,
       eKW_INSERTLN,
       eKW_INVVID,eKW_KEY,eKW_LCASE,eKW_LEFT,eKW_LEN,
-      eKW_LET,eKW_LINE,eKW_LOCAL,eKW_LOCATE,eKW_LOG,eKW_LOG10,eKW_LOOP,eKW_MAX,
+      eKW_LET,eKW_LINE,eKW_LOADIMG,eKW_LOCAL,eKW_LOCATE,eKW_LOG,eKW_LOG10,eKW_LOOP,eKW_MAX,
       eKW_MDIV,eKW_MID,eKW_MIN,eKW_MOD,eKW_NEXT,
       eKW_NOT,eKW_OPEN,eKW_OR,eKW_FILE_OUTPUT,eKW_PEEK,eKW_PLAY,eKW_POLYGON,eKW_POWER,eKW_PREPEND,
       eKW_PRINT,eKW_PSET,eKW_PUTC,eKW_RANDOMISIZE,eKW_RECT,eKW_REF,eKW_REM,eKW_RESTSCR,
-      eKW_RETURN,eKW_RIGHT,eKW_RND,eKW_RUN,eKW_SAVESCR,eKW_SCRLUP,eKW_SCRLDN,eKW_SEEK,
+      eKW_RETURN,eKW_RIGHT,eKW_RND,eKW_RUN,eKW_SAVEIMG,eKW_SAVESCR,eKW_SCRLUP,eKW_SCRLDN,eKW_SEEK,
       eKW_SELECT,eKW_SETTMR,eKW_SHL,eKW_SHR,eKW_SINE,eKW_SLEEP,eKW_SOUND,
       eKW_SPRITE,eKW_SQRT,eKW_SRCLEAR,eKW_SRLOAD,eKW_SRREAD,eKW_SRSSAVE,eKW_SRWRITE,eKW_STR,
       eKW_SUB,eKW_SUBST,eKW_TAN,eKW_TIME,eKW_THEN,eKW_TICKS,
@@ -680,6 +705,7 @@ static const dict_entry_t KEYWORD[]={
     {kw_len,3,eFN_INT,"LEN"},
     {kw_let,3,eFN_NOT,"LET"},
     {kw_line,4,eFN_NOT,"LINE"},
+    {kw_loadimg,7,eFN_NOT,"LOADIMG"},
     {kw_local,5,eFN_NOT,"LOCAL"},
     {kw_locate,6,eFN_NOT,"LOCATE"},
     {kw_log,3,eFN_FPT,"LOG"},
@@ -712,6 +738,7 @@ static const dict_entry_t KEYWORD[]={
     {kw_right,6,eFN_STR,"RIGHT$"},
     {kw_rnd,3,eFN_INT,"RND"},
     {kw_run,3,eFN_NOT,"RUN"},
+    {kw_saveimg,7,eFN_NOT,"SAVEIMG"},
     {kw_save_screen,7,eFN_NOT,"SAVESCR"},
     {kw_scrlup,6,eFN_NOT,"SCRLUP"},
     {kw_scrldown,6,eFN_NOT,"SCRLDN"},
@@ -803,6 +830,7 @@ static  const char* error_msg[]={
     "Call to an undefined sub-routine\r",
     "Parameters count disagree with DECLARE\r",
     "Unknow variable or constant\r",
+    "Command line only\r",
     "File open error\r",
     "File already open\r",
     "File not opened\r",
@@ -917,6 +945,7 @@ void free_string_vars(){
                 if (dstr && (*((int8_t*)dstr-1)!=-1)){
                     *((int8_t*)dstr-1)=0;
                     string_free(dstr);
+                    var->str=NULL;
                 }
             }else{
                 str_array=(char**)var->adr;
@@ -926,6 +955,7 @@ void free_string_vars(){
                     if (dstr  && (*((int8_t*)dstr-1)!=-1)){
                         *((int8_t*)dstr-1)=0;
                         string_free(dstr);
+                        var->str=NULL;
                     }
                 }
             }
@@ -2963,10 +2993,44 @@ static void compile_file(const char *file_name){
         program_end=dptr;
         run_it=true;
         compiler_msg(COMP_END,file_name);
+        line_count=0;
     }else{
         throw(eERR_FILE_IO);
     }
 }//f
+
+static void load_image(const char *file_name){
+    FIL *fh;
+    FRESULT result;
+    unsigned size;
+    img_header_t imghdr;
+    
+    clear();
+    if ((fh=open_file(file_name,FA_READ))){
+        result=f_read(fh,(void*)&imghdr,sizeof(img_header_t),&size);
+        if (result==FR_OK && size==sizeof(img_header_t)){
+            result=f_read(fh,(void *)progspace,prog_size,&size);
+            if (result==FR_OK && size==prog_size){
+                program_end=imghdr.program_end;
+                varlist=imghdr.varlist;
+                endmark=imghdr.endmark;
+                dptr=program_end;
+                program_loaded=true;
+                close_file(fh);
+            }else{
+                printf("failed load progspace\r");
+                throw(eERR_FILE_IO);
+            }
+        }else{
+            printf("failed to read file header\r");
+            throw(eERR_FILE_IO);
+        }
+    }else{
+        printf("faile to open file %s\r",file_name);
+        throw(eERR_FILE_IO);
+    }
+}
+
 
 // compile et exécute un fichier BASIC.
 static void run_file(const char *file_name){
@@ -2976,35 +3040,135 @@ static void run_file(const char *file_name){
     activ_reader=&std_reader;
 }
 
+// charge un fichier image et l'exécute
+static void run_image(const char *file_name){
+    load_image(file_name);
+    if (program_loaded){
+        run_it=true;
+        exec_basic();
+    }
+}
 
-//RUN "file_name"
+enum FILE_TYPE{eNOEXT,eBAS,eIMG,eOTHER};
+static int try_file_type(char *fname){
+    char *ext;
+    
+    // est-ce qu'il y a une extension
+    ext=strstr(fname,".BAS");
+    if (ext){
+        return eBAS;
+    }else if (strstr(fname,".IMG")){
+        return eIMG;
+    }
+    if (strchr(fname,'.')){
+        return eOTHER;
+    }
+    return eNOEXT;
+}
+// RUN "file_name"
 // commande pour exécuter un fichier basic
 static void kw_run(){
-    char name[32], *ext;
+    char name[NAME_MAX],*fname, *ext;
+    int ftype;
     
-    next_token();
-    switch (token.id){
-        case eSTRING:
-            strcpy(name,token.str);
-            uppercase(name);
-            ext=strstr(name,".BAS");
-            if (!ext){
-                strcat(name,".BAS");
-            }
-            run_file(name);
-            break;
-        case eNL:
-            if (program_loaded){
-                run_it=true;
-                exec_basic();
-            }else{
-                printf("Nothing to run\r");
-            }
-            break;
-        default:
-            throw(eERR_SYNTAX);
-    }//switch
+    if (complevel || activ_reader==&file_reader){
+        throw(eERR_CMD_ONLY);
+    }
+    fname=expect_file_name(name);
+    if (fname){
+        ftype=try_file_type(fname);
+        switch(ftype){
+            case eNOEXT:
+                strcat(fname,".BAS");
+            case eBAS:
+            case eOTHER:
+                run_file(fname);
+                break;
+            case eIMG:
+                run_image(fname);
+                break;
+        }//switch
+    }else{        
+        if (program_loaded){
+            run_it=true;
+            exec_basic();
+        }else{
+            printf("Nothing to run\r");
+        }
+    }
 }// kw_run()
+
+static void save_image(const char *fname){
+    FIL *fh;
+    FRESULT result;
+    img_header_t imgh;
+    unsigned count;
+    
+    if ((fh=open_file(fname,FA_WRITE|FA_CREATE_ALWAYS))){
+        imgh.endmark=endmark;
+        imgh.program_end=program_end;
+        imgh.varlist=varlist;
+        result=f_write(fh,(void*)&imgh,sizeof(img_header_t),&count);
+        if (result==FR_OK && count==sizeof(img_header_t)){
+            free_string_vars();
+            result=f_write(fh,(void*)progspace,prog_size,&count);
+            close_file(fh);
+            if (!((result==FR_OK) && (count==prog_size))){ 
+                printf("failed to write progspace\r");
+                throw(eERR_FILE_IO);
+            }
+        }else{ 
+            printf("failed to write file header\r");
+            throw(eERR_FILE_IO);
+        }
+    }else{ 
+        printf("failed to create file %s\r",fname);
+        throw(eERR_FILE_IO);
+    }
+}
+
+// SAVEIMG file_name
+// sauvegarde progspace comme une image.
+static void kw_saveimg(){
+    char name[NAME_MAX],*fname;
+    
+    if (complevel || activ_reader==&file_reader){
+        throw(eERR_CMD_ONLY);
+    }
+    fname=expect_file_name(name);
+    if (!program_end){
+        printf("program_space is empty\r");
+        return;
+    }
+    if (!fname){throw(eERR_MISSING_ARG);}
+    if (!strchr(fname,'.')){
+        strcat(fname,".IMG");
+    }
+    save_image(fname);
+}
+
+// LOADIMG file_name
+// charge une image à partir de la carte SD.
+static void kw_loadimg(){
+    char name[NAME_MAX],*fname, *ext;
+    int ftype;
+    
+    if (complevel || activ_reader==&file_reader){
+        throw(eERR_CMD_ONLY);
+    }
+    fname=expect_file_name(name);
+    if (!fname){throw(eERR_MISSING_ARG);}
+    ftype=try_file_type(fname);
+    switch(ftype){
+        case eNOEXT:
+            strcat(fname,".IMG");
+        case eIMG:
+        case eOTHER:
+            load_image(fname);
+            break;
+    }//switch
+}
+
 
 //RANDOMIZE[()]
 // initialise le générateur pseudo-hasard.
@@ -4350,6 +4514,7 @@ void BASIC_shell(unsigned basic_heap, unsigned option, const char* file_or_strin
                 exec_basic();
             }
         }else{
+            close_all_files();
             dptr=program_end;
             if (var_local){
                 // exception générée pendant la compilation d'une SUB|FUNC

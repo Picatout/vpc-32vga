@@ -281,6 +281,28 @@ void insert_line(console_t dev){
  * ref: http://microchipdeveloper.com/faq:81
  ********************************/
 
+// utilisé par gets(), fgets()
+int _mon_getc (int canblock){
+    int c;
+    if (canblock){
+        c=wait_key(con);
+        switch (c){
+            case A_CR:
+                put_char(con,c);
+                c=A_LF;
+                break;
+            case A_BKSP:
+                put_char(con,c);
+                put_char(con,A_SPACE);
+                break;
+        }
+        put_char(con,c);
+        return c;
+    }else{
+        return get_key(con);
+    }
+}
+
 // utilisé par printf() et puts()
 void _mon_putc(char c){
     put_char(con,c);

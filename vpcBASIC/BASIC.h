@@ -45,6 +45,7 @@ enum ERROR_CODES{
     eERR_NOT_DEFINED,
     eERR_BAD_ARG_COUNT,
     eERR_UNKNOWN,
+    eERR_CMD_ONLY,
     eERR_FILE_IO,
     eERR_FILE_ALREADY_OPEN,
     eERR_FILE_NOT_OPENED,
@@ -57,7 +58,7 @@ enum ERROR_CODES{
     eERR_PLAY,
     };
 
-#define FIRST_VM_ERROR 25
+#define FIRST_VM_ERROR 26
     
 #else
     FIRST_VM_ERROR=24

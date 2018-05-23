@@ -173,6 +173,9 @@ void init_msg(int output, int code, const char *msg){
 //__attribute__((mips16))
 void main(void) {
     cold_start_init();
+    //ref: http://microchipdeveloper.com/xc32:redirect-stdout
+    setbuf(stdout,NULL); 
+    setbuf(stdin,NULL);
     init_msg(SERIAL,ser_init(115200,DEFAULT_LINE_CTRL),"Serial port");
     vga_init();
     init_msg(SERIAL,vga_init(),"video");
