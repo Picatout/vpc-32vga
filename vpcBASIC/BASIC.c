@@ -623,6 +623,7 @@ char *file_read_field(unsigned file_no){
                 break;
             case ',':
             case '\r':
+            case '\n':
                 if (in_quote){
                     pad[i]=c;
                 }else if (i){
@@ -1297,8 +1298,9 @@ static void parse_string(){
                 case 't':
                     token.str[i++]='\t';
                     break;
-                case A_LF:
-                case A_CR:
+                case 'n':
+                    token.str[i++]=A_LF;
+                case 'r':
                     token.str[i++]=A_CR;
                     break;
                 default:
@@ -2410,6 +2412,7 @@ static void kw_ref(){
         }//switch
     }
 }//f
+
 
 // UBOUND(var_name)
 // retourne la taille du tableau
@@ -4027,10 +4030,10 @@ static void print_expr(int file_no){
     unget_token=true;
     expr_type=expression(); 
     if (file_no){
-        code_lit32(_addr(pad));
         if (expr_type==eVAR_FLOAT){
             bytecode(IF2STR);
         }else{
+            code_lit32(_addr(pad));
             bytecode(I2STR);
         }
         _litc(file_no);

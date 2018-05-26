@@ -1,3 +1,14 @@
+2018-05-25
+----------
+1. Débuté documentation du projet dans picatout.github.io
+2. Corrigé bogue régressif dans parse_string();
+3. Corrigé bogue dans print_expr().
+
+2018-05-24
+----------
+1. Test saveimg et loadimg.
+
+
 2018-05-23
 ----------
 1. Modifié kw_rem pour accepter A_LF et A_CR comme fin de ligne.

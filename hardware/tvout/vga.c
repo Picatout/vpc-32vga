@@ -103,6 +103,7 @@ int vga_init(void){
                           DMA_EV_START_IRQ(_SPI1_TX_IRQ));
     DmaChnSetTxfer(0,(void *)dma_source,(void *)&SPI1BUF,HRES/8,4,4);
     // configuredu SPI1 
+    PORTBCLR&=~(VIDEO_OUT);
     SPI1CONbits.DISSDI=1; // SDI not used
     SPI1CONbits.FRMEN=1; // frame mode
     SPI1CONbits.FRMCNT=5; // 32 bytes per frame.
@@ -469,11 +470,11 @@ void enable_cursor_timer(BOOL enable, cursor_tmr_callback_f cb){
 // interruption qui assure le fonctionnement du 
 // générateur vidéo.
 void __ISR(_TIMER_2_VECTOR,IPL7AUTO) tmr2_isr(void){
-    _disable_video_out();
     static int ln_cnt=0;
     static char video=0;
     static char even=1;
     
+    _disable_video_out();
     ln_cnt++;
     switch (ln_cnt){
         case 1:
