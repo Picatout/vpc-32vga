@@ -1,3 +1,13 @@
+2018-05-28
+----------
+1. Corrigé bogue dans kw_const.
+2. Modifié parse_identifier() pour accepter le point à l'intérieur d'un identifiant.
+3. Rollback dans shell, maintenant plus possible d'exécuter des image BASIC à partir du shell.
+4. Suppression de l'option **-k** dans cmd_basic.
+5. Contrôle de la position de l'image dans la mémoire RAM. Si progspace est allouée à une
+   autre adresse que celle au moment de la sauvegarde de l'image l'image n'est pas valide.
+   Les images ne sont pas relocalisable.
+
 2018-05-25
 ----------
 1. Débuté documentation du projet dans picatout.github.io

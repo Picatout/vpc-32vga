@@ -211,6 +211,7 @@ static const char VAR_SIGN[]="VAR";  // sergment variables
 // entête fichier image
 typedef struct _img_header{
     char sign[4]; // signature reconnaissance fichier Basic Pragram Image
+    void *progspace; // adresse début mémoire programme.
     var_t *varlist; // début des variables
     void *endmark;  // marqueur fin de variables
     uint32_t program_end; // marqueur code
@@ -871,6 +872,7 @@ static  const char* error_msg[]={
     "Unknow variable or constant\r",
     "Command line only\r",
     "Bad file type\r",
+    "Can't execute image, program space moved\r",
     "File I/O error\r",
     "File already open\r",
     "File not opened\r",
@@ -1320,6 +1322,7 @@ static void parse_string(){
 	token.id=eSTRING;
 }//f()
 
+const char ID_SPECIAL[]="$#_!.";
 
 static void parse_identifier(){
     char c;
@@ -1327,7 +1330,7 @@ static void parse_identifier(){
 
     while (!activ_reader->eof){
         c=reader_getc(activ_reader);
-        if (!(isalnum(c) || c=='_'  || c=='$' || c=='#' || c=='!')){
+        if (!(isalnum(c) || strchr(ID_SPECIAL,c))){
             reader_ungetc(activ_reader);
             break;
         }
@@ -2497,9 +2500,9 @@ static void kw_const(){
         switch (var->vtype){
             case eVAR_STR:
                 expect(eSTRING);
-                var->str=string_alloc(strlen(token.str));
-                strcpy(var->str,token.str);
-                *(var->str-1)=1; // compte référence.
+                literal_string(token.str);
+                code_lit32(_addr(&var->adr));
+                bytecode(ISTRSTORE);
                 break;
             case eVAR_BYTE:
             case eVAR_INT:
@@ -3048,7 +3051,7 @@ static void valid_signature(char *seg_name, const char *signature){
     }
 }
 
-static void load_image(const char *file_name){
+static void load_image(const char *file_name){ 
     FIL *fh;
     img_header_t img_hdr;
     img_bcode_t bcode_hdr;
@@ -3058,6 +3061,7 @@ static void load_image(const char *file_name){
     if ((fh=open_file(file_name,FA_READ))){
         read_file(fh,(void*)&img_hdr,sizeof(img_header_t));
         valid_signature(img_hdr.sign,IMG_SIGN);
+        if (img_hdr.progspace!=progspace){throw(eERR_PROG_MOVED);}
         read_file(fh,(void *)&bcode_hdr,sizeof(img_bcode_t));
         valid_signature(bcode_hdr.sign,BCODE_SIGN);
         read_file(fh,(void*)progspace,bcode_hdr.size);
@@ -3151,6 +3155,7 @@ static void save_image(const char *fname){
     
     if ((fh=open_file(fname,FA_WRITE|FA_CREATE_ALWAYS))){
         strcpy(img_hdr.sign,IMG_SIGN);
+        img_hdr.progspace=progspace;
         img_hdr.endmark=endmark;
         img_hdr.program_end=program_end;
         img_hdr.varlist=varlist;
@@ -4468,6 +4473,7 @@ static void clear(){
     program_loaded=false;
     run_it=false;
     program_end=0;
+    dptr=0;
     exit_basic=false;
     csp=0;
 }//f
@@ -4494,57 +4500,58 @@ static void print_cstack(){
 extern bool f_trace;
 
 void BASIC_shell(unsigned basic_heap, unsigned option, const char* file_or_string){
+    sram_device_t *sram_file;
+    reader_t *sr_reader;
+    int len;
 
     pad=string_alloc(PAD_SIZE);
     *(pad-1)=255;
     pad[PAD_SIZE-1]=0;
     prog_size=(biggest_chunk()-basic_heap)&0xfffffff0;
     progspace=malloc(prog_size);
-    if (!(option==EXEC_STRING || option==EXEC_FILE)){
-        clear_screen(con);
-        printf("vpcBASIC v1.0\nRAM available: %d bytes\r"
-               "strings space: %d bytes\r",prog_size,basic_heap);
-    }
     clear();
 //  initialisation lecteur source.
     reader_init(&std_reader,eDEV_KBD,NULL);
     activ_reader=&std_reader; 
-    if (option==EXEC_FILE){
-        if (!setjmp(failed)){
-            run_file(file_or_string);
-            exit_basic=true;
-        }else{
-            clear();
-            reader_init(&std_reader,eDEV_KBD,NULL);
-            activ_reader=&std_reader;
-        }
-    }else if ((option==EXEC_STRING) || (option==EXEC_STAY)){
-        sram_device_t *sram_file;
-        reader_t *sr_reader;
-        int len;
-
-        sram_file=malloc(sizeof(sram_device_t));
-        sr_reader=malloc(sizeof(reader_t));
-        sram_file->first=0;
-        sram_file->pos=0;
-        len=strlen(file_or_string)+1;
-        sram_file->fsize=len;
-        sram_write_block(0,file_or_string,len);
-        reader_init(sr_reader,eDEV_SPIRAM,sram_file);
-        if (!setjmp(failed)){
-            activ_reader=sr_reader;
-            compile();
-            exec_basic();
-        }else {
-            clear();
-        }
-        activ_reader=&std_reader;
-        free(sram_file);
-        free(sr_reader);
-        if (option==EXEC_STRING){
-            exit_basic=true;
-        }
+    switch (option){
+        case EXEC_FILE:
+            if (!setjmp(failed)){
+                run_file(file_or_string);
+                exit_basic=true;
+            }else{
+                clear();
+            }
+            break;
+        case EXEC_STRING:
+        case EXEC_STAY:
+            sram_file=malloc(sizeof(sram_device_t));
+            sr_reader=malloc(sizeof(reader_t));
+            sram_file->first=0;
+            sram_file->pos=0;
+            len=strlen(file_or_string)+1;
+            sram_file->fsize=len;
+            sram_write_block(0,file_or_string,len);
+            reader_init(sr_reader,eDEV_SPIRAM,sram_file);
+            if (!setjmp(failed)){
+                activ_reader=sr_reader;
+                compile();
+                exec_basic();
+            }else {
+                clear();
+            }
+            free(sram_file);
+            free(sr_reader);
+            if (option==EXEC_STRING){
+                exit_basic=true;
+            }
+            break;
+        case BASIC_PROMPT:
+            clear_screen(con);
+            printf("vpcBASIC v1.0\nRAM available: %d bytes\r"
+                   "strings space: %d bytes\r",prog_size,basic_heap);
+            break;
     }
+    activ_reader=&std_reader;
 // boucle interpréteur    
     while (!exit_basic){
         if (!setjmp(failed)){

@@ -260,20 +260,21 @@ next:
 #ifdef _CHECK_STACKS
     jal depth
     nop
-    addiu v0,v0,-DSTACK_SIZE
-    bltz v0, 1f
+    addiu t0,v0,-DSTACK_SIZE
+    bltz t0, 1f
     addiu v0,zero,ERR_DSTACK_OVF
     b bye2
     nop
     jal rdepth
     nop
-    addiu v0,v0,-RSTACK_SIZE
-    bltz v0, 1f
+    addiu t0,v0,-RSTACK_SIZE
+    bltz t0, 1f
     addiu v0,zero,ERR_RSTACK_OVF
     b bye2
     nop
 #endif    
-1:  lbu   t0, 0(ip)
+1:  
+    lbu   t0, 0(ip)
     sll   t0, t0, 2   
     la t1,opcodes_table
     addu t1,t1,t0

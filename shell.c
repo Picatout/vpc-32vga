@@ -222,17 +222,19 @@ static char* cmd_format(int tok_count, char  **tok_list){
 #include "vpcBASIC/BASIC.h"
 
 static void cmd_basic_help(){
-    printf("USAGE: basic [-?]|[-c|-k string]| file_name\r"
+    printf("USAGE: basic [-?] [-h size] |[-c string]| [file_name]\r"
            "-?  display this help.\r"
-           "-c or -k \"code\", \"code\" is BASIC code to be executed.\r"
-           "Use -c to leave BASIC or -k to stay after code execution.\r"
-           "file_name, is a basic file to execute. Stay in BASIC at program exit.\r");
+           "-h size, fix heap size in bytes. Default is 4096.\r" 
+           "-c  \"code\", execute the basic commands in quotes and exit to shell.\r"
+           "basic file_name, to execute a BASIC file and exit to shell.\r"
+           "invoke BASIC alone for REPL\r" 
+           );
 }
 
 // basic [-h n] [fichier.bas]
 // -h -> espace réservé pour l'allocation dynamique 4096 octets par défaut.
 static char* cmd_basic(int tok_count, char  **tok_list){
-    char *fmt=NULL, *basic_file=NULL;
+    char *fmt=NULL, basic_file[32];
     int i;
     unsigned heap=DEFAULT_HEAP;
     unsigned option=BASIC_PROMPT;
@@ -248,19 +250,73 @@ static char* cmd_basic(int tok_count, char  **tok_list){
             heap=atoi(tok_list[i]);
         }else if (!strcmp(tok_list[i],"-c")){
             i++;
-            basic_file=(char*)tok_list[i];
+            strcpy(basic_file,(char*)tok_list[i]);
             option=EXEC_STRING;
-        }else if (!strcmp(tok_list[i],"-k")){
-            i++;
-            basic_file=(char*)tok_list[i];
-            option=EXEC_STAY;
         }else{
-            basic_file=(char*)tok_list[i];
+            strcpy(basic_file,(char*)tok_list[i]);
+            uppercase(basic_file);
+            if (!strchr(basic_file,'.')){
+                strcat(basic_file,".BAS");
+            }
             option=EXEC_FILE;
         }
     }//for
     BASIC_shell(heap,option,basic_file);
     return fmt;
+}
+
+// compare 2 fichiers affiche les différences
+static char *cmd_fc(int tok_count, char **tok_list){
+    char *file1, *file2;
+    FIL *fh1, *fh2;
+    FRESULT result;
+    unsigned offset, size,count,c1,c2;
+    unsigned last_cr;
+    
+#define BUF_SIZE 32    
+    char buf1[BUF_SIZE], buf2[BUF_SIZE];
+    
+    if (tok_count<3){
+        print_error_msg(ERR_USAGE,"USAGE: fc file1 file2\r",0);
+        return NULL;
+    }
+    fh1=malloc(sizeof(FIL));
+    fh2=malloc(sizeof(FIL));
+    if ((result=f_open(fh1,tok_list[1],FA_READ)!=FR_OK)){
+         print_error_msg(ERR_FIO,"File open failed.\r",result);
+         free(fh1);
+         free(fh2);
+         return NULL;
+    }
+    if ((result=f_open(fh2,tok_list[2],FA_READ)!=FR_OK)){
+         print_error_msg(ERR_FIO,"File open failed.\r",result);
+         free(fh1);
+         free(fh2);
+         return NULL;
+    }
+    size=min(fh1->fsize,fh2->fsize);
+    count=0;
+    while (count<size && !(f_eof(fh1)||f_eof(fh2)||f_error(fh1)||f_error(fh2))){
+        f_read(fh1,buf1,BUF_SIZE,&c1);
+        f_read(fh2,buf2,BUF_SIZE,&c2);
+        offset=0;
+        while (offset<c1){
+            putchar(buf1[offset]);
+            if (buf1[offset]!=buf2[offset]){
+                printf("offset: %d, file1: %02X, file2: %02X\r",count+offset, 
+                        buf1[offset], buf2[offset]);
+                count=size;
+                break;
+            }
+            offset++;
+        }
+        count+=c1;
+    }
+    f_close(fh1);
+    f_close(fh2);
+    free(fh1);
+    free(fh2);
+    return NULL;
 }
 
 static char* cmd_cd(int tok_count, char  **tok_list){ // change le répertoire courant.
@@ -971,11 +1027,13 @@ static char  *cmd_run(int tok_count, char** tok_list){
                 sprintf(fmt,"%s%s",tok_list[1],".COM");
                 res=f_stat(fmt,&fi);
                 if (!res){
-                    // to be done
+                    print_error_msg(ERR_NOT_CMD,tok_list[0],0);
                 }else{
                     print_error_msg(ERR_NOT_CMD,tok_list[0],0);
                 }
             }
+        }else{
+            print_error_msg(ERR_NOT_CMD,tok_list[0],0);
         }
     } 
     return NULL;
@@ -995,6 +1053,7 @@ static const shell_cmd_t commands[]={
     {"dir",cmd_dir},
     {"echo",cmd_echo},
     {"edit",cmd_edit},
+    {"fc",cmd_fc},
     {"free",cmd_free},
     {"format",cmd_format},
     {"basic",cmd_basic},
