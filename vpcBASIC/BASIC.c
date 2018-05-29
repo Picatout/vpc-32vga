@@ -849,7 +849,7 @@ static void print_token_info(){
 
 // messages d'erreurs correspondants à l'enumération BASIC_ERROR_CODES dans BASIC.h
 static  const char* error_msg[]={
-    "Existing BASIC\r",  
+    "Exiting BASIC\r",  
     "missing argument\r",
     "too much arguments\r",
     "bad argument\r",
