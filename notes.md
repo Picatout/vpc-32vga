@@ -1,3 +1,8 @@
+2018-05-29
+----------
+1. Modifier trace pour accepter option 2=> pas à pas.
+2. Réécrire en majuscules les noms des opcodes dans le dictionnaire de la VM.
+
 2018-05-28
 ----------
 1. Corrigé bogue dans kw_const.

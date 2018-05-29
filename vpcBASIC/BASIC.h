@@ -61,6 +61,7 @@ enum ERROR_CODES{
     };
 
 #define FIRST_VM_ERROR 28
+
     
 #else
     FIRST_VM_ERROR=28
