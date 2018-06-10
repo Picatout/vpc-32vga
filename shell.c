@@ -44,6 +44,7 @@
 #include <string.h>
 #include <setjmp.h>
 #include <plib.h>
+#include <setjmp.h>
 
 #include "hardware/HardwareProfile.h"
 #include "hardware/ps2_kbd/keyboard.h"
@@ -57,6 +58,8 @@
 #include "console.h"
 
 #define MAX_LINE_LEN 80
+
+static jmp_buf failed;
 
 static const char _version[]="1.0";
 static const char *console_name[]={"VGA","SERIAL"};
@@ -104,7 +107,7 @@ static const char *ERR_MSG[]={
 };
 
 
-void print_error_msg(SH_ERROR err_code,const char *detail,FRESULT io_code){
+static void throw(SH_ERROR err_code,const char *detail,FRESULT io_code){
     if (err_code==ERR_FIO){
             printf(ERR_MSG[ERR_FIO],io_code);
     }else{
@@ -113,8 +116,8 @@ void print_error_msg(SH_ERROR err_code,const char *detail,FRESULT io_code){
     if (detail){
        printf(detail);
     }
-}//print_error_msg()
-
+    longjmp(failed,err_code);
+}
 
 static int nbr_cmd;
 
@@ -124,18 +127,6 @@ typedef struct shell_cmd{
 }shell_cmd_t;
 
 static const shell_cmd_t commands[];
-
-//Affichage de la date et heure du dernier shutdown
-//enerigistré dans le RTCC.
-void last_shutdown(){
-    alm_state_t shutdown;
-    
-    rtcc_power_down_stamp(&shutdown);
-    if (shutdown.day){
-        printf("Last power down: %s %02d/%02d %02d:%02d\r",weekdays[shutdown.wkday],
-                shutdown.month,shutdown.day,shutdown.hour,shutdown.min);
-    }
-}
 
 static int search_command(const char *target){
     int i;
@@ -153,14 +144,14 @@ static char* cmd_help(int tok_count, char  **tok_list){
     for(i=0;i<nbr_cmd;i++){
         pos.xy=get_curpos(con);
         if (pos.x>(CHAR_PER_LINE-strlen(commands[i].name)-2)){
-            put_char(con,'\n');
+            put_char(con,'\r');
         }
         printf(commands[i].name);
         if (i<(nbr_cmd-1)){
             put_char(con,' ');
         }
     }
-    put_char(con,'\n');
+    put_char(con,'\r');
     return NULL;
 }
 
@@ -212,7 +203,7 @@ static char* cmd_uptime(int tok_count, char  **tok_list){
 
 static char* cmd_format(int tok_count, char  **tok_list){
     if (tok_count==2){
-        print_error_msg(ERR_NOT_DONE,NULL,0);
+        throw(ERR_NOT_DONE,NULL,0);
     }else{
         printf("USAGE: format volume_name\r");
     }
@@ -277,22 +268,20 @@ static char *cmd_fc(int tok_count, char **tok_list){
     char buf1[BUF_SIZE], buf2[BUF_SIZE];
     
     if (tok_count<3){
-        print_error_msg(ERR_USAGE,"USAGE: fc file1 file2\r",0);
-        return NULL;
+        throw(ERR_USAGE,"USAGE: fc file1 file2\r",0);
     }
     fh1=malloc(sizeof(FIL));
     fh2=malloc(sizeof(FIL));
     if ((result=f_open(fh1,tok_list[1],FA_READ)!=FR_OK)){
-         print_error_msg(ERR_FIO,"File open failed.\r",result);
          free(fh1);
          free(fh2);
-         return NULL;
+         throw(ERR_FIO,"File open failed.\r",result);
     }
     if ((result=f_open(fh2,tok_list[2],FA_READ)!=FR_OK)){
-         print_error_msg(ERR_FIO,"File open failed.\r",result);
-         free(fh1);
-         free(fh2);
-         return NULL;
+        f_close(fh1); 
+        free(fh1);
+        free(fh2);
+        throw(ERR_FIO,"File open failed.\r",result);
     }
     size=min(fh1->fsize,fh2->fsize);
     count=0;
@@ -323,8 +312,7 @@ static char* cmd_cd(int tok_count, char  **tok_list){ // change le répertoire co
     char *path;
     if (!SDCardReady){
         if (!mount(0)){
-            print_error_msg(ERR_NO_SDCARD,NULL,0);
-            return;
+            throw(ERR_NO_SDCARD,NULL,0);
         }else{
             SDCardReady=TRUE;
         }
@@ -351,8 +339,7 @@ static char* cmd_del(int tok_count, char  **tok_list){ // efface un fichier
     FILINFO *fi;
     if (!SDCardReady){
         if (!mount(0)){
-            print_error_msg(ERR_NO_SDCARD,NULL,0);
-            return;
+            throw(ERR_NO_SDCARD,NULL,0);
         }else{
             SDCardReady=TRUE;
         }
@@ -364,7 +351,7 @@ static char* cmd_del(int tok_count, char  **tok_list){ // efface un fichier
             error=f_stat(tok_list[1],fi);
             if (!error){
                 if (fi->fattrib & (ATT_DIR|ATT_RO)){
-                    print_error_msg(ERR_DENIED,"can't delete directory or read only file.\r",0);
+                    throw(ERR_DENIED,"can't delete directory or read only file.\r",0);
                 }
                 else{
                     error=f_unlink(tok_list[1]);
@@ -372,13 +359,13 @@ static char* cmd_del(int tok_count, char  **tok_list){ // efface un fichier
             }
             free(fi);
             if (error){
-                print_error_msg(ERR_FIO,"",error);
+                throw(ERR_FIO,"",error);
             }
         }else{
-               print_error_msg(ERR_ALLOC,"delete failed.\r",0);
+               throw(ERR_ALLOC,"delete failed.\r",0);
         }
    }else{
-       print_error_msg(ERR_USAGE, "delete file\rUSAGE: del file_name\r",0);
+       throw(ERR_USAGE, "delete file\rUSAGE: del file_name\r",0);
    }
     return NULL;
 }//del()
@@ -386,8 +373,7 @@ static char* cmd_del(int tok_count, char  **tok_list){ // efface un fichier
 static char* cmd_ren(int tok_count, char  **tok_list){ // renomme un fichier
     if (!SDCardReady){
         if (!mount(0)){
-            print_error_msg(ERR_NO_SDCARD,NULL,0);
-            return;
+            throw(ERR_NO_SDCARD,NULL,0);
         }else{
             SDCardReady=TRUE;
         }
@@ -395,7 +381,7 @@ static char* cmd_ren(int tok_count, char  **tok_list){ // renomme un fichier
     if (tok_count==3){
         f_rename(tok_list[1],tok_list[2]);
     }else{
-        print_error_msg(ERR_USAGE,"rename file\rUSAGE: ren name new_name\r",0);
+        throw(ERR_USAGE,"rename file\rUSAGE: ren name new_name\r",0);
     }
     return NULL;
 }//ren
@@ -406,8 +392,7 @@ static char* cmd_copy(int tok_count, char  **tok_list){ // copie un fichier
     int n;
     if (!SDCardReady){
         if (!mount(0)){
-            print_error_msg(ERR_NO_SDCARD,NULL,0);
-            return;
+            throw(ERR_NO_SDCARD,NULL,0);
         }else{
             SDCardReady=TRUE;
         }
@@ -437,13 +422,13 @@ static char* cmd_copy(int tok_count, char  **tok_list){ // copie un fichier
                 free(fnew);
             }
             if (error){
-                print_error_msg(ERR_FIO,"copy failed.\r",error);
+                throw(ERR_FIO,"copy failed.\r",error);
             }
         }else{
             print(con,ERR_MSG[ERR_ALLOC]);
         }
     }else{
-        print_error_msg(ERR_USAGE,"copy file\rUSAGE: copy file_name new_file_name\r",0);
+        throw(ERR_USAGE,"copy file\rUSAGE: copy file_name new_file_name\r",0);
     }
     return NULL;
 }//copy()
@@ -451,7 +436,7 @@ static char* cmd_copy(int tok_count, char  **tok_list){ // copie un fichier
 static char* cmd_send(int tok_count, char  **tok_list){ // envoie un fichier via uart
     // to do
    if (tok_count==2){
-       print_error_msg(ERR_NOT_DONE,NULL,0);
+       throw(ERR_NOT_DONE,NULL,0);
    }else{
        printf("send file via serial\rUSAGE: send file_name\r");
    }
@@ -461,7 +446,7 @@ static char* cmd_send(int tok_count, char  **tok_list){ // envoie un fichier via
 static char* cmd_receive(int tok_count, char  **tok_list){ // reçois un fichier via uart
     // to do
    if (tok_count==2){
-       print_error_msg(ERR_NOT_DONE,NULL,0);
+       throw(ERR_NOT_DONE,NULL,0);
    }else{
        printf("receive file from serial\rUSAGE: receive file_name\r");
    }
@@ -476,8 +461,7 @@ static char* cmd_hdump(int tok_count, char  **tok_list){ // affiche un fichier e
     
     if (!SDCardReady){
         if (!mount(0)){
-            print_error_msg(ERR_NO_SDCARD,NULL,0);
-            return;
+            throw(ERR_NO_SDCARD,NULL,0);
         }else{
             SDCardReady=TRUE;
         }
@@ -535,13 +519,13 @@ static char* cmd_hdump(int tok_count, char  **tok_list){ // affiche un fichier e
                 free(buff);
                 free(fmt);
             }else{
-                print_error_msg(ERR_ALLOC,"Can't display file.\r",0);
+                throw(ERR_ALLOC,"Can't display file.\r",0);
             }
         }else{
-            print_error_msg(ERR_FIO,"File open failed.\r",error);
+            throw(ERR_FIO,"File open failed.\r",error);
         }
    }else{
-       print_error_msg(ERR_USAGE, "USAGE: hdump file_name\r",0);
+       throw(ERR_USAGE, "USAGE: hdump file_name\r",0);
    }
     return NULL;
 }//f
@@ -549,8 +533,7 @@ static char* cmd_hdump(int tok_count, char  **tok_list){ // affiche un fichier e
 static char* cmd_mount(int tok_count, char  **tok_list){// mount SDcard drive
     if (!SDCardReady){
         if (!mount(0)){
-            print_error_msg(ERR_NO_SDCARD,NULL,0);
-            return;
+            throw(ERR_NO_SDCARD,NULL,0);
         }else{
             SDCardReady=TRUE;
         }
@@ -572,8 +555,7 @@ static char* cmd_more(int tok_count, char  **tok_list){
     text_coord_t cpos;
     if (!SDCardReady){
         if (!mount(0)){
-            print_error_msg(ERR_NO_SDCARD,NULL,0);
-            return;
+            throw(ERR_NO_SDCARD,NULL,0);
         }else{
             SDCardReady=TRUE;
         }
@@ -619,13 +601,13 @@ static char* cmd_more(int tok_count, char  **tok_list){
                 free(buff);
                 free(fmt);
             }else{
-                print_error_msg(ERR_ALLOC,"Can't display file.\r",0);
+                throw(ERR_ALLOC,"Can't display file.\r",0);
             }
         }else{
-            print_error_msg(ERR_FIO,"File open failed.\r",error);
+            throw(ERR_FIO,"File open failed.\r",error);
         }
    }else{
-       print_error_msg(ERR_USAGE, "USAGE: more file_name\r",0);
+       throw(ERR_USAGE, "USAGE: more file_name\r",0);
    }
     return NULL;
 }//more
@@ -644,8 +626,7 @@ static char* cmd_mkdir(int tok_count, char  **tok_list){
     //char *fmt;
     if (!SDCardReady){
         if (!mount(0)){
-            print_error_msg(ERR_NO_SDCARD,NULL,0);
-            return;
+            throw(ERR_NO_SDCARD,NULL,0);
         }else{
             SDCardReady=TRUE;
         }
@@ -659,7 +640,7 @@ static char* cmd_mkdir(int tok_count, char  **tok_list){
             print(con,ERR_MSG[ERR_MKDIR]);
         }
     }else{
-        print_error_msg(ERR_USAGE,"mkdir create a directory\rUSAGE: mkdir dir_name\r",0);
+        throw(ERR_USAGE,"mkdir create a directory\rUSAGE: mkdir dir_name\r",0);
     }
     return NULL;
 }// mkdir()
@@ -688,8 +669,7 @@ static char* cmd_dir(int tok_count, char **tok_list){
     
     if (!SDCardReady){
         if (!mount(0)){
-            print_error_msg(ERR_NO_SDCARD,NULL,0);
-            return NULL;
+            throw(ERR_NO_SDCARD,NULL,0);
         }else{
             SDCardReady=TRUE;
         }
@@ -700,8 +680,7 @@ static char* cmd_dir(int tok_count, char **tok_list){
     if (!(filter && dir && fi)){
         free(dir);
         free(filter);
-        print_error_msg(ERR_ALLOC,NULL,0);
-        return NULL;
+        throw(ERR_ALLOC,NULL,0);
     }
     filter->criteria=eNO_FILTER;
     if (tok_count>1){
@@ -716,7 +695,7 @@ static char* cmd_dir(int tok_count, char **tok_list){
     free(fi);
     free(dir);
     free(filter);
-    if (error) print_error_msg(ERR_FIO,"",error);
+    if (error) throw(ERR_FIO,"",error);
     return NULL;
 }//list_directory()
 
@@ -925,7 +904,7 @@ static char* cmd_set(int tok_count, char  **tok_list){
         var=search_var(tok_list[1]);
         if (var){
             if (!_is_ram_addr(var)){
-                print_error_msg(ERR_DENIED,"Read only variable.",0);
+                throw(ERR_DENIED,"Read only variable.",0);
             }else if (tok_count==2){
                     erase_var(var);
                 }else{
@@ -939,8 +918,7 @@ static char* cmd_set(int tok_count, char  **tok_list){
             name=malloc(strlen(tok_list[1])+1);
             value=malloc(strlen(tok_list[2])+1);
             if (!(var && name && value)){
-                print_error_msg(ERR_ALLOC,"insufficiant memory",0);
-                return;
+                throw(ERR_ALLOC,"insufficiant memory",0);
             }
             strcpy(name,tok_list[1]);
             strcpy(value,tok_list[2]);
@@ -968,7 +946,7 @@ static char *cmd_con(int tok_count, char** tok_list){
             if (vt_init()){
                 console_id=SERIAL_CONSOLE;
             }else{
-                sprintf(result,"switching console failed, VT terminal not ready\n");
+                sprintf(result,"switching console failed, VT terminal not ready\r");
                 return result;
             }
         }else if (!strcmp("-n",tok_list[1])){
@@ -989,7 +967,7 @@ static char *cmd_con(int tok_count, char** tok_list){
             sprintf(result,"%s",console_name[con]);
             break;
         default:
-            sprintf(result,"Select console\nUSAGE: con -n|local|serial.");
+            sprintf(result,"Select console\rUSAGE: con -n|local|serial.");
     }//switch
     return result;
 }
@@ -1027,13 +1005,13 @@ static char  *cmd_run(int tok_count, char** tok_list){
                 sprintf(fmt,"%s%s",tok_list[1],".COM");
                 res=f_stat(fmt,&fi);
                 if (!res){
-                    print_error_msg(ERR_NOT_CMD,tok_list[0],0);
+                    throw(ERR_NOT_CMD,tok_list[0],0);
                 }else{
-                    print_error_msg(ERR_NOT_CMD,tok_list[0],0);
+                    throw(ERR_NOT_CMD,tok_list[0],0);
                 }
             }
         }else{
-            print_error_msg(ERR_NOT_CMD,tok_list[0],0);
+            throw(ERR_NOT_CMD,tok_list[0],0);
         }
     } 
     return NULL;
@@ -1084,7 +1062,7 @@ static char *try_file(int tok_count, char **tok_list){
         tok_list[1]=tok_list[0];
         return cmd_run(2,tok_list);
     }else{
-        print_error_msg(ERR_NOT_CMD,tok_list[0],0);
+        throw(ERR_NOT_CMD,tok_list[0],0);
     }
     return NULL;
 }
@@ -1384,22 +1362,27 @@ static char** tokenize(int *i,const char *script){
 }//tokenize()
 
 static char* exec_script(const char *script){
-    int tok_count;
-    char *result, **tokens;
+    static int tok_count;
+    char *result;
+    static char **tokens;
 
-    tokens=tokenize(&tok_count,script);
-    if (tok_count && tokens) {
-        result=execute_cmd(tok_count,(char **)tokens);
+    if (!setjmp(failed)){
+        tokens=tokenize(&tok_count,script);
+        if (tok_count && tokens) {
+            result=execute_cmd(tok_count,(char **)tokens);
+            free_tokens(tok_count,tokens);
+            return result;
+        } // if
+    }else{
         free_tokens(tok_count,tokens);
-        return result;
-    } // if
+    }
     return NULL;
 }
 
 void shell(void){
     char *str, cmd_line[CHAR_PER_LINE];
     int len;
-
+    
     printf("VPC-32 shell version %s\r",_version);
     while (1){
         printf(prompt);
@@ -1412,7 +1395,5 @@ void shell(void){
             }//if
         }// if
     }//while(1)
-    asm("lui $t0, 0xbfc0"); // _on_reset
-    asm("j  $t0");
 }//shell()
 

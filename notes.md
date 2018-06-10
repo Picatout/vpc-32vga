@@ -1,8 +1,9 @@
 2018-06-10
 ----------
 1. réécriture de console:read_line(). Ajout d'une ligne d'historique permettant
-de répéter la dernière commande.
+   de répéter la dernière commande.
 2. Corrigé bogue dans shell:next_token().
+3. Ajouter mécanisme setjmp dans shell pour une gestion des exception plus efficace.
 
 2018-06-09
 ----------

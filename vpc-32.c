@@ -126,7 +126,7 @@ void graphics_test(){ // test des fonctions graphiques
 
 #endif
 
-const note_t e3k[]={ // rencontre du 3ième type
+static const note_t e3k[]={ // rencontre du 3ième type
     {784.0,500,eTONE_NORMAL}, // sol4
     {880.0,500,eTONE_NORMAL}, // la4
     {698.5,500,eTONE_NORMAL}, // fa4
@@ -136,7 +136,7 @@ const note_t e3k[]={ // rencontre du 3ième type
 };
 
 // affiche la date et l'heure
-void display_date_time(){
+static void display_date_time(){
     char fmt[32];
     rtcc_get_date_str(fmt);
     print(con,fmt);
@@ -144,10 +144,22 @@ void display_date_time(){
     println(con,fmt);
 }
 
+//Affichage de la date et heure du dernier shutdown
+//enerigistré dans le RTCC.
+static void last_shutdown(){
+    alm_state_t shutdown;
+    
+    rtcc_power_down_stamp(&shutdown);
+    if (shutdown.day){
+        printf("Last power down: %s %02d/%02d %02d:%02d\r",weekdays[shutdown.wkday],
+                shutdown.month,shutdown.day,shutdown.hour,shutdown.min);
+    }
+}
+
 
 enum PRT_DEV {VGA,SERIAL,BOTH};
 
-void init_msg(int output, int code, const char *msg){
+static void init_msg(int output, int code, const char *msg){
     char fmt[CHAR_PER_LINE];
 
     if (!code){
