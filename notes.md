@@ -1,3 +1,18 @@
+2018-06-10
+----------
+1. réécriture de console:read_line(). Ajout d'une ligne d'historique permettant
+de répéter la dernière commande.
+2. Corrigé bogue dans shell:next_token().
+
+2018-06-09
+----------
+1. Travail sur la documentation
+
+
+2018-06-01
+----------
+1. création d'un assembleur.
+
 2018-05-29
 ----------
 1. Modifier trace pour accepter option 2=> pas à pas.

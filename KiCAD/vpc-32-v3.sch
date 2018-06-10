@@ -555,10 +555,6 @@ Text Label 4475 3750 2    39   ~ 0
 PGEC/alarm
 Text Label 6075 4650 0    39   ~ 0
 video
-Text Label 4675 2875 2    39   ~ 0
-HSync
-Text Label 4675 3000 2    39   ~ 0
-VSync
 $Comp
 L SD_Card J4
 U 1 1 59750838
@@ -1516,10 +1512,10 @@ F 3 "" H 5275 3550 60  0001 C CNN
 	1    0    0    -1  
 $EndComp
 $Comp
-L push_button sw1
+L push_button sw2
 U 1 1 5A6EA9E3
 P 3425 3250
-F 0 "sw1" H 3425 3100 60  0000 C CNN
+F 0 "sw2" H 3425 3100 60  0000 C CNN
 F 1 "reset" H 3425 3350 39  0000 C CNN
 F 2 "" H 3425 3250 60  0001 C CNN
 F 3 "" H 3425 3250 60  0001 C CNN

@@ -82,12 +82,126 @@ unsigned char wait_key(console_t dev){
     }
 }
 
-unsigned char read_line(console_t dev, unsigned char *ibuff,unsigned char max_char){ // lit une ligne au clavier, retourne la longueur de texte.
-    if (dev==VGA_CONSOLE){
-        return kbd_read_line(ibuff,max_char);
-    }else{
-        return vt_read_line(ibuff,max_char);
-    }
+// renvoie le curseur texte au début de la ligne
+void cursor_home(console_t dev){
+    text_coord_t coord;
+    
+    coord.xy=get_curpos(dev);
+    set_curpos(dev,0,coord.y);
+}
+
+static char last_line[CHAR_PER_LINE]="";
+
+// lit une ligne au clavier, retourne la longueur de texte.
+unsigned char read_line(console_t dev, unsigned char *ibuff,unsigned char buff_size){
+    text_coord_t ocoord;
+    unsigned cpos=0,len=0;
+    unsigned char c=0;
+    static unsigned overwrite=false;
+    ibuff[0]=0;
+    ocoord.xy=get_curpos(dev);
+    buff_size=min(--buff_size,CHAR_PER_LINE-ocoord.x-1);
+    while (!((c==A_CR) || (c==A_LF))){
+        c=wait_key(dev);
+        switch (c){
+            case A_LF:
+            case A_CR:
+                break;
+            case A_BKSP:
+                if (cpos){
+                    if (cpos<len){
+                        memmove(ibuff+cpos-1,ibuff+cpos,len-cpos);
+                        clear_eol(dev);
+                        print(dev,ibuff+cpos-1);
+                        set_curpos(dev,ocoord.x+cpos,ocoord.y);
+                    }else{
+                        print(dev,"\b \b");
+                    }
+                    cpos--;
+                    len--;
+                }else{
+                    beep();
+                }
+                break;
+            case VK_INSERT:
+                overwrite=!overwrite;
+                break;
+            case VK_UP:
+                len=strlen(last_line);
+                strcpy(ibuff,last_line);
+                set_curpos(dev,ocoord.x,ocoord.y);
+                clear_eol(dev);
+                print(dev,ibuff);
+                cpos=len;
+                set_curpos(dev,ocoord.x+cpos,ocoord.y);
+                break;
+            case VK_HOME:
+                set_curpos(dev,ocoord.x,ocoord.y);
+                cpos=0;
+                break;
+            case VK_END:
+                set_curpos(dev,ocoord.x+len,ocoord.y);
+                cpos=len;
+                break;
+            case A_DEL:
+                if (cpos==len){
+                    beep();
+                }else{
+                    memmove(ibuff+cpos-1,ibuff+cpos,len-cpos);
+                    len--;
+                    ibuff[len]=0;
+                    print(dev,ibuff+cpos-1);
+                    set_curpos(dev,ocoord.x+cpos,ocoord.y);
+                }
+                break;
+            case VK_CX:
+                len=0;
+                cpos=0;
+                ibuff[0]=0;
+                set_curpos(dev,ocoord.x,ocoord.y);
+                clear_eol(dev);
+                break;
+            case VK_LEFT:
+                if (cpos){
+                   cpos--;
+                   set_curpos(dev,ocoord.x+cpos,ocoord.y);
+                }
+                break;
+            case VK_RIGHT:
+                if (cpos<len){
+                    cpos++;
+                    set_curpos(dev,ocoord.x+cpos,ocoord.y);
+                }
+                break;
+            default:
+                if ((c<A_SPACE)||(c>127)||((len==buff_size) && !overwrite)){
+                    beep();
+                    break;
+                }
+                if (cpos<len){
+                    if (overwrite){
+                        ibuff[cpos++]=c;
+                        put_char(dev,c);
+                    }else{
+                        memmove(ibuff+cpos+1,ibuff+cpos,len-cpos);
+                        ibuff[cpos]=c;
+                        len++;
+                        ibuff[len]=0;
+                        print(dev,ibuff+cpos);
+                        cpos++;
+                        set_curpos(dev,ocoord.x+cpos,ocoord.y);
+                    }
+                }else{
+                    put_char(dev,c);
+                    ibuff[cpos++]=c;
+                    len++;
+                }
+        }//switch
+    }//while
+    ibuff[len]=0;
+    if (len){strcpy(last_line,ibuff);}
+    put_char(dev,A_CR);
+    return len;
 }
 
 // retourne les coordonnées du curseur texte.

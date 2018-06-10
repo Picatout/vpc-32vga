@@ -87,6 +87,7 @@ void vt_clear_eol(){
     ser_put_char('K');
 }
 
+// efface la ligne et met le curseur à gauche.
 void vt_clear_line(unsigned line){
     vt_set_curpos(0,line);
     send_esc_seq();
@@ -298,14 +299,6 @@ static bool terminal_ready(){
     }
     return result;
 }//terminal_ready()
-
-unsigned char vt_read_line(char *buffer, int size){
-    unsigned char len;
-    
-    len=ser_read_line(buffer,size);
-    vt_get_curpos();
-    return len;
-}
 
 //initialisation du terminal vt100.
 // 80 colonnes

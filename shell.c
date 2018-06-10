@@ -339,7 +339,7 @@ static char* cmd_cd(int tok_count, char  **tok_list){ // change le répertoire co
           error=f_getcwd(path,255);
           if(!error){
               print(con,path);
-              put_char(con,'\n');
+              put_char(con,'\r');
           }
           free(path);
        }
@@ -838,7 +838,7 @@ static char* cmd_alarm(int tok_count, char **tok_list){
                 strcpy(msg,tok_list[4]);
                 msg[31]=0;
                 if (!rtcc_set_alarm(date,time,(uint8_t*)msg)){
-                    print(con, "Failed to set alarm, none free.\n");
+                    print(con, "Failed to set alarm, none free.\r");
                 }
                 break;
             }
@@ -853,7 +853,7 @@ static char* cmd_alarm(int tok_count, char **tok_list){
                 break;
             }
         default:
-            print(con,"USAGE: alarm []|[-c 0|1]|[-d ]|[-s date time \"message\"]\n");
+            print(con,"USAGE: alarm []|[-c 0|1]|[-d ]|[-s date time \"message\"]\r");
     }//switch
     return NULL;
 }
@@ -1269,9 +1269,9 @@ static char *parse_quote(parse_str_t *parse){
 }
 
 static char *next_token(parse_str_t *parse){
-#define TOK_BUF_INCR (64)
+#define TOK_BUF_INCR (32)
 #define _expand_token() if (buf_len<=(slen+strlen(xparsed))){\
-                        buf_len=slen+strlen(xparsed)+TOK_BUF_INCR;\
+                        buf_len=slen+strlen(xparsed)+TOK_BUF_INCR/2;\
                         token=(char*)realloc(token,buf_len);\
                     }
    
@@ -1289,7 +1289,7 @@ static char *next_token(parse_str_t *parse){
     while (loop && (parse->err_pos==-1) && (parse->next<parse->len)){
         switch ((c=parse->script[parse->next++])){
             case ' ':
-            case 9: // TAB
+            case A_TAB: 
                 loop=FALSE;
                 break;
 //            case '{':
@@ -1329,9 +1329,13 @@ static char *next_token(parse_str_t *parse){
                 loop=FALSE;
                 break;
             default:
-                if (slen>=buf_len){
-                    buf_len+=TOK_BUF_INCR;
+                if (slen>=(buf_len-1)){
+                    buf_len+=TOK_BUF_INCR/2;
                     token=(char*)realloc(token,buf_len);
+                    if (!token){
+                        println(con,"reallocation failed");
+                        return NULL;
+                    }
                 }
                 token[slen++]=c;
                 token[slen]=0;

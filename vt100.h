@@ -63,7 +63,7 @@ extern "C" {
     void vt_scroll_down();
     void vt_set_tab_width(int width);
     int  vt_get_tab_width();
-    void vt_insert_insert_line();
+    void vt_insert_line();
     
 #ifdef	__cplusplus
 }
