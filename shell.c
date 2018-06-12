@@ -103,13 +103,16 @@ static const char *ERR_MSG[]={
     "file does not exist.\r",
     "operation denied.\r",
     "disk operation error, code is %d\r",
-    "no SD card detected.\r"
+    "no SD card detected.\r",
+    "XMODEM operation failed\r"
 };
 
 
 static void throw(SH_ERROR err_code,const char *detail,FRESULT io_code){
     if (err_code==ERR_FIO){
             printf(ERR_MSG[ERR_FIO],io_code);
+    }else if (err_code==ERR_XMODEM){
+        printf("exit code was %d\r",io_code);
     }else{
        print(con,ERR_MSG[err_code]);
     }
@@ -433,22 +436,41 @@ static char* cmd_copy(int tok_count, char  **tok_list){ // copie un fichier
     return NULL;
 }//copy()
 
+// envoie un fichier via le port COM
+//
 static char* cmd_send(int tok_count, char  **tok_list){ // envoie un fichier via uart
-    // to do
-   if (tok_count==2){
-       throw(ERR_NOT_DONE,NULL,0);
+    int result;
+    
+   if (tok_count>=2){
+       if (!strcmp(tok_list[1],"-b")){
+           result=xsend(tok_list[2],false);
+       }else{
+            result=xsend(tok_list[1],true);
+       }
+       if (result){
+           throw(ERR_XMODEM,"File transmission failed",result);
+       }
+       
    }else{
-       printf("send file via serial\rUSAGE: send file_name\r");
+       printf("send file via serial\rUSAGE: send [-b] file_name\r");
    }
    return NULL;
 }//cmd_send()
 
 static char* cmd_receive(int tok_count, char  **tok_list){ // reçois un fichier via uart
-    // to do
-   if (tok_count==2){
-       throw(ERR_NOT_DONE,NULL,0);
+    int result;
+   if (tok_count>=2){
+       if (!strcmp(tok_list[1],"-b")){
+           result=xreceive(tok_list[2],false);
+       }else{
+           result=xreceive(tok_list[1],true);
+       }
+       if (result){
+           throw(ERR_XMODEM,"File reception failed",result);
+       }
+       
    }else{
-       printf("receive file from serial\rUSAGE: receive file_name\r");
+       printf("receive file from serial\rUSAGE: receive [-b] file_name\r");
    }
    return NULL;
 }//cmd_receive()
@@ -684,7 +706,7 @@ static char* cmd_dir(int tok_count, char **tok_list){
     }
     filter->criteria=eNO_FILTER;
     if (tok_count>1){
-        path=set_filter(filter,tok_list[1]);// println(con,path); println(con,filter->subs);
+        path=set_filter(filter,tok_list[1]);
     }else{
         path=(char*)current_dir;
     }

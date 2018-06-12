@@ -6,13 +6,11 @@
         <group>
             <file>file:/home/jacques/github/vpc-32vga/hardware/ps2_kbd/keyboard.c</file>
             <file>file:/home/jacques/github/vpc-32vga/console.c</file>
-            <file>file:/home/jacques/github/vpc-32vga/vpcBASIC/vm.h</file>
             <file>file:/home/jacques/github/vpc-32vga/vpcBASIC/BASIC.c</file>
             <file>file:/home/jacques/github/vpc-32vga/hardware/HardwareProfile.h</file>
             <file>file:/home/jacques/github/vpc-32vga/notes.md</file>
             <file>file:/home/jacques/github/vpc-32vga/vpcBASIC/BASIC.h</file>
             <file>file:/home/jacques/github/vpc-32vga/shell.c</file>
-            <file>file:/home/jacques/github/vpc-32vga/vpcBASIC/vm.S</file>
             <file>file:/home/jacques/github/vpc-32vga/vt100.h</file>
             <file>file:/home/jacques/github/vpc-32vga/hardware/tvout/vga.c</file>
             <file>file:/home/jacques/github/vpc-32vga/vt100.c</file>

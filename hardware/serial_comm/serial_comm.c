@@ -34,6 +34,7 @@
 volatile static int head,tail,count;
 volatile static char rx_queue[QUEUE_SIZE];
 volatile static bool rx_off;
+volatile static bool host_xoff;
 
 // ajuste la vitesse de transmission du port sériel.
 void ser_set_baud(int baudrate){
@@ -63,6 +64,7 @@ int ser_init(int baudrate, UART_LINE_CONTROL_MODE LineCtrl){
    IEC1bits.U2RXIE=1;
    U2MODEbits.ON=1;
    UARTSendDataByte(SERIO,FF);
+   host_xoff=false;
    return 0;
 };
 
@@ -87,7 +89,7 @@ char ser_get_char(){
 
 // s'il y a un caractère en attente dans la file
 // le retourne sans l'extraire.
-char ser_pending_char(){
+static char ser_pending_char(){
     if (!count) return 0;
     else{
         return rx_queue[head];
@@ -103,7 +105,7 @@ char ser_wait_char(){
 
 // send a character to serial port
 void ser_put_char(char c){
-    while(!UARTTransmitterIsReady(SERIO));
+    while(host_xoff || !UARTTransmitterIsReady(SERIO));
       UARTSendDataByte(SERIO, c);
 };
 
@@ -166,7 +168,11 @@ void __ISR(_UART_2_VECTOR,IPL3SOFT) serial_rx_isr(void){
         IFS1bits.U2EIF=0;
     }else{
         c=U2RXREG;
-        if (c==CTRL_C){
+        if (c==XOFF){
+            host_xoff=true;
+        }else if (c==XON){
+            host_xoff=false;
+        }else  if (c==CTRL_C){
             abort_signal=true;
         }else {
             rx_queue[tail++]=c;

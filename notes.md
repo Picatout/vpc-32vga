@@ -1,3 +1,9 @@
+2018-06-11
+----------
+1. Implémentation de XMODEM.
+2. xsend() complété
+3. Débuté travail sur xreceive()
+
 2018-06-10
 ----------
 1. réécriture de console:read_line(). Ajout d'une ligne d'historique permettant

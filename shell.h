@@ -44,7 +44,8 @@ typedef enum {
     ERR_NOTEXIST,
     ERR_DENIED,
     ERR_FIO,
-    ERR_NO_SDCARD
+    ERR_NO_SDCARD,
+    ERR_XMODEM,        
 } SH_ERROR;
 
 
