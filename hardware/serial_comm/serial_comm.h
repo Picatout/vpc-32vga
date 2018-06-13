@@ -57,6 +57,9 @@ int ser_read_line(char * buffer, int buff_len);
 void ser_set_baud(int baudrate);
 // vide la file de réception.
 void ser_flush_queue();
+// attend pour un caractère 
+// expire et retourne 0 après delay msec.
+char ser_wait_char_dly(unsigned delay);
 
 #endif	/* UART_H */
 

@@ -437,7 +437,7 @@ static char* cmd_copy(int tok_count, char  **tok_list){ // copie un fichier
 }//copy()
 
 // envoie un fichier via le port COM
-//
+// send [-b] file_name
 static char* cmd_send(int tok_count, char  **tok_list){ // envoie un fichier via uart
     int result;
     
@@ -457,6 +457,7 @@ static char* cmd_send(int tok_count, char  **tok_list){ // envoie un fichier via
    return NULL;
 }//cmd_send()
 
+// receive [-b] file_name
 static char* cmd_receive(int tok_count, char  **tok_list){ // reçois un fichier via uart
     int result;
    if (tok_count>=2){

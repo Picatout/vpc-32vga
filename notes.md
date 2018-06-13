@@ -1,3 +1,9 @@
+2018-06-12
+----------
+1. Continuer travail sur xmodem.c
+2. Ajout de ser_wait_char_dly() à serial_comm.c
+3. Ajout de reset_timer() dans HardwareProfile.c
+
 2018-06-11
 ----------
 1. Implémentation de XMODEM.

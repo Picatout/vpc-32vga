@@ -236,6 +236,8 @@ unsigned free_heap();
 unsigned biggest_chunk();
 // démarre la minuterie.
 void set_timer(unsigned int msec);
+// remet à zéro le timer
+void reset_timer();
 // vérifie si la minuterie a expirée
 bool timeout();
 // compteur système incrémenté à la milliseconde.

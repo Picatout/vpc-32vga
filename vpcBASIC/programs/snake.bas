@@ -172,4 +172,3 @@ while k<>\q
   k=waitkey()
 wend
 cls
-                                                                                                                 

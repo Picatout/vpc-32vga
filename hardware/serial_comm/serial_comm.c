@@ -96,12 +96,24 @@ static char ser_pending_char(){
     }
 }
 
+// attend pour un caractère 
+// expire et retourne 0 après delay msec.
+char ser_wait_char_dly(unsigned delay){
+    char c;
+    
+    set_timer(delay);
+    while (!timeout() && !(c=ser_get_char()));
+    return c;
+}
+
+
 // Attend un caractère du port sériel
 char ser_wait_char(){
     char c;
     while (!(c=ser_get_char()));
     return c;
 }
+
 
 // send a character to serial port
 void ser_put_char(char c){

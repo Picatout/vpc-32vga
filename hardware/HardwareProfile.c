@@ -122,6 +122,9 @@ void set_timer(unsigned int msec){
     timer=msec;
 }
 
+void reset_timer(){
+    timer=0;
+}
 // retourne vrai si timer=0
 bool timeout(){
     return !timer;
