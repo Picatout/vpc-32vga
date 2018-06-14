@@ -197,12 +197,19 @@ void main(void) {
     init_msg(SERIAL,sound_init(),"Sound");
     tune(e3k);
     init_msg(SERIAL,kbd_init(),"keyboard");
-    text_coord_t cpos;
     init_msg(SERIAL,!mount(0),"SD card");
     init_msg(SERIAL,sram_init(),"SPI RAM");
     printf("free RAM (bytes): %d\r",heap_size);// il faut utilisé '\r' avec printf()
     last_shutdown();
     display_date_time();
+    
+//    text_coord_t cpos;
+//    while (1){
+//        put_char(con,ser_wait_char());
+//        cpos.xy=get_curpos(con);
+//        if (cpos.y==29){ wait_key(con);clear_screen(con);}
+//    }
+
     shell();
 } // main()
 

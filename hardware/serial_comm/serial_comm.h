@@ -25,6 +25,7 @@
 
 #ifndef UART_H
 #define	UART_H
+#include <stdbool.h>
 #include <p32xxxx.h>
 #include <plib.h>
 
@@ -60,6 +61,8 @@ void ser_flush_queue();
 // attend pour un caractère 
 // expire et retourne 0 après delay msec.
 char ser_wait_char_dly(unsigned delay);
+// active le contrôle de flux logiciel
+void flow_control(bool on);
 
 #endif	/* UART_H */
 

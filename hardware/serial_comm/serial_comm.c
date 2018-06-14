@@ -29,12 +29,13 @@
 #include "../HardwareProfile.h"
 #include "../ps2_kbd//keyboard.h"
 
-#define QUEUE_SIZE (32)
+#define QUEUE_SIZE (128)
 
 volatile static int head,tail,count;
 volatile static char rx_queue[QUEUE_SIZE];
 volatile static bool rx_off;
 volatile static bool host_xoff;
+volatile static bool flow_ctrl_enabled;
 
 // ajuste la vitesse de transmission du port sériel.
 void ser_set_baud(int baudrate){
@@ -64,9 +65,20 @@ int ser_init(int baudrate, UART_LINE_CONTROL_MODE LineCtrl){
    IEC1bits.U2RXIE=1;
    U2MODEbits.ON=1;
    UARTSendDataByte(SERIO,FF);
+   rx_off=false;
    host_xoff=false;
+   flow_ctrl_enabled=true;
    return 0;
 };
+
+void flow_control(bool on){
+    flow_ctrl_enabled=on;
+    if (!flow_ctrl_enabled && rx_off){
+        UARTSendDataByte(SERIO,XON);
+        rx_off=false;
+    }
+}
+
 
 // get character from serial port
 // return 0 if none available
@@ -74,9 +86,9 @@ char ser_get_char(){
     char c=0;
     if (count){
         c=rx_queue[head++];
-        head%=QUEUE_SIZE;
+        head&=(QUEUE_SIZE-1);
         count--;
-    }else{
+    }else if (flow_ctrl_enabled){
         IEC1bits.U2RXIE=0;
         if (rx_off){
             UARTSendDataByte(SERIO, XON);
@@ -180,17 +192,15 @@ void __ISR(_UART_2_VECTOR,IPL3SOFT) serial_rx_isr(void){
         IFS1bits.U2EIF=0;
     }else{
         c=U2RXREG;
-        if (c==XOFF){
+        if (flow_ctrl_enabled && (c==XOFF)){
             host_xoff=true;
-        }else if (c==XON){
+        }else if (flow_ctrl_enabled && (c==XON)){
             host_xoff=false;
-        }else  if (c==CTRL_C){
-            abort_signal=true;
-        }else {
+        }else{
             rx_queue[tail++]=c;
-            tail%=QUEUE_SIZE;
+            tail&=(QUEUE_SIZE-1);
             count++;
-            if (count>(QUEUE_SIZE/3)){
+            if (flow_ctrl_enabled && (count>(QUEUE_SIZE/3))){
                 UARTSendDataByte(SERIO,XOFF);
                 rx_off=true;
             }

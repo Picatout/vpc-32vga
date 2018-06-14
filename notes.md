@@ -1,3 +1,11 @@
+2018-06-13
+----------
+1. Continuer travail sur xmodem.c
+2. Ajout d'un inverseur de tension dans le circuit. Nécessaire pour RS-232.
+3. Agrandissement du tampon réception COM à 128 octets dans serial_comm.c
+4. Ajout de la fonction flow_control() dans serial_comm.c
+4. xmodem.c complété
+
 2018-06-12
 ----------
 1. Continuer travail sur xmodem.c
