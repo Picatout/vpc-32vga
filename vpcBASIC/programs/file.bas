@@ -13,5 +13,3 @@ input #1,x$,n1,n2,n3!
 close(#1)
 ? hello$,c,x$,n1,n2,n3!
 
-
-                                                                                     

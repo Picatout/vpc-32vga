@@ -2412,6 +2412,14 @@ fmod: // ( float1 float2 -- float )
     b next
     move T,v0
 
+_dict CON,"CON"
+// sélectionne la console SERIAL|LOCAL
+select_console: //( n -- )
+    la a0, con
+    sb T,0(a0)
+    addiu dp,dp,-CELL_SIZE
+    b next
+    lw T,0(dp)
     
 .end StackVM
     
@@ -2582,7 +2590,7 @@ opcodes_table:
 .word fplus,fminus,fmul,fdiv
 .word sine, cos, tan, atan, acos, asine,fsqrt,fexp,fpower,flog,flog10
 .word vm_fabs,floor,fceil,fmod,fdot
-
+.word select_console
     
 bad_op: 
 .word rfetch,tor,rfrom    

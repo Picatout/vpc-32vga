@@ -1,3 +1,8 @@
+2018-06-16
+----------
+1. Ajouter ajouter commande CON à BASIC.
+2. Renommé paramètre  **SERIAL** de la commande **CON** par **REMOTE**.
+
 2018-06-13
 ----------
 1. Continuer travail sur xmodem.c

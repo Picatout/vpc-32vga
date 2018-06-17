@@ -187,20 +187,7 @@ enum OP_CODES{
  ICEIL,
  IFMOD,
  IFDOT,        
-         
- 
- // IRFETCH ,
-// ITOR   , 
-// IRFROM , 
-// IDIVMOD,
-// IDDUP ,
-// IUSLASH , // 25
-// IUSTAR ,
-// IMSTAR ,
-// IUMSTAR ,
-// I2STAR , 
-// I2SLASH, // 40
-// IDDROP,
+ ICON,        
 
 };
 

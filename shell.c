@@ -56,13 +56,14 @@
 #include "hardware/rtcc/rtcc.h"
 //#include "hardware/serial_comm/serial_comm.h"
 #include "console.h"
+#include "xmodem.h"
 
 #define MAX_LINE_LEN 80
 
 static jmp_buf failed;
 
 static const char _version[]="1.0";
-static const char *console_name[]={"VGA","SERIAL"};
+static const char *console_name[]={"VGA","COM"};
 static const char _true[]="T";
 static const char _false[]="F";
 static const char _nil[]="";
@@ -436,42 +437,69 @@ static char* cmd_copy(int tok_count, char  **tok_list){ // copie un fichier
     return NULL;
 }//copy()
 
+static char *parse_xmodem_options(int tok_count, char **tok_list, unsigned *options){
+    int i;
+    char *file_name;
+    
+    *options=0;
+    for (i=1;i<tok_count;i++){
+        if (tok_list[i][0]=='-'){
+            switch(tok_list[i][1]){
+                case 'b':
+                    *options|=XMODEM_BINARY;
+                    break;
+                case 'v':
+                    *options|=XMODEM_VERBOSE;
+                    break;
+                default:
+                    return NULL;
+            }
+        }else{
+            file_name=tok_list[i];
+        }
+    }//for
+    if (!file_name) throw(ERR_USAGE,"missing file name",0);
+    return file_name;
+}
+
 // envoie un fichier via le port COM
 // send [-b] file_name
 static char* cmd_send(int tok_count, char  **tok_list){ // envoie un fichier via uart
     int result;
+    unsigned options;
+    char *file_name;
     
    if (tok_count>=2){
-       if (!strcmp(tok_list[1],"-b")){
-           result=xsend(tok_list[2],false);
-       }else{
-            result=xsend(tok_list[1],true);
-       }
+       file_name=parse_xmodem_options(tok_count,tok_list,&options);
+       result=xsend(file_name,options);
        if (result){
            throw(ERR_XMODEM,"File transmission failed",result);
+       }else{
+           println(con,"Transmisson completed.");
        }
-       
    }else{
-       printf("send file via serial\rUSAGE: send [-b] file_name\r");
+       printf("Send file to COM port using XMODEM protocol.\rUSAGE: send [-b] [-v] file_name\r");
    }
    return NULL;
 }//cmd_send()
 
-// receive [-b] file_name
+// receive [-b] [-v] file_name
 static char* cmd_receive(int tok_count, char  **tok_list){ // reçois un fichier via uart
     int result;
+    unsigned options;
+    char *file_name;
+    
    if (tok_count>=2){
-       if (!strcmp(tok_list[1],"-b")){
-           result=xreceive(tok_list[2],false);
-       }else{
-           result=xreceive(tok_list[1],true);
-       }
+       file_name=parse_xmodem_options(tok_count,tok_list,&options);
+       result=xreceive(file_name,options);
        if (result){
            throw(ERR_XMODEM,"File reception failed",result);
+       }else{
+           println(con,"Reception completed");
        }
        
    }else{
-       printf("receive file from serial\rUSAGE: receive [-b] file_name\r");
+       printf("Receive file from COM port using XMODEM protocol.\rUSAGE: receive [-b] [-v] file_name\r");
    }
    return NULL;
 }//cmd_receive()
@@ -956,6 +984,7 @@ static char* cmd_set(int tok_count, char  **tok_list){
     return NULL;
 }
 
+// con -n|local|remote
 static char *cmd_con(int tok_count, char** tok_list){
 #define DISPLAY_NAME (-2)
     char *result;
@@ -965,7 +994,7 @@ static char *cmd_con(int tok_count, char** tok_list){
     if (tok_count==2){
         if (!strcmp("local",tok_list[1])){
             console_id=VGA_CONSOLE;
-        }else if (!strcmp("serial",tok_list[1])){
+        }else if (!strcmp("remote",tok_list[1])){
             if (vt_init()){
                 console_id=SERIAL_CONSOLE;
             }else{
@@ -990,7 +1019,7 @@ static char *cmd_con(int tok_count, char** tok_list){
             sprintf(result,"%s",console_name[con]);
             break;
         default:
-            sprintf(result,"Select console\rUSAGE: con -n|local|serial.");
+            sprintf(result,"Select console\rUSAGE: con -n|remote|lcoal.");
     }//switch
     return result;
 }

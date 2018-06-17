@@ -251,6 +251,7 @@ static void kw_chr();
 static void kw_circle();
 static void kw_close();
 static void kw_cls();
+static void kw_console();
 static void kw_const();
 static void kw_cos();
 static void kw_curcol();
@@ -667,7 +668,7 @@ enum {eKW_ABS,eKW_ACOS,eKW_AND,eKW_FILE_APPEND,eKW_APPEND,
       eKW_AS,eKW_ASC,eKW_ASIN,eKW_ATAN,eKW_BEEP,eKW_BOX,
       eKW_BTEST,eKW_BYE,eKW_CASE,eKW_CEIL,
       eKW_CHR,eKW_CIRCLE,
-      eKW_CLEAR,eKW_CLOSE,eKW_CLS,
+      eKW_CLEAR,eKW_CLOSE,eKW_CLS,eKW_CON,
       eKW_CONST,eKW_COS,eKW_CURCOL,eKW_CURLINE,eKW_DATE,eKW_DECLARE,eKW_DIM,eKW_DO,
       eKW_ELLIPSE,eKW_ELSE,
       eKW_END,eKW_EOF,eKW_EXIST,eKW_EXIT,eKW_EXP,eKW_FGETC,eKW_FILL,eKW_FLOOR,
@@ -710,6 +711,7 @@ static const dict_entry_t KEYWORD[]={
     {clear,5,eFN_NOT,"CLEAR"},
     {kw_close,5,eFN_NOT,"CLOSE"},
     {kw_cls,3,eFN_NOT,"CLS"},
+    {kw_console,3,eFN_NOT,"CON"},
     {kw_const,5,eFN_NOT,"CONST"},
     {kw_cos,3,eFN_FPT,"COS"},
     {kw_curcol,6,eFN_INT,"CURCOL"},
@@ -2481,6 +2483,24 @@ static void kw_curcol(){
 //    bytecode(EXEC);
 //}//f
 
+//CON REMOTE|LOCAL
+//sélectionne la console active
+static void kw_console(){
+    next_token();
+    if (token.id==eKWORD && token.kw==eKW_LOCAL){
+        _litc(VGA_CONSOLE);
+    }else{ 
+        if (token.id!=eIDENT)throw(eERR_BAD_ARG);
+        uppercase(token.str);
+        if (!strcmp(token.str,"REMOTE")){
+            _litc(SERIAL_CONSOLE);
+        }else{
+            throw(eERR_BAD_ARG);
+        }
+    }
+    bytecode(ICON);
+}
+
 // CONST  nom[$]=expr|string [, nom[$]=expr|string]
 // définition d'une constante
 static void kw_const(){
@@ -3325,7 +3345,7 @@ static void kw_exist(){
 }
 
 
-// OPEN string_term FOR INPUT|OUTPUT|APPEND AS #n
+// OPEN file_name FOR INPUT|OUTPUT|APPEND AS #n
 // ouvre le fichier nommé 'file_name' en mode 'mode' avec l'identifiant 'n'
 // 'n' est dans l'intervalle 1..5
 // le programme s'arrête si le fichier ne peut-être ouvert.
@@ -3333,7 +3353,9 @@ static void kw_open(){
     char *fname;
     PF_BYTE mode;
 
-    string_term();
+    next_token();
+    if (token.id!=eSTRING){throw(eERR_BAD_ARG);}
+    literal_string(token.str);
     expect(eKWORD);
     if (token.kw!=eKW_FOR){throw(eERR_SYNTAX);}
     expect(eKWORD);
@@ -3345,7 +3367,7 @@ static void kw_open(){
             mode=FA_CREATE_ALWAYS|FA_WRITE;
             break;
         case eKW_FILE_APPEND:
-            mode=FA_OPEN_ALWAYS|FA_WRITE;
+            mode=FA_CREATE_NEW|FA_WRITE;
             break;
         default:
             throw(eERR_SYNTAX);
@@ -3356,7 +3378,7 @@ static void kw_open(){
     expect(eFILENO);
     _litc(token.n);
     bytecode(IFOPEN);
-    if (mode==(FA_OPEN_ALWAYS|FA_WRITE)){
+    if (mode==(FA_CREATE_NEW|FA_WRITE)){
         _litc(token.n);
         code_lit32(-1);
         bytecode(ISEEK);
