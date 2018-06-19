@@ -226,38 +226,34 @@ static void cmd_basic_help(){
            );
 }
 
-// basic [-h n] [fichier.bas]
+// basic [-?] [-h n] [-c sting] | [fichier.bas]
 // -h -> espace réservé pour l'allocation dynamique 4096 octets par défaut.
 static char* cmd_basic(int tok_count, char  **tok_list){
-    char *fmt=NULL, basic_file[32];
+    char *file_or_string=NULL;
+    
     int i;
     unsigned heap=DEFAULT_HEAP;
     unsigned option=BASIC_PROMPT;
-    
+
     for (i=1;i<tok_count;i++){
         if (!strcmp(tok_list[i],"-?")){
             i=tok_count;
             cmd_basic_help();
-            return fmt;
+            return NULL;
         }
         if (!strcmp(tok_list[i],"-h")){
             i++;
             heap=atoi(tok_list[i]);
         }else if (!strcmp(tok_list[i],"-c")){
-            i++;
-            strcpy(basic_file,(char*)tok_list[i]);
+            file_or_string=(char*)tok_list[++i];
             option=EXEC_STRING;
         }else{
-            strcpy(basic_file,(char*)tok_list[i]);
-            uppercase(basic_file);
-            if (!strchr(basic_file,'.')){
-                strcat(basic_file,".BAS");
-            }
+            file_or_string=(char*)tok_list[i];
             option=EXEC_FILE;
         }
     }//for
-    BASIC_shell(heap,option,basic_file);
-    return fmt;
+    BASIC_shell(heap,option,file_or_string);
+    return NULL;
 }
 
 // compare 2 fichiers affiche les différences
@@ -696,6 +692,18 @@ static char* cmd_mkdir(int tok_count, char  **tok_list){
     return NULL;
 }// mkdir()
 
+// RMDIR dir_name
+static char* cmd_rmdir(int tok_count, char **tok_list){
+    FRESULT result;
+    
+    if (tok_count<2 || !strcmp(tok_list[1],"-?")){
+        printf("Delete a directory\rUSAGE: rmdir dir_name\r");
+    }else{
+        result=f_unlink(tok_list[1]);
+        if (result) throw(ERR_FIO,"rmdir failed\r",result);
+    }
+    return NULL;
+}
 
 // liste les fichiers 
 // S'il n'y a pas de spécification après la commande DIR affiche
@@ -1095,6 +1103,7 @@ static const shell_cmd_t commands[]={
     {"reboot",cmd_reboot},
     {"receive",cmd_receive},
     {"ren",cmd_ren},
+    {"rmdir",cmd_rmdir},
     {"send",cmd_send},
     {"set",cmd_set},
     {"time",cmd_time},
@@ -1267,7 +1276,7 @@ static char *parse_quote(parse_str_t *parse){
     int slen=0;
     BOOL loop=TRUE;
     
-    quote=calloc(sizeof(char),80);
+    quote=malloc(sizeof(char)*80);
     while (loop && (parse->err_pos==-1) && (parse->next<parse->len)){
         c=expect_char(parse);
         switch(c){
@@ -1292,8 +1301,7 @@ static char *parse_quote(parse_str_t *parse){
     }//while
     if (parse->err_pos>-1){
         free(quote);
-    }else{
-        quote=realloc(quote,slen+1);
+        quote=NULL;
     }
     return quote;
 }
@@ -1345,16 +1353,11 @@ static char *next_token(parse_str_t *parse){
                 break;
             case '"':
                 if (slen){
-                    free(token);
-                    parse->err_pos=--parse->next;
+                    parse->next--;
                 }else{
-                   
-                    if ((xparsed=parse_quote(parse))){
-                        _expand_token();
-                        strcat(token,xparsed);
-                        slen=strlen(token);
-                        free(xparsed);
-                    }
+                    free(token);
+                    token=parse_quote(parse);
+                    slen=strlen(token);
                 } 
                 loop=FALSE;
                 break;

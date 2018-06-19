@@ -1,3 +1,8 @@
+2018-06-18
+----------
+1. Corrigé bogue dans shell.c next_token() et cmd_basic();
+2. Ajout de la commande rmdir dans shell.c
+
 2018-06-16
 ----------
 1. Ajouter ajouter commande CON à BASIC.
