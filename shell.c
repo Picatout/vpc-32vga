@@ -1061,6 +1061,24 @@ static env_var_t *search_var(const char *name){
     return list;
 }
 
+// retourne la chaîne valeur d'une variable d'environnement
+// à partir de son nom.
+// Si la variable n'existe pas retourne NULL.
+const char *var_value(char *var_name){
+    env_var_t *var;
+    char vname[32];
+    
+    strcpy(vname,var_name);
+    uppercase(vname);
+    var=search_var(vname);
+    if (var){
+        return var->value;
+    }else{
+        return NULL;
+    }
+}
+
+
 static void erase_var(env_var_t *var){
     env_var_t *prev, *list;
    
@@ -1344,10 +1362,10 @@ static int scan(parse_str_t *parse, const char *target){
 // le nom d'une variable.
 // Les noms de variables commencent par une lette ou '_'
 // suivie d'un nombre quelconque de lettres,chiffres et '_'
-static char *parse_var(parse_str_t *parse){
+static const char *parse_var(parse_str_t *parse){
     int first,len;
     char c, *var_name;
-    env_var_t *var;
+    const char *value;
     
     if (parse->next>=parse->len){
         parse->err_pos=parse->next;
@@ -1362,17 +1380,13 @@ static char *parse_var(parse_str_t *parse){
     while ((parse->err_pos==-1) && (parse->next<parse->len) && 
             (isalnum((c=parse->script[parse->next]))|| (c=='_')))parse->next++;
     len=parse->next-first;
+    len=min(31,len);
     var_name=malloc(len+1);
     memcpy(var_name,&parse->script[first],len);
     var_name[len]=0;
-    uppercase(var_name);
-    var=search_var(var_name);
+    value=var_value(var_name);
     free(var_name);
-    if (var){
-        return var->value;
-    }else{
-        return NULL;
-    }
+    return value;
 }
 
 // extrait un mot délimité par des accolades
@@ -1507,7 +1521,7 @@ static char *next_token(parse_str_t *parse){
 //                }
 //                break;
             case '$':
-                if ((xparsed=parse_var(parse))){
+                if ((xparsed=(char*)parse_var(parse))){
                     _expand_token();
                     strcat(token,xparsed);
                     xparsed=NULL;

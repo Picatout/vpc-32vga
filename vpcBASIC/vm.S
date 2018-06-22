@@ -51,7 +51,8 @@
 .extern play
 .extern sram_save
 .extern sram_load
-//fichiers
+.extern var_value
+    //fichiers
 .extern close_all_files
 .extern basic_fclose    
 .extern basic_fopen
@@ -2421,6 +2422,30 @@ select_console: //( n -- )
     b next
     lw T,0(dp)
     
+_dict ENV,"ENV"
+// obtient la chaîne valeur d'une variable d'environnement.
+get_env: // ( char* -- char*|NULL )    
+    jal var_value
+    move a0,T
+    // préserve *nom_var
+    move t0,T
+    // push *valeur_var
+    move T,v0
+    // libère *nom_var
+    jal free_not_ref
+    move a0,t0
+    beq zero, T, next
+    nop
+    jal strlen
+    move a0,T
+    jal string_alloc
+    move a0,v0
+    move a1,T
+    jal strcpy
+    move a0,v0
+    b next
+    move T,v0
+    
 .end StackVM
     
 //*************************************************
@@ -2590,7 +2615,7 @@ opcodes_table:
 .word fplus,fminus,fmul,fdiv
 .word sine, cos, tan, atan, acos, asine,fsqrt,fexp,fpower,flog,flog10
 .word vm_fabs,floor,fceil,fmod,fdot
-.word select_console
+.word select_console,get_env
     
 bad_op: 
 .word rfetch,tor,rfrom    

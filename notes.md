@@ -1,3 +1,8 @@
+2018-06-22
+----------
+1. Added **ENV** command to BASIC to access shell variables.
+2. Défait point 2 du 2018-05-20, chaînes litérales imbriquées dans le programme.
+
 2018-06-21
 ----------
 1. Suppression de la commande **fc** dans shell.

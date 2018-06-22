@@ -188,7 +188,7 @@ enum OP_CODES{
  IFMOD,
  IFDOT,        
  ICON,        
-
+ IENV,
 };
 
 

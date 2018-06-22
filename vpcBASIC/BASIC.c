@@ -43,6 +43,7 @@
 #include "../hardware/syscall.h"
 #include "../hardware/rtcc/rtcc.h"
 #include "../reader.h"
+#include "../shell.h"
 #include "vm.h"
 #include "BASIC.h"
 
@@ -264,6 +265,7 @@ static void kw_ellipse();
 static void kw_else();
 static void kw_end();
 static void kw_eof();
+static void kw_env();
 static void kw_exist();
 static void kw_exit();
 static void kw_exp();
@@ -671,7 +673,7 @@ enum {eKW_ABS,eKW_ACOS,eKW_AND,eKW_FILE_APPEND,eKW_APPEND,
       eKW_CLEAR,eKW_CLOSE,eKW_CLS,eKW_CON,
       eKW_CONST,eKW_COS,eKW_CURCOL,eKW_CURLINE,eKW_DATE,eKW_DECLARE,eKW_DIM,eKW_DO,
       eKW_ELLIPSE,eKW_ELSE,
-      eKW_END,eKW_EOF,eKW_EXIST,eKW_EXIT,eKW_EXP,eKW_FGETC,eKW_FILL,eKW_FLOOR,
+      eKW_END,eKW_EOF,eKW_ENV,eKW_EXIST,eKW_EXIT,eKW_EXP,eKW_FGETC,eKW_FILL,eKW_FLOOR,
       eKW_FOR,eKW_FREE,eKW_FUNC,eKW_HEX,eKW_GETPIXEL,eKW_IF,
       eKW_INPUT,eKW_INSERT,eKW_INSTR,
       eKW_INSERTLN,
@@ -724,6 +726,7 @@ static const dict_entry_t KEYWORD[]={
     {kw_else,4,eFN_NOT,"ELSE"},
     {kw_end,3,eFN_NOT,"END"},
     {kw_eof,3,eFN_NOT,"EOF"},
+    {kw_env,4,eFN_STR,"ENV$"},
     {kw_exist,5,eFN_INT,"EXIST"},
     {kw_exit,4,eFN_NOT,"EXIT"},
     {kw_exp,3,eFN_FPT,"EXP"},
@@ -3337,6 +3340,13 @@ static void kw_eof(){
     bytecode(IEOF);
 }
 
+// ENV$(var_name)
+// retourne la chaîne d'une variable d'environnement.
+static void kw_env(){
+    parse_arg_list(1);
+    bytecode(IENV);
+}
+
 // EXIST(name$)
 // vérifie si un fichier existe
 static void kw_exist(){
@@ -3603,7 +3613,7 @@ static void literal_string(char *lit_str){
     void *dstr;
     
     size=strlen(lit_str)+2;
-    if (var_local){
+//    if (var_local){
         bytecode(ISTRADR);
         if ((void*)&progspace[dptr+size]>=endmark){
             throw(eERR_ALLOC);
@@ -3611,13 +3621,13 @@ static void literal_string(char *lit_str){
         strcpy(&progspace[dptr+1],lit_str);
         progspace[dptr]=255;
         dptr+=size;
-    }else{
-        dstr=alloc_var_space(size);
-        *(int8_t*)dstr=-1;
-        (char*)dstr++;
-        strcpy((char*)dstr,lit_str);
-        code_lit32(_addr(dstr));
-    }
+//    }else{
+//        dstr=alloc_var_space(size);
+//        *(int8_t*)dstr=-1;
+//        (char*)dstr++;
+//        strcpy((char*)dstr,lit_str);
+//        code_lit32(_addr(dstr));
+//    }
 }//f
 
 

@@ -62,6 +62,8 @@ void print_error_msg(SH_ERROR err_code, const char *detail, FRESULT io_code);
 
 void shell(void);
 
+const char *var_value(char *var_name);
+
 #ifdef	__cplusplus
 }
 #endif
