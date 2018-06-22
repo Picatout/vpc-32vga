@@ -1,3 +1,10 @@
+2018-06-21
+----------
+1. Suppression de la commande **fc** dans shell.
+2. Modification du système d'aide dans shell.
+3. Travail sur la documentation du shell.
+
+
 2018-06-18
 ----------
 1. Corrigé bogue dans shell.c next_token() et cmd_basic();
