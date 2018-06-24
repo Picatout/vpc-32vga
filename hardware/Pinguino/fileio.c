@@ -307,7 +307,7 @@ unsigned listDir(const char *path, filter_t *filter) {
 	res = f_opendir(&dir, path);
         if (!res) {
             p1 = s1 = s2 = 0;
-            printf("\rreading dirctory: ('%s')\r", path);
+            printf("\rreading dirctory: ('%s')\r", &path[2]);
         }else{
             return res;
         }

@@ -77,10 +77,13 @@ static const env_var_t F={(env_var_t*)&T,"FALSE",(char*)_false};
 static const env_var_t nil={(env_var_t*)&F,"NIL",(char*)_nil};
 static env_var_t *shell_vars=(env_var_t*)&nil;
 
+static const char *root_dir="0:/";
+static char *activ_directory=NULL;
+
 static env_var_t *search_var(const char *name);
 static void erase_var(env_var_t *var);
 static char* exec_script(const char *script);
-
+static char *concat_tokens(int tok_count, char **tok_list, int from);
 
 typedef struct{
     const char *script; // chaîne à analyser
@@ -295,7 +298,7 @@ static char* cmd_basic(int tok_count, char  **tok_list){
 }
 
 static const char CD_HLP[]=
-    "USAGE: cd [??]|[directory]\r"
+    "USAGE: cd -? | [directory]\r"
     "Change active dierctory or display active directory\r"
     "Without directory parameter, display active directory.\r"
     "Otherwise change active directory to given one.\r";
@@ -318,13 +321,19 @@ static char* cmd_cd(int tok_count, char  **tok_list){ // change le répertoire co
        if (path){
           error=f_getcwd(path,255);
           if(!error){
-              print(con,path);
-              put_char(con,'\r');
+                printf("%s\r",&path[2]);
+                if (activ_directory!=root_dir){
+                    free(activ_directory);
+                }
+                activ_directory=path;
+          }else{
+              free(path);
           }
-          free(path);
        }
+   }else{
+       printf("%s is not valid directory\r",tok_list[1]);
    }
-    return NULL;
+   return NULL;
 }//cmd_cd()
 
 static const char DEL_HLP[]=
@@ -653,6 +662,7 @@ static char* cmd_mount(int tok_count, char  **tok_list){// mount SDcard drive
             SDCardReady=TRUE;
         }
     }
+    activ_directory=(char*)root_dir;
     return NULL;
 }
 
@@ -664,6 +674,8 @@ static char* cmd_umount(int tok_count, char  **tok_list){
     if (try_help(tok_count,tok_list)) return NULL;
     unmountSD();
     SDCardReady=FALSE;
+    if (activ_directory && activ_directory!=root_dir){free(activ_directory);}
+    activ_directory=NULL;
     return NULL;
 }
 
@@ -847,8 +859,11 @@ static char* cmd_dir(int tok_count, char **tok_list){
     filter->criteria=eNO_FILTER;
     if (tok_count>1){
         path=set_filter(filter,tok_list[1]);
+        if (path==current_dir){
+            path=activ_directory;
+        }
     }else{
-        path=(char*)current_dir;
+        path=activ_directory;
     }
     error=listDir(path,filter);
     if ((error==FR_NO_PATH) && (error=f_stat(path,fi)==FR_OK)){
@@ -1113,6 +1128,21 @@ static void list_vars(){
     }
 }
 
+// concatenate tous les jetons à partir du 4ième.
+static char *concat_tokens(int tok_count, char **tok_list, int from){
+    int i, len=0;
+    char *value;
+    for (i=from;i<tok_count;i++){
+        len+=strlen(tok_list[i])+1;
+    }
+    value=calloc(len,sizeof(char));
+    for(i=from;i<tok_count;i++){
+        value=strcat(value,tok_list[i]);
+        value[strlen(value)]=' ';
+    }
+    return value;
+}
+
 static const char SET_HLP[]=
     "USAGE: set [-?] | [var_name=[value]]\r"
     "Set an environment variable.\r"
@@ -1135,25 +1165,33 @@ static char* cmd_set(int tok_count, char  **tok_list){
                 throw(ERR_DENIED,"Read only variable.",0);
             }else if (tok_count==3 && tok_list[2][0]=='='){
                     erase_var(var);
-                }else if (tok_count==4 && tok_list[2][0]=='='){
-                    value=malloc(strlen(tok_list[3])+1);
-                    strcpy(value,tok_list[3]);
+                }else if (tok_count>=4 && tok_list[2][0]=='='){
+                    if (tok_count>4){
+                        value=concat_tokens(tok_count,tok_list,3);
+                    }else{
+                        value=malloc(strlen(tok_list[3])+1);
+                        strcpy(value,tok_list[3]);
+                    }
                     free(var->value);
                     var->value=value;
                 }else{
                     throw(ERR_SYNTAX,"Try set -?",0);
                 }
         }else{
-            if (tok_count==4 && tok_list[2][0]=='='){//nouvelle variable
+            if (tok_count>=4 && tok_list[2][0]=='='){//nouvelle variable
                 var=malloc(sizeof(env_var_t));
                 name=malloc(strlen(tok_list[1])+1);
-                value=malloc(strlen(tok_list[3])+1);
-                if (!(var && name && value)){
-                    throw(ERR_ALLOC,"insufficiant memory",0);
-                }
                 strcpy(name,tok_list[1]);
                 uppercase(name);
-                strcpy(value,tok_list[3]);
+                if (tok_count>4){
+                    value=concat_tokens(tok_count,tok_list,3);
+                }else{
+                    value=malloc(strlen(tok_list[3])+1);
+                    if (!(var && name && value)){
+                        throw(ERR_ALLOC,"insufficiant memory",0);
+                    }
+                    strcpy(value,tok_list[3]);
+                }
                 var->link=shell_vars;
                 var->name=name;
                 var->value=value;
@@ -1631,6 +1669,7 @@ void shell(void){
     int len;
     
     printf("VPC-32 shell version %s\r",_version);
+    activ_directory=(char*)root_dir;
     while (1){
         printf(prompt);
         len=read_line(con,cmd_line,CHAR_PER_LINE);

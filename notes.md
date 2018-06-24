@@ -1,8 +1,23 @@
+2018-06-24
+----------
+1. Travail sur la documentation du shell de commande.
+2. Réparer bogue dans la commande cmd_set() du shell.
+3. Modification à cmd_dir() et cmd_cd(). Ajout de la variable **activ_directory** et
+   de la constante **root_dir**.
+4. documentation sur le chell de commande complétée.
+
+
+2018-06-23
+----------
+1. Travail sur la documentation du shell de commande.
+
 2018-06-22
 ----------
 1. Added **ENV** command to BASIC to access shell variables.
 2. Défait point 2 du 2018-05-20, chaînes litérales imbriquées dans le programme.
-
+   Avec le mode d'allocation du 20 mai, en mode interactif les chaînes litérales
+   n'étaient pas supprimées à la fin de l'exécution.
+ 
 2018-06-21
 ----------
 1. Suppression de la commande **fc** dans shell.
