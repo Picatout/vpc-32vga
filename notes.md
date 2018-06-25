@@ -1,6 +1,22 @@
+2018-06-25
+----------
+1. Travail sur la documentation de l'éditeur de texte.
+   https://picatout.github.io/vpc-32v/editor.html
+
+2. Modifié editor.c pour désactiver le contrôle de flux. Suite à la modification
+   de l'interruption **void __ISR(_UART_2_VECTOR,IPL3SOFT) serial_rx_isr(void)**
+   dans serial_comm.c les commande <CTRL-Q> et <CTRL-S> ne répondais plus.
+   Le contrôle de flux XOFF/XON est désactivé dans l'éditeur pour résoudre ce problème.
+
+3. Autre bogue corrigé dans l'éditeur, <CTRL-N> ne vidait pas l'écran.
+
+4. Travail sur la documentation de vpcBASIC.
+   https://picatout.github.io/vpc-32v/basic.html
+
 2018-06-24
 ----------
 1. Travail sur la documentation du shell de commande.
+   https://picatout.github.io/vpc-32v/shell.html
 2. Réparer bogue dans la commande cmd_set() du shell.
 3. Modification à cmd_dir() et cmd_cd(). Ajout de la variable **activ_directory** et
    de la constante **root_dir**.

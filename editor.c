@@ -194,6 +194,7 @@ static void clear_all_states(){
     state->flags.update=false;
     state->flags.modified=false;
     state->tail=MAX_SIZE;
+    clear_screen(con);
 }//clear_all_states()
 
 static void new_file(const char *name){
@@ -216,6 +217,7 @@ static void leave_editor(){
     free(screen);
     vga_set_cursor(CR_UNDER);
     quit=true;
+    flow_control(true);
 }
  
 static void list_files(){
@@ -575,7 +577,7 @@ const char* hkeys[]={
   "<CTRL-Q> Quit editor\r",
   "<CTRL-RIGHT> word right\r",
   "<CTRL-S> save file\r",
-  "<F1> display hotkeys\r",
+  "<CTRL-K> display hotkeys\r",
   "<F3> set search criterion\r",
   "<F4> search next\r",
   ""
@@ -605,6 +607,7 @@ static void editor_init(const char *file_name){
     invert_video(con,false);
     vga_set_cursor(CR_UNDER);
     new_file(file_name);
+    flow_control(false);
 }//f()
 
 
@@ -685,9 +688,6 @@ void editor(const char* file_name){
             case VK_ENTER:
                 line_break();
                 break;
-            case VK_F1: // display hotkeys
-                hot_keys();
-                break;
             case VK_F3: // search string
                 search();
                 break;
@@ -702,6 +702,9 @@ void editor(const char* file_name){
                 break;
             case VK_CG:// <CTRL>-G  va à la ligne
                 goto_line();
+                break;
+            case VK_CK:
+                hot_keys();
                 break;
             case VK_CN: // <CTRL>-N  nouveau fichier
                 new_file(NULL);
