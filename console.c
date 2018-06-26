@@ -110,15 +110,16 @@ unsigned char read_line(console_t dev, unsigned char *ibuff,unsigned char buff_s
             case A_BKSP:
                 if (cpos){
                     if (cpos<len){
-                        memmove(ibuff+cpos-1,ibuff+cpos,len-cpos);
-                        clear_eol(dev);
+                        memmove(ibuff+cpos-1,ibuff+cpos,len-cpos+1);
+                        set_curpos(dev,ocoord.x+cpos-1,ocoord.y);
                         print(dev,ibuff+cpos-1);
-                        set_curpos(dev,ocoord.x+cpos,ocoord.y);
+                        clear_eol(dev);
                     }else{
                         print(dev,"\b \b");
                     }
                     cpos--;
                     len--;
+                    set_curpos(dev,ocoord.x+cpos,ocoord.y);
                 }else{
                     beep();
                 }
@@ -147,10 +148,10 @@ unsigned char read_line(console_t dev, unsigned char *ibuff,unsigned char buff_s
                 if (cpos==len){
                     beep();
                 }else{
-                    memmove(ibuff+cpos-1,ibuff+cpos,len-cpos);
+                    memmove(ibuff+cpos,ibuff+cpos+1,len-cpos);
                     len--;
-                    ibuff[len]=0;
-                    print(dev,ibuff+cpos-1);
+                    print(dev,ibuff+cpos);
+                    clear_eol(dev);
                     set_curpos(dev,ocoord.x+cpos,ocoord.y);
                 }
                 break;

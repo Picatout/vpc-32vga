@@ -1,3 +1,10 @@
+
+2018-06-26
+----------
+1. Déboguer console:read_line()
+2. Continuer travail sur la documentation de vpcBASIC. 
+   https://picatout.github.io/vpc-32v/BASIC.html
+
 2018-06-25
 ----------
 1. Travail sur la documentation de l'éditeur de texte.
@@ -11,7 +18,7 @@
 3. Autre bogue corrigé dans l'éditeur, <CTRL-N> ne vidait pas l'écran.
 
 4. Travail sur la documentation de vpcBASIC.
-   https://picatout.github.io/vpc-32v/basic.html
+   https://picatout.github.io/vpc-32v/BASIC.html
 
 2018-06-24
 ----------
