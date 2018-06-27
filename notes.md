@@ -1,3 +1,8 @@
+2018-06-27
+----------
+1. Travail sur la documentation de vpcBASIC
+2. Corrigé bogue dans l'initialisation des constantes et variables chaînes
+   avec une chaîne litérale en mode REPL.
 
 2018-06-26
 ----------

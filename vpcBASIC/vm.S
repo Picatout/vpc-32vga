@@ -1749,12 +1749,19 @@ str_store: // ( str var -- )
     nop
     lbu t1,-1(t0)
     addiu t2,zero,255
-    beq t2,t1,1f   // n'incrémente pas si ref_count==255 (chaîne imbriquée).
+    bne t2,t1,1f   // n'incrémente pas si ref_count==255 (chaîne imbriquée).
     nop
-    addiu t1,t1,1
+    jal string_alloc
+    lbu a0,0(t0)
+    move a0,v0
+    jal strcpy
+    lw a1,-CELL_SIZE(dp)
+    move t0,v0
+    lbu t1,-1(t0)
+1:  addiu t1,t1,1
     sb t1,-1(t0)
     // enregistre le pointeur de chaîne dans la variable.
-1:  sw t0,0(T)
+    sw t0,0(T)
     addiu dp,dp,-2*CELL_SIZE
     b next
     lw T,0(dp)
