@@ -1,3 +1,14 @@
+2018-06-30
+----------
+1. Suppression de commandes LOADIMG et SAVEIMG dans vpcBASIC.
+2. Corrigé les fonctions MIN et MAX  pour accepter les nombres float.
+   La fonction retourne un float. Les paramètres sont convertis en float
+   au besoin avant comparaison.
+3. Modification de la fonction MDIV dans vpcBASIC pour convertir les expressions
+   en entier au besoin.
+4. Modification de la fonction MOD dans vpcBASIC. Maintenant la division est faite
+   sur des entiers.
+
 2018-06-29
 ----------
 1. Corrigé bogue dans vt_insert_line().

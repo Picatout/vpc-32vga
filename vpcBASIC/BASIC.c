@@ -47,6 +47,7 @@
 #include "vm.h"
 #include "BASIC.h"
 
+
 enum frame_type_e {FRAME_SUB,FRAME_FUNC};
 
 /* macros utilisées par le compilateur BASIC*/
@@ -289,7 +290,7 @@ static void kw_left();
 static void kw_len();
 static void kw_let();
 static void kw_line();
-static void kw_loadimg();
+//static void kw_loadimg();
 static void kw_local();
 static void kw_locate();
 static void kw_log();
@@ -318,7 +319,7 @@ static void kw_return();
 static void kw_right();
 static void kw_rnd();
 static void kw_run();
-static void kw_saveimg();
+//static void kw_saveimg();
 static void kw_save_screen();
 static void kw_scrlup();
 static void kw_scrldown();
@@ -678,11 +679,15 @@ enum {eKW_ABS,eKW_ACOS,eKW_AND,eKW_FILE_APPEND,eKW_APPEND,
       eKW_INPUT,eKW_INSERT,eKW_INSTR,
       eKW_INSERTLN,
       eKW_INVVID,eKW_KEY,eKW_LCASE,eKW_LEFT,eKW_LEN,
-      eKW_LET,eKW_LINE,eKW_LOADIMG,eKW_LOCAL,eKW_LOCATE,eKW_LOG,eKW_LOG10,eKW_LOOP,eKW_MAX,
+      eKW_LET,eKW_LINE,
+      //eKW_LOADIMG,
+      eKW_LOCAL,eKW_LOCATE,eKW_LOG,eKW_LOG10,eKW_LOOP,eKW_MAX,
       eKW_MDIV,eKW_MID,eKW_MIN,eKW_MOD,eKW_NEXT,
       eKW_NOT,eKW_OPEN,eKW_OR,eKW_FILE_OUTPUT,eKW_PEEK,eKW_PLAY,eKW_POLYGON,eKW_POWER,eKW_PREPEND,
       eKW_PRINT,eKW_PSET,eKW_PUTC,eKW_RANDOMISIZE,eKW_RECT,eKW_REF,eKW_REM,eKW_RESTSCR,
-      eKW_RETURN,eKW_RIGHT,eKW_RND,eKW_RUN,eKW_SAVEIMG,eKW_SAVESCR,eKW_SCRLUP,eKW_SCRLDN,eKW_SEEK,
+      eKW_RETURN,eKW_RIGHT,eKW_RND,eKW_RUN,
+      //eKW_SAVEIMG,
+      eKW_SAVESCR,eKW_SCRLUP,eKW_SCRLDN,eKW_SEEK,
       eKW_SELECT,eKW_SETTMR,eKW_SHL,eKW_SHR,eKW_SINE,eKW_SLEEP,eKW_SOUND,
       eKW_SPRITE,eKW_SQRT,eKW_SRCLEAR,eKW_SRLOAD,eKW_SRREAD,eKW_SRSSAVE,eKW_SRWRITE,eKW_STR,
       eKW_SUB,eKW_SUBST,eKW_TAN,eKW_TIME,eKW_THEN,eKW_TICKS,
@@ -750,17 +755,17 @@ static const dict_entry_t KEYWORD[]={
     {kw_len,3,eFN_INT,"LEN"},
     {kw_let,3,eFN_NOT,"LET"},
     {kw_line,4,eFN_NOT,"LINE"},
-    {kw_loadimg,7,eFN_NOT,"LOADIMG"},
+    //{kw_loadimg,7,eFN_NOT,"LOADIMG"},
     {kw_local,5,eFN_NOT,"LOCAL"},
     {kw_locate,6,eFN_NOT,"LOCATE"},
     {kw_log,3,eFN_FPT,"LOG"},
     {kw_log10,5,eFN_FPT,"LOG10"},
     {kw_loop,4,eFN_NOT,"LOOP"},
-    {kw_max,3,eFN_INT,"MAX"},
+    {kw_max,3,eFN_FPT,"MAX"},
     {kw_mdiv,4,eFN_INT,"MDIV"},
     {kw_mid,4,eFN_STR,"MID$"},
-    {kw_min,3,eFN_INT,"MIN"},
-    {kw_mod,3,eFN_FPT,"MOD"},
+    {kw_min,3,eFN_FPT,"MIN"},
+    {kw_mod,3,eFN_INT,"MOD"},
     {kw_next,4,eFN_NOT,"NEXT"},
     {bad_syntax,3,eFN_NOT,"NOT"},
     {kw_open,4,eFN_NOT,"OPEN"},
@@ -783,7 +788,7 @@ static const dict_entry_t KEYWORD[]={
     {kw_right,6,eFN_STR,"RIGHT$"},
     {kw_rnd,3,eFN_INT,"RND"},
     {kw_run,3,eFN_NOT,"RUN"},
-    {kw_saveimg,7,eFN_NOT,"SAVEIMG"},
+    //{kw_saveimg,7,eFN_NOT,"SAVEIMG"},
     {kw_save_screen,7,eFN_NOT,"SAVESCR"},
     {kw_scrlup,6,eFN_NOT,"SCRLUP"},
     {kw_scrldown,6,eFN_NOT,"SCRLDN"},
@@ -2633,10 +2638,18 @@ static void kw_floor(){
 }
 
 // MOD(expression)
-// opération modulo sur float
+// opération modulo sur entiers.
 static void kw_mod(){
-    parse_arg_list(2);
-    bytecode(IFMOD);
+    int expr_type;
+    
+    expect(eLPAREN);
+    expr_type=expression();
+    if (expr_type==eVAR_FLOAT){bytecode(IF2INT);}
+    expect(eCOMMA);
+    expr_type=expression();
+    if (expr_type==eVAR_FLOAT){bytecode(IF2INT);}
+    bytecode(IMOD);
+    expect(eRPAREN);
 }
 
 
@@ -3067,41 +3080,41 @@ static void compile_file(const char *file_name){
     }
 }//f
 
-static void valid_signature(char *seg_name, const char *signature){
-    if (strcmp(seg_name,signature)){
-        memset(progspace,0,prog_size);
-        throw(eERR_BAD_FILE);
-    }
-}
+//static void valid_signature(char *seg_name, const char *signature){
+//    if (strcmp(seg_name,signature)){
+//        memset(progspace,0,prog_size);
+//        throw(eERR_BAD_FILE);
+//    }
+//}
 
-static void load_image(const char *file_name){ 
-    FIL *fh;
-    img_header_t img_hdr;
-    img_bcode_t bcode_hdr;
-    img_vars_t vars_hdr;
-    
-    clear();
-    if ((fh=open_file(file_name,FA_READ))){
-        read_file(fh,(void*)&img_hdr,sizeof(img_header_t));
-        valid_signature(img_hdr.sign,IMG_SIGN);
-        if (img_hdr.progspace!=progspace){throw(eERR_PROG_MOVED);}
-        read_file(fh,(void *)&bcode_hdr,sizeof(img_bcode_t));
-        valid_signature(bcode_hdr.sign,BCODE_SIGN);
-        read_file(fh,(void*)progspace,bcode_hdr.size);
-        read_file(fh,(void*)&vars_hdr,sizeof(img_vars_t));
-        valid_signature(vars_hdr.sign,VAR_SIGN);
-        read_file(fh,(void*)endmark-vars_hdr.size,vars_hdr.size);
-        program_end=img_hdr.program_end;
-        varlist=img_hdr.varlist;
-        endmark=img_hdr.endmark;
-        dptr=program_end;
-        program_loaded=true;
-        close_file(fh);
-    }else{
-        printf("faile to open file %s\r",file_name);
-        throw(eERR_FILE_IO);
-    }
-}
+//static void load_image(const char *file_name){ 
+//    FIL *fh;
+//    img_header_t img_hdr;
+//    img_bcode_t bcode_hdr;
+//    img_vars_t vars_hdr;
+//    
+//    clear();
+//    if ((fh=open_file(file_name,FA_READ))){
+//        read_file(fh,(void*)&img_hdr,sizeof(img_header_t));
+//        valid_signature(img_hdr.sign,IMG_SIGN);
+//        if (img_hdr.progspace!=progspace){throw(eERR_PROG_MOVED);}
+//        read_file(fh,(void *)&bcode_hdr,sizeof(img_bcode_t));
+//        valid_signature(bcode_hdr.sign,BCODE_SIGN);
+//        read_file(fh,(void*)progspace,bcode_hdr.size);
+//        read_file(fh,(void*)&vars_hdr,sizeof(img_vars_t));
+//        valid_signature(vars_hdr.sign,VAR_SIGN);
+//        read_file(fh,(void*)endmark-vars_hdr.size,vars_hdr.size);
+//        program_end=img_hdr.program_end;
+//        varlist=img_hdr.varlist;
+//        endmark=img_hdr.endmark;
+//        dptr=program_end;
+//        program_loaded=true;
+//        close_file(fh);
+//    }else{
+//        printf("faile to open file %s\r",file_name);
+//        throw(eERR_FILE_IO);
+//    }
+//}
 
 
 // compile et exécute un fichier BASIC.
@@ -3113,13 +3126,13 @@ static void run_file(const char *file_name){
 }
 
 // charge un fichier image et l'exécute
-static void run_image(const char *file_name){
-    load_image(file_name);
-    if (program_loaded){
-        run_it=true;
-        exec_basic();
-    }
-}
+//static void run_image(const char *file_name){
+//    load_image(file_name);
+//    if (program_loaded){
+//        run_it=true;
+//        exec_basic();
+//    }
+//}
 
 enum FILE_TYPE{eNOEXT,eBAS,eIMG,eOTHER};
 static int try_file_type(char *fname){
@@ -3156,9 +3169,9 @@ static void kw_run(){
             case eOTHER:
                 run_file(fname);
                 break;
-            case eIMG:
-                run_image(fname);
-                break;
+//            case eIMG:
+//                run_image(fname);
+//                break;
         }//switch
     }else{        
         if (program_loaded){
@@ -3170,77 +3183,77 @@ static void kw_run(){
     }
 }// kw_run()
 
-static void save_image(const char *fname){
-    FIL *fh;
-    img_header_t img_hdr;
-    img_bcode_t bcode_hdr;
-    img_vars_t vars_hdr;
-    
-    if ((fh=open_file(fname,FA_WRITE|FA_CREATE_ALWAYS))){
-        strcpy(img_hdr.sign,IMG_SIGN);
-        img_hdr.progspace=progspace;
-        img_hdr.endmark=endmark;
-        img_hdr.program_end=program_end;
-        img_hdr.varlist=varlist;
-        write_file(fh,(void*)&img_hdr,sizeof(img_header_t)); 
-        free_string_vars();
-        // écriture de la section code
-        strcpy(bcode_hdr.sign,BCODE_SIGN);
-        bcode_hdr.size=program_end;
-        write_file(fh,(void*)&bcode_hdr,sizeof(img_bcode_t));
-        write_file(fh,(void*)progspace,bcode_hdr.size);
-        strcpy(vars_hdr.sign,VAR_SIGN);
-        vars_hdr.size=(void*)progspace+prog_size-endmark;
-        write_file(fh,(void*)&vars_hdr,sizeof(img_vars_t));
-        write_file(fh,endmark,vars_hdr.size);
-        close_file(fh);
-    }else{ 
-        printf("failed to create file %s\r",fname);
-        throw(eERR_FILE_IO);
-    }
-}
+//static void save_image(const char *fname){
+//    FIL *fh;
+//    img_header_t img_hdr;
+//    img_bcode_t bcode_hdr;
+//    img_vars_t vars_hdr;
+//    
+//    if ((fh=open_file(fname,FA_WRITE|FA_CREATE_ALWAYS))){
+//        strcpy(img_hdr.sign,IMG_SIGN);
+//        img_hdr.progspace=progspace;
+//        img_hdr.endmark=endmark;
+//        img_hdr.program_end=program_end;
+//        img_hdr.varlist=varlist;
+//        write_file(fh,(void*)&img_hdr,sizeof(img_header_t)); 
+//        free_string_vars();
+//        // écriture de la section code
+//        strcpy(bcode_hdr.sign,BCODE_SIGN);
+//        bcode_hdr.size=program_end;
+//        write_file(fh,(void*)&bcode_hdr,sizeof(img_bcode_t));
+//        write_file(fh,(void*)progspace,bcode_hdr.size);
+//        strcpy(vars_hdr.sign,VAR_SIGN);
+//        vars_hdr.size=(void*)progspace+prog_size-endmark;
+//        write_file(fh,(void*)&vars_hdr,sizeof(img_vars_t));
+//        write_file(fh,endmark,vars_hdr.size);
+//        close_file(fh);
+//    }else{ 
+//        printf("failed to create file %s\r",fname);
+//        throw(eERR_FILE_IO);
+//    }
+//}
 
 // SAVEIMG file_name
 // sauvegarde progspace comme une image.
-static void kw_saveimg(){
-    char name[NAME_MAX],*fname;
-    
-    if (complevel || activ_reader==&file_reader){
-        throw(eERR_CMD_ONLY);
-    }
-    fname=expect_file_name(name);
-    if (!program_end){
-        printf("program_space is empty\r");
-        return;
-    }
-    if (!fname){throw(eERR_MISSING_ARG);}
-    if (!strchr(fname,'.')){
-        strcat(fname,".IMG");
-    }
-    save_image(fname);
-}
+//static void kw_saveimg(){
+//    char name[NAME_MAX],*fname;
+//    
+//    if (complevel || activ_reader==&file_reader){
+//        throw(eERR_CMD_ONLY);
+//    }
+//    fname=expect_file_name(name);
+//    if (!program_end){
+//        printf("program_space is empty\r");
+//        return;
+//    }
+//    if (!fname){throw(eERR_MISSING_ARG);}
+//    if (!strchr(fname,'.')){
+//        strcat(fname,".IMG");
+//    }
+//    save_image(fname);
+//}
 
 // LOADIMG file_name
 // charge une image à partir de la carte SD.
-static void kw_loadimg(){
-    char name[NAME_MAX],*fname, *ext;
-    int ftype;
-    
-    if (complevel || activ_reader==&file_reader){
-        throw(eERR_CMD_ONLY);
-    }
-    fname=expect_file_name(name);
-    if (!fname){throw(eERR_MISSING_ARG);}
-    ftype=try_file_type(fname);
-    switch(ftype){
-        case eNOEXT:
-            strcat(fname,".IMG");
-        case eIMG:
-        case eOTHER:
-            load_image(fname);
-            break;
-    }//switch
-}
+//static void kw_loadimg(){
+//    char name[NAME_MAX],*fname, *ext;
+//    int ftype;
+//    
+//    if (complevel || activ_reader==&file_reader){
+//        throw(eERR_CMD_ONLY);
+//    }
+//    fname=expect_file_name(name);
+//    if (!fname){throw(eERR_MISSING_ARG);}
+//    ftype=try_file_type(fname);
+//    switch(ftype){
+//        case eNOEXT:
+//            strcat(fname,".IMG");
+//        case eIMG:
+//        case eOTHER:
+//            load_image(fname);
+//            break;
+//    }//switch
+//}
 
 
 //RANDOMIZE[()]
@@ -3251,23 +3264,61 @@ static void kw_randomize(){
 }//f
 
 //MAX(expr1,expr2)
+// Le type de donnée de expr1 détermine le type retourné
+// par la fonction.
 static void kw_max(){
-    parse_arg_list(2);
-    bytecode(IMAX);
+    int expr_type;
+    
+    expect(eLPAREN);
+    expr_type=expression();
+    if (expr_type==eVAR_INT){
+        bytecode(II2FLOAT);
+    }
+    expect(eCOMMA);
+    expr_type=expression();
+    if (expr_type==eVAR_INT){
+        bytecode(II2FLOAT);
+    }
+    bytecode(IFMAX);
+    expect(eRPAREN);
 }//f
 
 // MDIV(n1,n2,n3)
 // retourne n1*n2/n3
 // le produit est conservé en double précision.
 static void kw_mdiv(){
-    parse_arg_list(3);
+    int expr_type;
+    expect(eLPAREN);
+    expr_type=expression();
+    if (expr_type==eVAR_FLOAT){bytecode(IF2INT);}
+    expect(eCOMMA);
+    expr_type=expression();
+    if (expr_type==eVAR_FLOAT){bytecode(IF2INT);}
+    expect(eCOMMA);
+    expr_type=expression();
+    if (expr_type==eVAR_FLOAT){bytecode(IF2INT);}
     bytecode(IMDIV);
+    expect(eRPAREN);
 }
 
 //MIN(expr1,expr2)
+// Le type de donnée de expr1 détermine le type retourné
+// par la fonction.
 static void kw_min(){
-    parse_arg_list(2);
-    bytecode(IMIN);
+    int expr_type;
+    
+    expect(eLPAREN);
+    expr_type=expression();
+    if (expr_type==eVAR_INT){
+        bytecode(II2FLOAT);
+    }
+    expect(eCOMMA);
+    expr_type=expression();
+    if (expr_type==eVAR_INT){
+        bytecode(II2FLOAT);
+    }
+    bytecode(IFMIN);
+    expect(eRPAREN);
 }//f
 
 
@@ -3413,8 +3464,11 @@ static void kw_fgetc(){
 /***********************/
 /* fonction graphiques */
 /***********************/
+// Les fonctions graphiques utilise l'opérateur xor
+// ce qui permet d'effacer une figure en la retraçant 
+// une deuxième fois.
 
-// LINE(x1,y,x2,y2,color)
+// LINE(x1,y,x2,y2)
 // trace une ligne droite
 static void kw_line(){
     parse_arg_list(4);

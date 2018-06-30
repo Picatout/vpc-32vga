@@ -898,6 +898,30 @@ fdot: // ( float -- )
     b next
     lw T,0(dp)
     
+_dict FMIN, "FMIN"
+// retourne le plus petit de 2 float
+fmin: // (f1 f2 -- fmin)
+    lw a0, -CELL_SIZE(dp)
+    jal __lesf2
+    move a1,T
+    bgtz v0, 1f
+    nop
+    lw T,-CELL_SIZE(dp)
+1:  b next
+    addiu dp,dp,-CELL_SIZE
+    
+_dict FMAX, "FMAX"
+// retourne le plus grand de 2 float
+fmax: // f1 f2 -- fmax)
+    lw a0,-CELL_SIZE(dp)
+    jal __lesf2
+    move a1, T
+    bltz v0, 1f
+    nop
+    lw T,-CELL_SIZE(dp)
+1:  b next
+    addiu dp,dp,-CELL_SIZE
+    
 _dict SLEEP ,"SLEEP"   
 delay: // 'delay' ( msec -- ) delais en millisecondes
     jal delay_ms
@@ -2622,7 +2646,7 @@ opcodes_table:
 .word ftostr, vm_strtof, negfloat,float_to_int,int_to_float
 .word fplus,fminus,fmul,fdiv
 .word sine, cos, tan, atan, acos, asine,fsqrt,fexp,fpower,flog,flog10
-.word vm_fabs,floor,fceil,fmod,fdot
+.word vm_fabs,floor,fceil,fmod,fdot,fmin,fmax
 .word select_console,get_env
     
 bad_op: 

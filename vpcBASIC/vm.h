@@ -186,7 +186,9 @@ enum OP_CODES{
  IFLOOR,
  ICEIL,
  IFMOD,
- IFDOT,        
+ IFDOT,
+ IFMIN,
+ IFMAX,
  ICON,        
  IENV,
 };
