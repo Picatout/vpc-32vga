@@ -1220,6 +1220,7 @@ case_invert:
     bgtz cmp, 2f
     subu cmp,ubound,chr
     bltz cmp,2f
+    nop
     addu chr,chr,incr
 2:  sb chr,0(dest)
     addiu dest,dest,1

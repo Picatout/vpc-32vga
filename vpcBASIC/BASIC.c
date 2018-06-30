@@ -3442,8 +3442,8 @@ static void kw_circle(){
     bytecode(ICIRCLE);
 }//f
 
-//ELLIPSE(xc,yc,w,h)
-//dessine une ellipse centrée sur xc,yc
+//ELLIPSE(x0,y0,x1,y1)
+//dessine une ellipse circonsrite dans le rectangle.
 // et de largeur w, hauteur h
 static void kw_ellipse(){
     parse_arg_list(4);
@@ -3758,7 +3758,8 @@ static void kw_waitkey(){
 }//f
 
 // TKEY()
-// vérifie si une touche clavier est disponible
+// test pour une touche du clavier
+// retourne la valeur de la touche ou zéro.
 static void kw_tkey(){
     optional_parens();
     bytecode(IQRX);
@@ -4161,11 +4162,10 @@ static void kw_putc(){
 }//f
 
 // KEY()
-// retourne indicateur touche clavier
+// retourne valeur touche clavier
 // ou zéro
 static void kw_key(){ 
-    expect(eLPAREN);
-    expect(eRPAREN);
+    optional_parens();
     bytecode(IKEY);
 }//f
 
@@ -4423,7 +4423,7 @@ static void kw_instr(){
 }
 
 //VAL(chaîne|var$)
-// convertie une valeur châine en entier
+// convertie une valeur chaîne en entier
 static void kw_val(){
     parse_arg_list(1);
     bytecode(I2INT);

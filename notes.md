@@ -1,3 +1,13 @@
+2018-06-29
+----------
+1. Corrigé bogue dans vt_insert_line().
+2. Modifié kw_key() dans BASIC pour rendre les parenthèses optionnelles.
+3. Corrigé bogue dans vm:lcase
+
+2018-06-28
+----------
+1. Travail sur la documentation de vpcBASIC
+
 2018-06-27
 ----------
 1. Travail sur la documentation de vpcBASIC

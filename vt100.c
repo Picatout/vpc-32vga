@@ -269,8 +269,6 @@ void vt_scroll_up(){
 
 void vt_insert_line(){
     send_esc_seq();
-    ser_print("H");
-    send_esc_seq();
     ser_print("1L");
 }
 
