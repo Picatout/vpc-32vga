@@ -214,14 +214,14 @@ static const char CTRIM_HLP[]=
 // calibration oscillateur du RTCC
 // +-127 ppm
 static char* cmd_clktrim(int tok_count, char  **tok_list){
-    int trim;
+    int trim=0;
     
     if (try_help(tok_count,tok_list)) return NULL;
     if (tok_count>1){
         trim=atoi(tok_list[1]);
-        trim=rtcc_calibration(trim);
     }
-    printf("Actual RTCC oscillator trim value: %d",trim);
+    trim=rtcc_calibration(trim);
+    printf("Actual RTCC oscillator trim value: %d\r",trim);
     return NULL;
 }
 

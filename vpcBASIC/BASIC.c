@@ -349,7 +349,6 @@ static void kw_time();
 static void kw_timeout();
 static void kw_tkey();
 static void kw_trace();
-static void kw_tune();
 static void kw_ubound();
 static void kw_ucase();
 static void kw_use();
@@ -691,7 +690,7 @@ enum {eKW_ABS,eKW_ACOS,eKW_AND,eKW_FILE_APPEND,eKW_APPEND,
       eKW_SELECT,eKW_SETTMR,eKW_SHL,eKW_SHR,eKW_SINE,eKW_SLEEP,eKW_SOUND,
       eKW_SPRITE,eKW_SQRT,eKW_SRCLEAR,eKW_SRLOAD,eKW_SRREAD,eKW_SRSSAVE,eKW_SRWRITE,eKW_STR,
       eKW_SUB,eKW_SUBST,eKW_TAN,eKW_TIME,eKW_THEN,eKW_TICKS,
-      eKW_TIMEOUT,eKW_TKEY,eKW_TRACE,eKW_TUNE,eKW_UBOUND,eKW_UCASE,eKW_UNTIL,eKW_USE,eKW_VAL,
+      eKW_TIMEOUT,eKW_TKEY,eKW_TRACE,eKW_UBOUND,eKW_UCASE,eKW_UNTIL,eKW_USE,eKW_VAL,
       eKW_VGACLS,
       eKW_WAITKEY,eKW_WEND,eKW_WHILE,eKW_XOR,eKW_XORPIXEL
 };
@@ -801,7 +800,7 @@ static const dict_entry_t KEYWORD[]={
     {kw_sleep,5,eFN_NOT,"SLEEP"},
     {kw_sound,5,eFN_NOT,"SOUND"},
     {kw_sqrt,4,eFN_FPT,"SQRT"},
-    {kw_sprite,6,eFN_NOT,"SPRITE"},
+    {kw_sprite,6,eFN_INT,"SPRITE"},
     {kw_srclear,7,eFN_NOT,"SRCLEAR"},
     {kw_srload,6,eFN_INT,"SRLOAD"},
     {kw_srread,6,eFN_NOT,"SRREAD"},
@@ -817,7 +816,6 @@ static const dict_entry_t KEYWORD[]={
     {kw_timeout,7,eFN_INT,"TIMEOUT"},
     {kw_tkey,4,eFN_INT,"TKEY"},
     {kw_trace,5,eFN_NOT,"TRACE"},
-    {kw_tune,4,eFN_NOT,"TUNE"},
     {kw_ubound,6,eFN_INT,"UBOUND"},
     {kw_ucase,6,eFN_STR,"UCASE$"},
     {bad_syntax,5,eFN_NOT,"UNTIL"},
@@ -2710,13 +2708,6 @@ static void kw_sound(){
     bytecode(ISOUND);
 }//f
 
-//TUNE(@array)
-// fait entendre une mélodie
-static void kw_tune(){
-    parse_arg_list(1);
-    bytecode(ITUNE);
-}
-
 //PLAY(string|var$)
 //joue une mélodie contenue dans un chaîne.
 static void kw_play(){
@@ -2750,8 +2741,7 @@ static void kw_set_timer(){
 // TIMEOUT()
 // retourne vrai si la varialbe système timer==0
 static void kw_timeout(){
-    expect(eLPAREN);
-    expect(eRPAREN);
+    optional_parens();
     bytecode(ITIMEOUT);
 }//f
 

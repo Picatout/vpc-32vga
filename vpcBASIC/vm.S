@@ -689,7 +689,7 @@ lshift:  // '<<' ( n1 u -- n1<<u )
 _dict RSHIFT ,"RSHIFT"   
 rshift:  // '>>'  ( n1 u -- n1>>u )
     lw t0,-CELL_SIZE(dp)
-    srlv T,t0,T
+    srav T,t0,T
     b next
     addiu dp,dp,-CELL_SIZE
 
@@ -1122,13 +1122,13 @@ vm_beep: // ( -- )
     b next
     nop
     
-_dict TUNE ,"TUNE"   
-melody: // ( addr -- ) fait entendre la mélodie contenue dans le tableau
-    move a0,T
-    jal tune
-    addiu dp,dp,-CELL_SIZE
-    b next
-    lw T,0(dp)
+//_dict TUNE ,"TUNE"   
+//melody: // ( addr -- ) fait entendre la mélodie contenue dans le tableau
+//    move a0,T
+//    jal tune
+//    addiu dp,dp,-CELL_SIZE
+//    b next
+//    lw T,0(dp)
  
 _dict PLAY,"PLAY"
 // joue une mélodie codée dans une chaîne de caractère.
@@ -2011,8 +2011,9 @@ vm_fill: // ( x y -- )
 _dict SPRITE  ,"SPRITE"  
 // applique un bitmap à l'écran VGA en utilisant la fonction xor_pixel 
 // un sprite a un maximum de 32 pixels en largeur et est contenu
-// dans un tableau d'entiers.    
-put_sprite: // ( x y w h addr_sprite -- )   
+// dans un tableau d'entiers. 
+// retourne un booléen indiquant l'occurance d'une collision.    
+put_sprite: // ( x y w h addr_sprite -- bool )   
     addiu sp,sp,-20
     sw T, 16(sp)
     lw a0,-4*CELL_SIZE(dp)
@@ -2021,9 +2022,9 @@ put_sprite: // ( x y w h addr_sprite -- )
     jal sprite
     lw a3,-CELL_SIZE(dp)
     addiu sp,sp,20
-    addiu dp,dp,-5*CELL_SIZE
+    addiu dp,dp,-4*CELL_SIZE
     b next
-    lw T, 0(dp)
+    move T, v0
     
     
 _dict VGACLS,"VGACLS"
@@ -2628,7 +2629,7 @@ opcodes_table:
 .word equal,nequal, less, greater,lteq,gteq,forsave,forrest,for,fortest,fornext
 .word randomize,random
 .word key,qrx,emit,prt_str,cr,dot,type,vm_spaces
-.word vm_sound,vm_beep,melody,vm_play,clr_scr,array_bound    
+.word vm_sound,vm_beep,vm_play,clr_scr,array_bound    
 .word local_store,local_fetch,local_addr,set_frame,sr_call,leave,lc_space
 .word trace,str_adr,str_len,readln,to_int,alloc,str_alloc,str_free,freenotref,str_cpy
 .word curline,curcolon,setcursor

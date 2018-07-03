@@ -1,3 +1,15 @@
+2018-07-02
+----------
+1. Corrigé bogue dans shell:cmd_clktrim().
+2. Modification à graphics:sprite(). Maintenant retourne un entier vrai si collision.
+3. Modification à graphics:xorPixel(). Maintenant retourne un entier vrai si (1 xor 1).
+4. Modification de basic:sprite(). Maintenant est une fonction retournant un entier 
+   indiquant s'il y a eu collision.
+
+2018-07-01
+----------
+1. corrigé bogue dans vm:rshift, remplacé srlv par srav.
+
 2018-06-30
 ----------
 1. Suppression de commandes LOADIMG et SAVEIMG dans vpcBASIC.

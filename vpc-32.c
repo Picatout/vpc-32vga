@@ -126,14 +126,7 @@ void graphics_test(){ // test des fonctions graphiques
 
 #endif
 
-static const note_t e3k[]={ // rencontre du 3ième type
-    {784.0,500,eTONE_NORMAL}, // sol4
-    {880.0,500,eTONE_NORMAL}, // la4
-    {698.5,500,eTONE_NORMAL}, // fa4
-    {349.2,500,eTONE_NORMAL}, // fa3
-    {523.3,500,eTONE_NORMAL}, // do4
-    {0.0,0,0}
-};
+static const char e3k[]="o4g4a4f4o3f4o4c4";
 
 // affiche la date et l'heure
 static void display_date_time(){
@@ -195,7 +188,7 @@ void main(void) {
     init_msg(SERIAL,rtcc_init(),"RTCC");
     heap_size=free_heap();
     init_msg(SERIAL,sound_init(),"Sound");
-    tune(e3k);
+    play(e3k);
     init_msg(SERIAL,kbd_init(),"keyboard");
     init_msg(SERIAL,!mount(0),"SD card");
     init_msg(SERIAL,sram_init(),"SPI RAM");

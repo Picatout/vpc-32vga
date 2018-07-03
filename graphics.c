@@ -49,13 +49,16 @@ void putPixel(int x, int y, unsigned c){
 } // putPixel()
 
 // inverse l'état du pixel
-void xorPixel(int x, int y){
-    int h,ofs;
+// retourne l'état du pixel avant inversion.
+int xorPixel(int x, int y){
+    int h,ofs, collision;
     if ((y>=VRES)||(y<0)||(x>=HRES)||(x<0)) return; // hors limites
     h= x/32;
     ofs = 31 - x&31;
+    collision=(video_bmp[y][h]&(1<<ofs))>>ofs;
     video_bmp[y][h]^= (1<<ofs);
-}//clearPixel()
+    return collision;
+}//xorPixel()
 
 //  REF: http://members.chello.at/~easyfilter/bresenham.html
 void line(int x0, int y0, int x1, int y1)
@@ -169,9 +172,12 @@ void polygon(const int points[], int vertices){
 // y{0..VRES-1}
 // width{1..32} doit-être pair.
 // height{1..VRES}
-void sprite( int x, int y, int width, int height, uint8_t* sp){
+// retourne:
+//    1 si collision
+//    0 sinon
+int sprite( int x, int y, int width, int height, uint8_t* sp){
     int wx,wy,bshift;
-    int xofs,yofs;
+    int xofs,yofs,collision=0;
     
     for (wx=0;wx<width;wx++){
         xofs=wx/2;
@@ -179,10 +185,11 @@ void sprite( int x, int y, int width, int height, uint8_t* sp){
         for (wy=0;wy<height;wy++){
             yofs=wy*width/2;
             if (sp[yofs+xofs]&(8<<bshift)){
-                xorPixel(x+wx,y+wy);
+                collision|=xorPixel(x+wx,y+wy);
             }//if
         }//for y
     }// for x
+    return collision;
 }
 
 
