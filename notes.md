@@ -5,6 +5,7 @@
 3. Modification à graphics:xorPixel(). Maintenant retourne un entier vrai si (1 xor 1).
 4. Modification de basic:sprite(). Maintenant est une fonction retournant un entier 
    indiquant s'il y a eu collision.
+5. Suppression de la commande  BASIC TUNE.
 
 2018-07-01
 ----------

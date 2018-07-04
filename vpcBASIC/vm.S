@@ -473,7 +473,7 @@ rfrom:  // 'r>' ( -- n ) (R: n -- )  envoie R dans T
     addiu rp,rp, -CELL_SIZE
 
 _dict DCNT,"DCNT"
-dcnt:  // 'dcnt' ( -- n) nombre d'éléments sur la pile de données
+dcnt:  // 'dcnt' ( j*x -- n) nombre d'éléments sur la pile de données
     _dpush
     la t0,dstack
     subu t0,dp,t0
@@ -975,7 +975,7 @@ fortest: // IFORTEST ( n -- f|t ) n=valeur variable boucle.
    b next
    addu T,zero,zero
  
-_dict FOR_NEXT ,"NEXT"  
+_dict FOR_NEXT ,"FNEXT"  
 fornext: // INEXT ( adr -- ) incrémente la variable for
     lw t0,0(T)
     addu t0,t0,step
@@ -1162,8 +1162,11 @@ array_bound: // ( adr -- size )
  
 _dict TRACE ,"TRACE"   
 // active/désactive le mode trace
+// 0 désactive trace
+// 1 activation en mode continu
+// 2 activation en mode pas à pas    
 // imprime l'état de dstack avant exécution de chaque opcode    
-trace: // ( f -- )
+trace: // ( n -- )
     la t0,f_trace
     sw T,0(t0)
     _drop_b_next
@@ -1716,7 +1719,7 @@ instr: // ( n0 s1 s2 -- n )
     addiu dp,dp,-2*CELL_SIZE
     
     
-_dict ALLOC, "VAR_ALLOC"    
+_dict ALLOC, "VALLOC"    
 // alloue de la mémoire dans l'espace progamme.
 // n taille en octets
 // addr adresse du bloc mémoire alloué ou 0 si manque de mémoire    
@@ -1726,7 +1729,7 @@ alloc: // ( n -- addr )
     b next
     move T,v0
  
-_dict STRALLOC ,"STR_ALLOC"   
+_dict STRALLOC ,"$ALLOC"   
 //alloue de l'espace sur le heap pour une chaîne asciiz
 // n longueur de la chaîne en octets    
 str_alloc: // ( n -- addr )    
@@ -1735,14 +1738,14 @@ str_alloc: // ( n -- addr )
     j next
     move T,v0
     
-_dict STRFREE , "STR_FREE"   
+_dict STRFREE , "$FREE"   
 // libère une chaîne préalablement allouée sur le heap.
 str_free: // ( addr -- )
     jal string_free
     move a0,T
     _drop_b_next
   
-_dict FREENOTREF,"FREENOTREF"
+_dict FREENOTREF,"$FREENOTREF"
 // libère la chaîne si elle n'est pas référencée.
 freenotref: // ( addr -- )
     jal free_not_ref
@@ -1753,7 +1756,7 @@ freenotref: // ( addr -- )
     
     
     
-_dict STRCPY , "STRCPY$"   
+_dict STRCPY , "$CPY"   
 // copie une chaîne asciiz de src vers dest
 // src adresse chaîne à copier
 // dest adresse destination    
@@ -1791,7 +1794,7 @@ str_store: // ( str var -- )
     b next
     lw T,0(dp)
     
-_dict STRCMP,"STRCMP"
+_dict STRCMP,"$CMP"
 vm_strcmp: // ( s1 s2 -- -1|0|1)
     lw a0,-CELL_SIZE(dp)
     jal strcmp
@@ -1842,28 +1845,27 @@ extbit: // ( n1 n2 -- n3 )
     b next
     addiu dp,dp,-CELL_SIZE
 
-_dict SETTIMER, "SETTIMER"    
+_dict SETTIMER, "SETTMR"    
 // initialise la minuterie système.    
 // n durée en millisecondes    
 settimer: // ( n -- )
-    jal set_timer
-    move a0,T
+    sw T, timer
     _drop_b_next
     
 _dict TIMEOUT, "TIMEOUT"   
 // retourne vrai si la minuterie est expirée.    
 qtimeout: // ( -- t|f)
-    jal timeout
-    sw T,0(dp)
-    move T,v0
-    b next
     addiu dp,dp,CELL_SIZE
+    sw T,0(dp)
+    lw T, timer
+    b next
+    sltiu T,T,1
     
-_dict INV_VIDEO, "INV_VIDEO"    
+_dict INV_VIDEO, "INVERTVID"    
 // contrôle sortie vidéeo N/B ou B/N
-// f -> blanc/noir
-// t -> noir/blanc    
-inv_vid: // ( f|t -- )
+// 0 -> blanc/noir
+// 1 -> noir/blanc    
+inv_vid: // ( 0|1 -- )
     _console
     jal invert_video
     move a1,T
@@ -1887,7 +1889,7 @@ scrlup: // ( -- )
     b next
     nop
    
-_dict INSRTLN , "INSRTLN" 
+_dict INSRTLN , "INSERTLN" 
 //insère une ligne vide à la position du curseur    
 insertln: // ( -- )
     _console
@@ -1896,7 +1898,7 @@ insertln: // ( -- )
     b next
     nop
    
-_dict GETPIXEL ,"GETPIXEL"   
+_dict GETPIXEL ,"PGET"   
 //retourne l'état d'un pixel de la mémoire vidéo    
 get_pixel: // ( x y -- 1|0 )
     lw a0, -CELL_SIZE(dp)
@@ -1906,7 +1908,7 @@ get_pixel: // ( x y -- 1|0 )
     b next
     move T, v0
     
-_dict PUTPIXEL ,"PUTPIXEL"   
+_dict PUTPIXEL ,"PSET"   
 // met le pixel à 1.    
 put_pixel: // ( x y p -- )
     lw a0, -2*CELL_SIZE(dp)
@@ -1917,8 +1919,8 @@ put_pixel: // ( x y p -- )
     b next
     addiu dp,dp, -3*CELL_SIZE
  
-_dict XORPIXEL ,"XORPIXEL"   
-// met le pixel à 0.    
+_dict XORPIXEL ,"PXOR"   
+// inverse le pixel.    
 xor_pixel: // ( x y -- )
     lw a0, -CELL_SIZE(dp)
     jal xorPixel

@@ -31,7 +31,7 @@
 #include "sound/sound.h"
 
 volatile unsigned int  sys_ticks; // milliseconds counter.
-static volatile unsigned int timer; // count down timer
+volatile unsigned int timer; // count down timer
 
 // initialisation matérielle au démarrage.
 void cold_start_init(){
