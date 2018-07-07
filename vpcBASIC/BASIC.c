@@ -4083,7 +4083,7 @@ static void kw_local(){
         next_token();
     }//while
     unget_token=true;
-    bytecode(ILCSPACE);
+    bytecode(ILOCAL);
     bytecode(lc);
 }//f
 

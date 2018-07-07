@@ -888,7 +888,7 @@ dot: // "." ( n -- ) imprime un entier en format libre
     move a2,zero
     _drop_b_next
    
-_dict FDOT,"FDOT"
+_dict FDOT,"F."
 // imprime un nombre en virgule flottante 
 fdot: // ( float -- )
     _console
@@ -2074,7 +2074,7 @@ sram_read: // ( addr_ram addr_var size -- )
     b next
     lw T,0(dp)
     
-_dict SAVSCR, "SAVSCR"
+_dict SAVESCR, "SAVESCR"
 // sauvegarde la totalité du tampon vidéo dans la mémoire SPI RAM
 save_screen: // ( addr -- )
     jal saveScreen
@@ -2239,7 +2239,7 @@ read_field: // ( n -- s )
 /* math virgule flottante */
 /**************************/
     
-_dict FTOSTR,"FTOSTR$"
+_dict FTOSTR,"FP>$"
 // conversion float vers chaîne    
 ftostr: //  ( f -- s )
     jal float_to_str
@@ -2247,7 +2247,7 @@ ftostr: //  ( f -- s )
     b next
     move T,v0
     
-_dict STRTOF,"STRTOF"
+_dict STRTOF,"$>FP"
 // converstion chaîne vers float
 vm_strtof: // ( s -- f )
     addu a1,zero,zero
@@ -2264,7 +2264,7 @@ vm_strtof: // ( s -- f )
     nop
     
  
-_dict NEGFLOAT,"-FLOAT"
+_dict NEGFLOAT,"-FP"
 // négation dun float
 negfloat: // ( fpt -- fpt)
     lui t0,0x8000
@@ -2272,7 +2272,7 @@ negfloat: // ( fpt -- fpt)
     xor T,T,t0
     
   
-_dict ITOFLOAT,"INT>FLOAT"
+_dict ITOFLOAT,"INT>FP"
 // convertie un INT32 vers FLOAT32    
 int_to_float: // ( float -- int )
     jal sitofp
