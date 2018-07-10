@@ -90,5 +90,5 @@ montage
 
 ![boitier face avant](/docs/prototype/boitier_face.png)
 
-![boitier arrière](/docs/prototype/boitier_arrière.png)
+![boitier arrière](/docs/prototype/boitier_arriere.png)
 
