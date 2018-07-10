@@ -94,8 +94,11 @@ montage
 
 captures d'écran
 ----------------
+Au démarrage le shell de commande apparaît comme ceci.
+
 ![shell de commandes](/docs/captures/cmdShell.png)
 
+Le shell vpcBASIC apparaît comme ceci lorsque la commande BASIC est lancée dans le shell de commandes.
 ![shell basic](/docs/captures/BasicShell.png)
 
 
