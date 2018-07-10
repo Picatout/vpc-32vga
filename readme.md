@@ -92,3 +92,11 @@ montage
 
 ![boitier arrière](/docs/prototype/boitier_arriere.png)
 
+captures d'écran
+----------------
+![shell de commandes](/docs/captures/cmdShell.png)
+
+![shell basic](/docs/captures/basicShell.png)
+
+
+
