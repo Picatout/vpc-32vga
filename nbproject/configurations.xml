@@ -37,8 +37,6 @@
         <itemPath>hardware/HardwareProfile.h</itemPath>
         <itemPath>hardware/syscall.h</itemPath>
       </logicalFolder>
-      <logicalFolder name="f3" displayName="vpcAsm" projectFiles="true">
-      </logicalFolder>
       <itemPath>font.h</itemPath>
       <itemPath>console.h</itemPath>
       <itemPath>hardware/Pinguino/ff.h</itemPath>
@@ -95,8 +93,6 @@
         <itemPath>hardware/syscall.c</itemPath>
         <itemPath>hardware/Pinguino/ff.c</itemPath>
         <itemPath>hardware/Pinguino/fileio.c</itemPath>
-      </logicalFolder>
-      <logicalFolder name="f3" displayName="vpcAsm" projectFiles="true">
       </logicalFolder>
       <itemPath>font.c</itemPath>
       <itemPath>vpc-32.c</itemPath>

@@ -84,3 +84,8 @@ schématique
 circuit révisé en date du 2018-01-31
 ![schématique](/docs/vpc-32vga_schematic.png)
 
+montage
+-------
+![carte prototype](/docs/prototype/carte.png)
+![boitier face avant](/docs/prototype/boitier face.png)
+![boitier arrière](/docs/prototype/boitier arrière.png)

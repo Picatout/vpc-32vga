@@ -1,3 +1,8 @@
+2018-08-10
+----------
+1. Mise à jour information licence.
+2. Mise à jour readme.md
+
 2018-07-02
 ----------
 1. Corrigé bogue dans shell:cmd_clktrim().
