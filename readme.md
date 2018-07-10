@@ -88,7 +88,7 @@ montage
 -------
 ![carte prototype](/docs/prototype/carte.png)
 
-![boitier face avant]("/docs/prototype/boitier face.png")
+![boitier face avant](/docs/prototype/boitier_face.png)
 
-![boitier arrière]("/docs/prototype/boitier arrière.png")
+![boitier arrière](/docs/prototype/boitier_arrière.png)
 
