@@ -102,4 +102,9 @@ Le shell vpcBASIC apparaît comme ceci lorsque la commande BASIC est lancée dans 
 ![shell basic](/docs/captures/BasicShell.png)
 
 
+Documentation du projet
+-----------------------
+
+[site web du projet](https://picatout.github.io/vpc-32v)
+
 
