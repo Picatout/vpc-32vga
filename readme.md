@@ -87,5 +87,8 @@ circuit révisé en date du 2018-01-31
 montage
 -------
 ![carte prototype](/docs/prototype/carte.png)
+
 ![boitier face avant](/docs/prototype/boitier face.png)
+
 ![boitier arrière](/docs/prototype/boitier arrière.png)
+
