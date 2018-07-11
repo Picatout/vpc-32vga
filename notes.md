@@ -1,4 +1,12 @@
-2018-08-10
+2018-07-11
+----------
+1. Ajout de la commande vpcBASIC  SETENV() pour définir la valeur d'une variable 
+d'environnement ou en créer une nouvelle. Ce qui permet d'envoyer de l'information
+au shell de commande.
+
+2. Modification de shell:cmd_set pour séparer fonction affectation du reste.
+
+2018-07-10
 ----------
 1. Mise à jour information licence.
 2. Mise à jour readme.md

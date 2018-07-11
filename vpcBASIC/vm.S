@@ -70,6 +70,8 @@
 .extern sram_save
 .extern sram_load
 .extern var_value
+.extern set_var
+    
     //fichiers
 .extern close_all_files
 .extern basic_fclose    
@@ -2498,6 +2500,22 @@ get_env: // ( char* -- char*|NULL )
     move a0,v0
     b next
     move T,v0
+  
+_dict SETENV,"SETENV"
+// définie la valeur d'une variable d'environnement.
+set_env: // ( nom* valeur* -- )
+    jal uppercase
+    lw a0,-CELL_SIZE(dp) 
+    lw a0,-CELL_SIZE(dp)
+    jal set_var
+    move a1,T
+    jal free_not_ref
+    lw a0,-CELL_SIZE(dp)
+    jal free_not_ref
+    move a0,T
+    addiu dp,dp,-2*CELL_SIZE
+    b next
+    lw T,0(dp)
     
 .end StackVM
     
@@ -2668,7 +2686,7 @@ opcodes_table:
 .word fplus,fminus,fmul,fdiv
 .word sine, cos, tan, atan, acos, asine,fsqrt,fexp,fpower,flog,flog10
 .word vm_fabs,floor,fceil,fmod,fdot,fmin,fmax
-.word select_console,get_env
+.word select_console,get_env,set_env
     
 bad_op: 
 .word rfetch,tor,rfrom    

@@ -1093,7 +1093,7 @@ const char *var_value(char *var_name){
     }
 }
 
-
+// supprime la variable d'environnement.
 static void erase_var(env_var_t *var){
     env_var_t *prev, *list;
    
@@ -1115,6 +1115,40 @@ static void erase_var(env_var_t *var){
         free(var->value);
         free(var);
     }
+}
+
+// redéfinie la valeur d'une variable d'environnement
+// ou en crée une nouvelle.
+int set_var(const char *name, const char *value){
+    env_var_t *var;
+    char *new_value,*new_name;
+    
+    if (!name) return 0;
+    var=search_var(name);
+    if (var){
+        if (!_is_ram_addr(var)) return 0; // variable non modifiable.
+        if (!value){
+            erase_var(var);
+        }else{
+            free(var->value);
+            var->value=NULL;
+            new_value=malloc(strlen(value)+1);
+            if (!new_value) return 0; // pas d'espace disponible sur le heap.
+            strcpy(new_value,value);
+            var->value=new_value;
+        }
+    }else if (value){
+        var=malloc(sizeof(env_var_t)); if (!var) return 0;
+        new_name=malloc(strlen(name)+1); if (!new_name) return 0;
+        strcpy(new_name,name);
+        new_value=malloc(strlen(value)+1); if (!new_value) return ;
+        strcpy(new_value,value);
+        var->name=new_name;
+        var->value=new_value;
+        var->link=shell_vars;
+        shell_vars=var;
+    }
+    return 1;
 }
 
 static void list_vars(){
@@ -1155,52 +1189,34 @@ static const char SET_HLP[]=
 static char* cmd_set(int tok_count, char  **tok_list){
     env_var_t *var;
     char *name, *value;
-
-    if (try_help(tok_count,tok_list)) return NULL;
-    if (tok_count>=2){
-        uppercase(tok_list[1]);
-        var=search_var(tok_list[1]);
-        if (var){
-            if (!_is_ram_addr(var)){
-                throw(ERR_DENIED,"Read only variable.",0);
-            }else if (tok_count==3 && tok_list[2][0]=='='){
-                    erase_var(var);
-                }else if (tok_count>=4 && tok_list[2][0]=='='){
-                    if (tok_count>4){
-                        value=concat_tokens(tok_count,tok_list,3);
-                    }else{
-                        value=malloc(strlen(tok_list[3])+1);
-                        strcpy(value,tok_list[3]);
-                    }
-                    free(var->value);
-                    var->value=value;
-                }else{
-                    throw(ERR_SYNTAX,"Try set -?",0);
-                }
-        }else{
-            if (tok_count>=4 && tok_list[2][0]=='='){//nouvelle variable
-                var=malloc(sizeof(env_var_t));
-                name=malloc(strlen(tok_list[1])+1);
-                strcpy(name,tok_list[1]);
-                uppercase(name);
-                if (tok_count>4){
-                    value=concat_tokens(tok_count,tok_list,3);
-                }else{
-                    value=malloc(strlen(tok_list[3])+1);
-                    if (!(var && name && value)){
-                        throw(ERR_ALLOC,"insufficiant memory",0);
-                    }
-                    strcpy(value,tok_list[3]);
-                }
-                var->link=shell_vars;
-                var->name=name;
-                var->value=value;
-                shell_vars=var;
-            }
-        }
-    }else{
-        list_vars();
+    
+    if (tok_count>=3 && strcmp(tok_list[2],"=")){
+        printf("Bad command syntax, try set -?\r");
+        return NULL;
     }
+    
+    switch (tok_count){
+        case 1:
+            list_vars();
+            break;
+        case 2:
+            if (try_help(tok_count,tok_list)) return NULL;
+        case 3:
+            name=tok_list[1];
+            uppercase(name);
+            set_var(name,NULL);
+            break;
+        default:
+            name=tok_list[1];
+            uppercase(name);
+            value=concat_tokens(tok_count,tok_list,3);
+            if (value){
+                set_var(name,value);
+            }else{
+                printf("Not enough memory\r");
+            }
+            break;
+    }// switch
     return NULL;
 }
 
@@ -1404,7 +1420,7 @@ static const char *parse_var(parse_str_t *parse){
     int first,len;
     char c, *var_name;
     const char *value;
-    
+
     if (parse->next>=parse->len){
         parse->err_pos=parse->next;
         return NULL;

@@ -208,6 +208,7 @@ enum OP_CODES{
  IFMAX,
  ICON,        
  IENV,
+ ISETENV,
 };
 
 

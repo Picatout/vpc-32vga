@@ -325,6 +325,7 @@ static void kw_scrlup();
 static void kw_scrldown();
 static void kw_seek();
 static void kw_select();
+static void kw_setenv();
 static void kw_setpixel();
 static void kw_set_timer();
 static void kw_shl();
@@ -687,7 +688,7 @@ enum {eKW_ABS,eKW_ACOS,eKW_AND,eKW_FILE_APPEND,eKW_APPEND,
       eKW_RETURN,eKW_RIGHT,eKW_RND,eKW_RUN,
       //eKW_SAVEIMG,
       eKW_SAVESCR,eKW_SCRLUP,eKW_SCRLDN,eKW_SEEK,
-      eKW_SELECT,eKW_SETTMR,eKW_SHL,eKW_SHR,eKW_SINE,eKW_SLEEP,eKW_SOUND,
+      eKW_SELECT,eKW_SETENV,eKW_SETTMR,eKW_SHL,eKW_SHR,eKW_SINE,eKW_SLEEP,eKW_SOUND,
       eKW_SPRITE,eKW_SQRT,eKW_SRCLEAR,eKW_SRLOAD,eKW_SRREAD,eKW_SRSSAVE,eKW_SRWRITE,eKW_STR,
       eKW_SUB,eKW_SUBST,eKW_TAN,eKW_TIME,eKW_THEN,eKW_TICKS,
       eKW_TIMEOUT,eKW_TKEY,eKW_TRACE,eKW_UBOUND,eKW_UCASE,eKW_UNTIL,eKW_USE,eKW_VAL,
@@ -793,6 +794,7 @@ static const dict_entry_t KEYWORD[]={
     {kw_scrldown,6,eFN_NOT,"SCRLDN"},
     {kw_seek,4,eFN_NOT,"SEEK"},
     {kw_select,6,eFN_NOT,"SELECT"},
+    {kw_setenv,6,eFN_NOT,"SETENV"},
     {kw_set_timer,6,eFN_NOT,"SETTMR"},
     {kw_shl,3,eFN_INT,"SHL"},
     {kw_shr,3,eFN_INT,"SHR"},
@@ -3386,6 +3388,12 @@ static void kw_eof(){
 static void kw_env(){
     parse_arg_list(1);
     bytecode(IENV);
+}
+
+// SETENV(var_name, value)
+static void kw_setenv(){
+    parse_arg_list(2);
+    bytecode(ISETENV);
 }
 
 // EXIST(name$)
